@@ -17,6 +17,36 @@ class DonorSettingsScreen extends ConsumerWidget {
   Future<void> _update(WidgetRef ref, DonorProfile next) =>
       ref.read(backendProvider).setDonorProfile(next);
 
+  /// Turning this on triggers the real OS location permission dialog — not a
+  /// fake flag. Turning it off only stops BloodLink from using location for
+  /// matching; it can't revoke an already-granted OS permission from inside
+  /// the app, so we're upfront about that rather than pretending otherwise.
+  Future<void> _toggleLocation(
+      BuildContext context, WidgetRef ref, DonorProfile donor, bool on) async {
+    if (!on) {
+      await _update(ref, donor.copyWith(locationGranted: false));
+      return;
+    }
+    final result = await ref.read(deviceLocationProvider.notifier).request();
+    if (!result.isGranted && context.mounted) {
+      final deniedForever =
+          result.status == DeviceLocationStatus.deniedForever;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(deniedForever
+            ? 'Location is blocked for BloodLink. Enable it in system settings.'
+            : 'Location access is needed to match you by distance.'),
+        action: deniedForever
+            ? SnackBarAction(
+                label: 'Open settings',
+                onPressed: () =>
+                    ref.read(locationServiceProvider).openAppSettings(),
+              )
+            : null,
+      ));
+    }
+    // On success, DeviceLocationController already syncs donor.locationGranted.
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final donor = ref.watch(donorProfileValueProvider);
@@ -112,8 +142,7 @@ class DonorSettingsScreen extends ConsumerWidget {
                     ? 'Granted — matched by distance'
                     : 'Needed to match you by distance',
                 value: donor.locationGranted,
-                onChanged: (v) =>
-                    _update(ref, donor.copyWith(locationGranted: v)),
+                onChanged: (v) => _toggleLocation(context, ref, donor, v),
               ),
             ],
           ),

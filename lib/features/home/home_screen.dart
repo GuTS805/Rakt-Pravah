@@ -17,11 +17,31 @@ import 'donor_status_card.dart';
 
 /// The Home dashboard prioritizes what the user needs to do now: request blood,
 /// see an active request or donation, and manage Donor Mode (spec §9).
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Ask for real location permission once, right as the user lands in the
+    // app after logging in — this is a genuine OS permission dialog, not a
+    // fake toggle. If already decided (granted/denied), this just syncs state
+    // silently without prompting again.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final status = ref.read(deviceLocationProvider).status;
+      if (status == DeviceLocationStatus.unknown) {
+        ref.read(deviceLocationProvider.notifier).request();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final activeRequest = ref.watch(activeRequestProvider);
     final acceptedInvite = ref.watch(acceptedInvitationProvider);

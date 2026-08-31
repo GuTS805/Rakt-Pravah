@@ -27,6 +27,7 @@ class LiveLocationScreen extends ConsumerStatefulWidget {
 class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
   static const _sessionMinutes = 30;
   bool _sharing = false;
+  bool _starting = false;
   Duration _remaining = const Duration(minutes: _sessionMinutes);
   Timer? _timer;
 
@@ -36,7 +37,23 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
     super.dispose();
   }
 
-  void _start() {
+  Future<void> _start() async {
+    // Sharing is explicit and opt-in: fetching the real position only happens
+    // here, the moment the user taps to start — never before, never silently.
+    setState(() => _starting = true);
+    final result = await ref.read(deviceLocationProvider.notifier).request();
+    if (!mounted) return;
+    setState(() => _starting = false);
+
+    if (!result.isGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Location access is needed to share your live location.')),
+      );
+      return;
+    }
+
     setState(() {
       _sharing = true;
       _remaining = const Duration(minutes: _sessionMinutes);
@@ -60,6 +77,7 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
   @override
   Widget build(BuildContext context) {
     final req = ref.watch(requestProvider(widget.requestId)).valueOrNull;
+    final myLocation = ref.watch(deviceLocationProvider).point;
     final c = context.colors;
 
     return Scaffold(
@@ -69,7 +87,14 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
         children: [
           if (_sharing) _ActiveBanner(remaining: _remaining),
           if (_sharing) const SizedBox(height: AppSpacing.lg),
-          if (req != null) MapPanel(destination: req.destination),
+          if (req != null)
+            MapPanel(
+              destination: req.destination,
+              // Only reveal the position dot while actually sharing — this
+              // mirrors what the other party would see: nothing until you
+              // explicitly opt in.
+              myLocation: _sharing ? myLocation : null,
+            ),
           const SizedBox(height: AppSpacing.lg),
           AppCard(
             child: Column(
@@ -103,6 +128,7 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
             PrimaryButton(
               label: 'Share live location',
               icon: Icons.my_location_rounded,
+              busy: _starting,
               onPressed: _start,
             ),
         ],

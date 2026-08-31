@@ -26,6 +26,7 @@ class CoordinationScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(requestProvider(requestId));
     final me = ref.watch(currentUserProvider);
+    final myLocation = ref.watch(deviceLocationProvider).point;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Coordination')),
@@ -53,7 +54,7 @@ class CoordinationScreen extends ConsumerWidget {
                 request: req,
               ),
               const SizedBox(height: AppSpacing.lg),
-              MapPanel(destination: req.destination),
+              MapPanel(destination: req.destination, myLocation: myLocation),
               const SizedBox(height: AppSpacing.lg),
               const SectionHeader('Coordinate'),
               _ActionTile(

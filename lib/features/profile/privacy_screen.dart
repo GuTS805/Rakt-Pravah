@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/models/models.dart';
 import '../../data/providers.dart';
 import '../../shared/settings_widgets.dart';
 
@@ -16,6 +17,35 @@ class PrivacyScreen extends ConsumerStatefulWidget {
 class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
   bool _shareAfterAccept = true;
   bool _hideLastDonation = false;
+
+  /// Real OS permission dialog on enable — turning it off is a local
+  /// preference only, since an already-granted OS permission can't be revoked
+  /// from inside the app.
+  Future<void> _toggleLocation(DonorProfile donor, bool on) async {
+    if (!on) {
+      await ref
+          .read(backendProvider)
+          .setDonorProfile(donor.copyWith(locationGranted: false));
+      return;
+    }
+    final result = await ref.read(deviceLocationProvider.notifier).request();
+    if (!result.isGranted && mounted) {
+      final deniedForever =
+          result.status == DeviceLocationStatus.deniedForever;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(deniedForever
+            ? 'Location is blocked for BloodLink. Enable it in system settings.'
+            : 'Location access is needed to match you with nearby requests.'),
+        action: deniedForever
+            ? SnackBarAction(
+                label: 'Open settings',
+                onPressed: () =>
+                    ref.read(locationServiceProvider).openAppSettings(),
+              )
+            : null,
+      ));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,9 +88,7 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
                 title: 'Location access',
                 subtitle: 'Used to match you with nearby requests',
                 value: donor.locationGranted,
-                onChanged: (v) => ref
-                    .read(backendProvider)
-                    .setDonorProfile(donor.copyWith(locationGranted: v)),
+                onChanged: (v) => _toggleLocation(donor, v),
               ),
             ],
           ),

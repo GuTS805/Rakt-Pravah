@@ -35,9 +35,11 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   int _units = 1;
   Urgency _urgency = Urgency.urgent;
 
-  // Step 2
-  final _location = TextEditingController(text: 'Current location · Bengaluru');
+  // Step 2 — backed by real device location, not a hardcoded place name.
+  final _location = TextEditingController();
   bool _useCurrent = true;
+  bool _locating = false;
+  GeoPoint? _requestPoint;
 
   // Step 3
   final _destName = TextEditingController();
@@ -48,6 +50,31 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   void initState() {
     super.initState();
     _group = ref.read(currentUserProvider)?.bloodGroup;
+    // If location was already granted (e.g. prompted on Home), use it
+    // immediately without asking again; otherwise prompt now.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _useDeviceLocation());
+  }
+
+  Future<void> _useDeviceLocation() async {
+    setState(() => _locating = true);
+    final notifier = ref.read(deviceLocationProvider.notifier);
+    var state = ref.read(deviceLocationProvider);
+    if (!state.isGranted) {
+      state = await notifier.request();
+    }
+    if (!mounted) return;
+    setState(() {
+      _locating = false;
+      if (state.isGranted) {
+        _requestPoint = state.point;
+        _location.text = state.label ?? 'Current location';
+      } else {
+        // Be honest when we don't have a real fix — never fall back to a
+        // fabricated place name.
+        _location.text = '';
+        _useCurrent = false;
+      }
+    });
   }
 
   @override
@@ -93,16 +120,26 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
     if (_submitting) return; // guard duplicate submission
     setState(() => _submitting = true);
     try {
+      // Best-effort forward-geocode of the typed destination address to a
+      // real coordinate, so the coordination map shows an actual pin instead
+      // of a fabricated position. If it fails, the map falls back honestly to
+      // a city-center default rather than faking precision.
+      final destPoint = await ref
+          .read(locationServiceProvider)
+          .forwardGeocode(_destAddress.text.trim());
+
       final req = await ref.read(backendProvider).createRequest(
             bloodGroup: _group!,
             units: _units,
             urgency: _urgency,
             requestLocationLabel: _location.text.trim(),
+            requestLocation: _requestPoint,
             destination: Destination(
               name: _destName.text.trim(),
               address: _destAddress.text.trim(),
               wardOrContact:
                   _destWard.text.trim().isEmpty ? null : _destWard.text.trim(),
+              location: destPoint,
             ),
           );
       if (mounted) context.pushReplacement(Routes.requestDetail(req.id));
@@ -210,16 +247,33 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
       children: [
         _StepTitle('Where is the request?',
             'This helps us find donors closest to you.'),
-        _SelectableTile(
-          icon: Icons.my_location_rounded,
-          title: 'Use current location',
-          subtitle: 'Bengaluru · detected automatically',
-          selected: _useCurrent,
-          onTap: () => setState(() {
-            _useCurrent = true;
-            _location.text = 'Current location · Bengaluru';
-          }),
-        ),
+        Consumer(builder: (context, ref, _) {
+          final deviceLoc = ref.watch(deviceLocationProvider);
+          final subtitle = _locating
+              ? 'Getting your location…'
+              : _useCurrent && _requestPoint != null
+                  ? '${_location.text} · detected automatically'
+                  : deviceLoc.status == DeviceLocationStatus.denied ||
+                          deviceLoc.status == DeviceLocationStatus.deniedForever
+                      ? 'Location access denied — tap to allow'
+                      : deviceLoc.status == DeviceLocationStatus.serviceDisabled
+                          ? 'Turn on device location, then tap to retry'
+                          : 'Tap to detect your location';
+          return _SelectableTile(
+            icon: _locating
+                ? Icons.hourglass_top_rounded
+                : Icons.my_location_rounded,
+            title: 'Use current location',
+            subtitle: subtitle,
+            selected: _useCurrent && _requestPoint != null,
+            onTap: _locating
+                ? () {}
+                : () {
+                    setState(() => _useCurrent = true);
+                    _useDeviceLocation();
+                  },
+          );
+        }),
         const SizedBox(height: AppSpacing.sm),
         _SelectableTile(
           icon: Icons.edit_location_alt_rounded,
@@ -228,6 +282,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
           selected: !_useCurrent,
           onTap: () => setState(() {
             _useCurrent = false;
+            _requestPoint = null;
             _location.clear();
           }),
         ),

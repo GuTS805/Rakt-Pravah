@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/services/location_service.dart';
 import 'mock/mock_backend.dart';
 import 'models/models.dart';
 
@@ -185,6 +186,84 @@ final acceptedInvitationProvider = Provider<Invitation?>((ref) {
   }
   return null;
 });
+
+// ---------------------------------------------------------------------------
+// Device location (real GPS + permission — not demo data)
+// ---------------------------------------------------------------------------
+final locationServiceProvider = Provider<LocationService>((ref) => LocationService());
+
+enum DeviceLocationStatus { unknown, requesting, granted, denied, deniedForever, serviceDisabled }
+
+class DeviceLocationState {
+  const DeviceLocationState({
+    this.status = DeviceLocationStatus.unknown,
+    this.point,
+    this.label,
+  });
+
+  final DeviceLocationStatus status;
+  final GeoPoint? point;
+  final String? label;
+
+  bool get isGranted => status == DeviceLocationStatus.granted && point != null;
+
+  DeviceLocationState copyWith(
+          {DeviceLocationStatus? status, GeoPoint? point, String? label}) =>
+      DeviceLocationState(
+        status: status ?? this.status,
+        point: point ?? this.point,
+        label: label ?? this.label,
+      );
+}
+
+/// Real device location state. Backed entirely by the OS location permission
+/// and GPS/network position via [LocationService] — nothing here is mocked.
+class DeviceLocationController extends Notifier<DeviceLocationState> {
+  @override
+  DeviceLocationState build() => const DeviceLocationState();
+
+  LocationService get _service => ref.read(locationServiceProvider);
+
+  /// Silently checks current permission/position without prompting, so the UI
+  /// can reflect real state on first load without surprising the user with a
+  /// system dialog.
+  Future<void> refreshSilently() async {
+    final result = await _service.getLocationIfPermitted();
+    _apply(result);
+  }
+
+  /// Prompts the OS permission dialog (if not yet decided) and fetches the
+  /// real position on success.
+  Future<DeviceLocationState> request() async {
+    state = state.copyWith(status: DeviceLocationStatus.requesting);
+    final result = await _service.requestAndGetLocation();
+    _apply(result);
+    return state;
+  }
+
+  void _apply(LocationResult result) {
+    state = switch (result) {
+      LocationGranted(:final point, :final label) => DeviceLocationState(
+          status: DeviceLocationStatus.granted, point: point, label: label),
+      LocationDenied() =>
+        state.copyWith(status: DeviceLocationStatus.denied),
+      LocationDeniedForever() =>
+        state.copyWith(status: DeviceLocationStatus.deniedForever),
+      LocationServiceDisabled() =>
+        state.copyWith(status: DeviceLocationStatus.serviceDisabled),
+    };
+    // Keep Donor Mode's location flag in sync with the real permission state.
+    final backend = ref.read(backendProvider);
+    if (backend.currentUser != null) {
+      backend.setDonorProfile(
+          backend.donorProfile.copyWith(locationGranted: state.isGranted));
+    }
+  }
+}
+
+final deviceLocationProvider =
+    NotifierProvider<DeviceLocationController, DeviceLocationState>(
+        DeviceLocationController.new);
 
 // ---------------------------------------------------------------------------
 // Chat

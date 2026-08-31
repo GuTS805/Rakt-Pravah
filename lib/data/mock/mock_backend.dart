@@ -185,6 +185,7 @@ class MockBackend {
     required Urgency urgency,
     required String requestLocationLabel,
     required Destination destination,
+    GeoPoint? requestLocation,
   }) async {
     await _latency();
     final user = currentUser!;
@@ -201,6 +202,7 @@ class MockBackend {
       createdAt: now,
       destination: destination,
       requestLocationLabel: requestLocationLabel,
+      requestLocation: requestLocation,
       searchRadiusKm: 5,
       expiresAt: now.add(const Duration(hours: 6)),
       timeline: [StatusEvent(status: RequestStatus.created, at: now)],
