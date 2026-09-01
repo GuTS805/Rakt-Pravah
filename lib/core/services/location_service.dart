@@ -36,7 +36,25 @@ class LocationServiceDisabled extends LocationResult {
 /// in the app — every screen that shows "current location" goes through here
 /// instead of hardcoding a place name.
 class LocationService {
-  final Geocoding _geocoding = Geocoding();
+  Geocoding? _geocoding;
+  bool _geocodingUnavailable = false;
+
+  /// Lazily constructs the geocoding platform instance, and remembers if it's
+  /// unavailable on this platform (e.g. Flutter Web, which the `geocoding`
+  /// package doesn't implement) so we stop trying and fall back to
+  /// coordinates instead of crashing the whole location flow. Constructing it
+  /// eagerly as a field would throw synchronously on unsupported platforms
+  /// before permission is ever requested — this is what broke location on web.
+  Geocoding? get _geocodingOrNull {
+    if (_geocodingUnavailable) return null;
+    if (_geocoding != null) return _geocoding;
+    try {
+      return _geocoding = Geocoding();
+    } catch (_) {
+      _geocodingUnavailable = true;
+      return null;
+    }
+  }
 
   /// Current permission status without prompting.
   Future<LocationPermission> checkPermission() => Geolocator.checkPermission();
@@ -81,9 +99,11 @@ class LocationService {
   }
 
   Future<String> _reverseGeocode(GeoPoint point) async {
+    final geocoding = _geocodingOrNull;
+    if (geocoding == null) return _coordsLabel(point);
     try {
       final placemarks =
-          await _geocoding.placemarkFromCoordinates(point.lat, point.lng);
+          await geocoding.placemarkFromCoordinates(point.lat, point.lng);
       if (placemarks.isEmpty) return _coordsLabel(point);
       final p = placemarks.first;
       final parts = <String>[
@@ -108,8 +128,10 @@ class LocationService {
   /// destination hospital entered during request creation. Returns null if
   /// the address can't be resolved rather than fabricating a position.
   Future<GeoPoint?> forwardGeocode(String address) async {
+    final geocoding = _geocodingOrNull;
+    if (geocoding == null) return null;
     try {
-      final results = await _geocoding.locationFromAddress(address);
+      final results = await geocoding.locationFromAddress(address);
       if (results.isEmpty) return null;
       return GeoPoint(results.first.latitude, results.first.longitude);
     } catch (_) {

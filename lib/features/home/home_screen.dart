@@ -47,6 +47,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final acceptedInvite = ref.watch(acceptedInvitationProvider);
     final pending = ref.watch(pendingInvitationsProvider).length;
     final donorOn = ref.watch(donorProfileValueProvider).isOn;
+    final locationStatus = ref.watch(deviceLocationProvider).status;
 
     return Scaffold(
       body: SafeArea(
@@ -60,6 +61,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               _Header(name: user?.name ?? 'there', hasUnread: pending > 0),
               const SizedBox(height: AppSpacing.xl),
+
+              // If the one-shot auto-prompt on first load was missed, denied,
+              // or blocked, this stays visible so there's always an obvious
+              // way to grant location — never a silent dead end.
+              if (locationStatus != DeviceLocationStatus.granted) ...[
+                _LocationBanner(status: locationStatus),
+                const SizedBox(height: AppSpacing.lg),
+              ],
 
               // Primary action.
               _RequestBloodCard(
@@ -93,6 +102,96 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A persistent, tappable prompt to enable location — the visible recovery
+/// path when the one-shot system dialog on first login gets missed, ignored,
+/// or denied. Never a dead end: tapping always re-triggers a real permission
+/// request (or opens system/app settings once the OS has permanently blocked
+/// it).
+class _LocationBanner extends ConsumerStatefulWidget {
+  const _LocationBanner({required this.status});
+  final DeviceLocationStatus status;
+
+  @override
+  ConsumerState<_LocationBanner> createState() => _LocationBannerState();
+}
+
+class _LocationBannerState extends ConsumerState<_LocationBanner> {
+  bool _busy = false;
+
+  Future<void> _tap() async {
+    if (widget.status == DeviceLocationStatus.deniedForever) {
+      await ref.read(locationServiceProvider).openAppSettings();
+      return;
+    }
+    if (widget.status == DeviceLocationStatus.serviceDisabled) {
+      await ref.read(locationServiceProvider).openLocationSettings();
+      return;
+    }
+    setState(() => _busy = true);
+    await ref.read(deviceLocationProvider.notifier).request();
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final (title, action) = switch (widget.status) {
+      DeviceLocationStatus.deniedForever => (
+          'Location is blocked for BloodLink',
+          'Open settings',
+        ),
+      DeviceLocationStatus.serviceDisabled => (
+          'Turn on device location',
+          'Open settings',
+        ),
+      DeviceLocationStatus.denied => (
+          'Location access was declined',
+          'Try again',
+        ),
+      _ => (
+          'Enable location to match you with nearby requests',
+          'Enable',
+        ),
+    };
+
+    return AppCard(
+      onTap: _busy ? null : _tap,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
+        children: [
+          Container(
+            height: 40,
+            width: 40,
+            decoration: BoxDecoration(
+              color: c.infoSubtle,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+            child: Icon(Icons.location_on_outlined, color: c.info, size: 20),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(title,
+                style: context.text.bodyMedium
+                    ?.copyWith(color: c.textPrimary, fontWeight: FontWeight.w500)),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          if (_busy)
+            SizedBox(
+              height: 16,
+              width: 16,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, valueColor: AlwaysStoppedAnimation(c.info)),
+            )
+          else
+            Text(action,
+                style:
+                    context.text.labelLarge?.copyWith(color: c.brand)),
+        ],
       ),
     );
   }
