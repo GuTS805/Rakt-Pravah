@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
+import 'core/services/notification_service.dart';
+import 'core/services/notification_watcher_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'data/providers.dart';
 import 'firebase_options.dart';
@@ -11,6 +13,7 @@ import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await NotificationService.instance.init();
   runApp(const ProviderScope(child: BloodLinkApp()));
 }
 
@@ -21,6 +24,9 @@ class BloodLinkApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
+    // Keeps watching invitations/requests for the app's lifetime so a new
+    // match or an accepted request surfaces a notification from any tab.
+    ref.watch(notificationWatcherProvider);
 
     return MaterialApp.router(
       title: 'BloodLink',
