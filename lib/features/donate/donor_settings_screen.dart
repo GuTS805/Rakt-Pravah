@@ -64,10 +64,15 @@ class DonorSettingsScreen extends ConsumerWidget {
                 _AvailabilityRow(
                   availability: a,
                   selected: donor.availability == a,
+                  locked: donor.isInCooldown && a == DonorAvailability.available,
                   onTap: () => _update(ref, donor.copyWith(availability: a)),
                 ),
             ],
           ),
+          if (donor.isInCooldown) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _CooldownNotice(remaining: donor.cooldownRemaining),
+          ],
           const SizedBox(height: AppSpacing.xl),
           SettingsSection(
             title: 'Notifications',
@@ -157,9 +162,11 @@ class _AvailabilityRow extends StatelessWidget {
     required this.availability,
     required this.selected,
     required this.onTap,
+    this.locked = false,
   });
   final DonorAvailability availability;
   final bool selected;
+  final bool locked;
   final VoidCallback onTap;
 
   @override
@@ -167,24 +174,63 @@ class _AvailabilityRow extends StatelessWidget {
     final c = context.colors;
     final style = availabilityStyle(context, availability);
     return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Row(
-          children: [
-            Icon(style.icon, size: 20, color: style.color),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Text(availability.label,
-                  style: context.text.bodyLarge
-                      ?.copyWith(fontWeight: FontWeight.w500)),
-            ),
-            if (selected)
-              Icon(Icons.check_circle_rounded, color: c.brand, size: 20)
-            else
-              Icon(Icons.circle_outlined, color: c.border, size: 20),
-          ],
+      onTap: locked ? null : onTap,
+      child: Opacity(
+        opacity: locked ? 0.45 : 1,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              Icon(locked ? Icons.bedtime_rounded : style.icon,
+                  size: 20, color: style.color),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(availability.label,
+                    style: context.text.bodyLarge
+                        ?.copyWith(fontWeight: FontWeight.w500)),
+              ),
+              if (locked)
+                Icon(Icons.lock_outline_rounded, color: c.textTertiary, size: 18)
+              else if (selected)
+                Icon(Icons.check_circle_rounded, color: c.brand, size: 20)
+              else
+                Icon(Icons.circle_outlined, color: c.border, size: 20),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _CooldownNotice extends StatelessWidget {
+  const _CooldownNotice({required this.remaining});
+  final Duration remaining;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final days = remaining.inHours < 24 ? 1 : (remaining.inHours / 24).ceil();
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: c.warningSubtle,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.bedtime_rounded, size: 18, color: c.warning),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              days == 1
+                  ? 'Thanks for donating. You\'ll be eligible to donate again tomorrow.'
+                  : 'Thanks for donating. You\'ll be eligible to donate again in $days days — this keeps donation safe for you.',
+              style: context.text.bodySmall,
+            ),
+          ),
+        ],
       ),
     );
   }

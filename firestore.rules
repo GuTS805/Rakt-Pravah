@@ -28,18 +28,24 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.requesterId == request.auth.uid;
 
-      // Three, and only three, kinds of update are allowed:
+      // Four, and only four, kinds of update are allowed:
       //  1. the requester changes their own request (cancel, fulfil, etc.)
       //  2. a donor claims a request nobody has claimed yet (the same
       //     first-writer-wins check the client transaction performs — this
       //     is the real enforcement, not the transaction alone)
       //  3. a donor adds themselves to the declined list
+      //  4. the accepted donor updates *only* their live-location fields
+      //     (spec §19 — sharing is opt-in and revocable, and the backend
+      //     enforces it can't touch anything else on the request)
       allow update: if isSignedIn() && (
         resource.data.requesterId == request.auth.uid
         || (resource.data.acceptedDonorId == null
             && request.resource.data.acceptedDonorId == request.auth.uid)
         || (request.resource.data.declinedByDonorIds.hasAll(resource.data.declinedByDonorIds)
             && request.auth.uid in request.resource.data.declinedByDonorIds)
+        || (resource.data.acceptedDonorId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['donorLiveLocation', 'donorLiveLocationAt']))
       );
 
       allow delete: if false;

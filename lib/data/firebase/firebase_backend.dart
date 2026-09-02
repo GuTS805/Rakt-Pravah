@@ -299,29 +299,38 @@ class FirebaseBackend {
       if (!controller.isClosed) controller.add(list);
     }
 
-    // The requester already chose exactly which donor groups a request is
-    // open to (see BloodGroupMultiPicker), so matching is a direct
-    // "is my blood group in that list" check — no compatibility inference
-    // needed on this side.
-    final openSub = _requests
-        .where('bloodGroups', arrayContainsAny: [donorProfile.bloodGroup.label])
-        .where('status', whereIn: [
-      RequestStatus.created.name,
-      RequestStatus.searching.name,
-    ]).snapshots().listen((snap) {
-      final map = <String, Invitation>{};
-      for (final doc in snap.docs) {
-        final data = doc.data();
-        if (data['requesterId'] == uid) continue;
-        final declined =
-            (data['declinedByDonorIds'] as List?)?.cast<String>() ?? const [];
-        if (declined.contains(uid)) continue;
-        map[doc.id] = _invitationFromRequestData(doc.id, data, myLocation);
-      }
-      openMap = map;
+    // A donor within the 90-day cooldown of their last donation is never
+    // shown new opportunities — enforced here, not just as a disabled
+    // switch in the UI, so it can't be bypassed by a stale client.
+    StreamSubscription<fs.QuerySnapshot<Map<String, dynamic>>>? openSub;
+    if (donorProfile.isInCooldown) {
+      openMap = {};
       openReady = true;
-      emit();
-    });
+    } else {
+      // The requester already chose exactly which donor groups a request is
+      // open to (see BloodGroupMultiPicker), so matching is a direct
+      // "is my blood group in that list" check — no compatibility inference
+      // needed on this side.
+      openSub = _requests
+          .where('bloodGroups', arrayContainsAny: [donorProfile.bloodGroup.label])
+          .where('status', whereIn: [
+        RequestStatus.created.name,
+        RequestStatus.searching.name,
+      ]).snapshots().listen((snap) {
+        final map = <String, Invitation>{};
+        for (final doc in snap.docs) {
+          final data = doc.data();
+          if (data['requesterId'] == uid) continue;
+          final declined =
+              (data['declinedByDonorIds'] as List?)?.cast<String>() ?? const [];
+          if (declined.contains(uid)) continue;
+          map[doc.id] = _invitationFromRequestData(doc.id, data, myLocation);
+        }
+        openMap = map;
+        openReady = true;
+        emit();
+      });
+    }
 
     final acceptedSub = _requests
         .where('acceptedDonorId', isEqualTo: uid)
@@ -334,13 +343,49 @@ class FirebaseBackend {
       };
       acceptedReady = true;
       emit();
+      for (final doc in snap.docs) {
+        if (doc.data()['status'] == RequestStatus.fulfilled.name) {
+          _creditDonationIfNeeded(doc.id);
+        }
+      }
     });
 
     controller.onCancel = () {
-      openSub.cancel();
+      openSub?.cancel();
       acceptedSub.cancel();
     };
     return controller.stream;
+  }
+
+  /// Records a completed donation exactly once per request, even across
+  /// app restarts — a Firestore transaction checks the donor's own
+  /// `creditedRequestIds` list before crediting, since re-emitted snapshots
+  /// would otherwise double-count every time this listener fires. This is
+  /// what starts the real 90-day donation cooldown (spec: donors shouldn't
+  /// be matched again too soon after giving blood).
+  Future<void> _creditDonationIfNeeded(String requestId) async {
+    final ref = _users.doc(uid);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      final data = snap.data() ?? <String, dynamic>{};
+      final donorMap =
+          (data['donor'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+      final credited =
+          (donorMap['creditedRequestIds'] as List?)?.cast<String>() ?? const [];
+      if (credited.contains(requestId)) return;
+      tx.set(
+        ref,
+        {
+          'donor': {
+            ...donorMap,
+            'totalDonations': (donorMap['totalDonations'] as int? ?? 0) + 1,
+            'lastDonation': fs.Timestamp.fromDate(DateTime.now()),
+            'creditedRequestIds': [...credited, requestId],
+          },
+        },
+        fs.SetOptions(merge: true),
+      );
+    });
   }
 
   /// Accept is a transaction so only the first donor to claim a request
@@ -447,6 +492,24 @@ class FirebaseBackend {
   }
 
   // ---------------------------------------------------------------------
+  // Live location — the accepted donor's real position while they've
+  // explicitly chosen to share it (spec §19). Security rules restrict this
+  // write to exactly these two fields on a request the caller is the
+  // accepted donor of; nothing else on the document can change this way.
+  // ---------------------------------------------------------------------
+  Future<void> updateLiveLocation(String requestId, GeoPoint point) =>
+      _requests.doc(requestId).update({
+        'donorLiveLocation': _pointToMap(point),
+        'donorLiveLocationAt': fs.Timestamp.fromDate(DateTime.now()),
+      });
+
+  Future<void> stopLiveLocation(String requestId) =>
+      _requests.doc(requestId).update({
+        'donorLiveLocation': fs.FieldValue.delete(),
+        'donorLiveLocationAt': fs.FieldValue.delete(),
+      });
+
+  // ---------------------------------------------------------------------
   // Serialization helpers
   // ---------------------------------------------------------------------
   List<BloodGroup> _parseBloodGroups(dynamic raw) {
@@ -486,6 +549,9 @@ class FirebaseBackend {
           .cast<Map<String, dynamic>>()
           .map(_eventFromMap)
           .toList(),
+      donorLiveLocation: _pointFromMap(data['donorLiveLocation'] as Map?),
+      donorLiveLocationAt:
+          (data['donorLiveLocationAt'] as fs.Timestamp?)?.toDate(),
     );
   }
 

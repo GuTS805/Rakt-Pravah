@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/services/location_service.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
@@ -26,14 +27,24 @@ class LiveLocationScreen extends ConsumerStatefulWidget {
 
 class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
   static const _sessionMinutes = 30;
+  static const _updateInterval = Duration(seconds: 15);
+
   bool _sharing = false;
   bool _starting = false;
   Duration _remaining = const Duration(minutes: _sessionMinutes);
-  Timer? _timer;
+  Timer? _countdownTimer;
+  Timer? _locationTimer;
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _countdownTimer?.cancel();
+    _locationTimer?.cancel();
+    // Leaving this screen ends sharing rather than leaving a stale position
+    // visible on the other side indefinitely — "Stop sharing" is explicit,
+    // but so is walking away from the temporary session that created it.
+    if (_sharing) {
+      ref.read(backendProvider).stopLiveLocation(widget.requestId);
+    }
     super.dispose();
   }
 
@@ -58,7 +69,7 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
       _sharing = true;
       _remaining = const Duration(minutes: _sessionMinutes);
     });
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
       final next = _remaining - const Duration(seconds: 1);
       if (next.isNegative) {
@@ -67,10 +78,25 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
         setState(() => _remaining = next);
       }
     });
+    // Push a real position update immediately, then keep refreshing it —
+    // this is what the other party's coordination map actually tracks.
+    unawaited(_pushLocation());
+    _locationTimer = Timer.periodic(_updateInterval, (_) => _pushLocation());
+  }
+
+  Future<void> _pushLocation() async {
+    final result = await ref.read(locationServiceProvider).getLocationIfPermitted();
+    if (result is LocationGranted && mounted) {
+      await ref
+          .read(backendProvider)
+          .updateLiveLocation(widget.requestId, result.point);
+    }
   }
 
   void _stop() {
-    _timer?.cancel();
+    _countdownTimer?.cancel();
+    _locationTimer?.cancel();
+    ref.read(backendProvider).stopLiveLocation(widget.requestId);
     setState(() => _sharing = false);
   }
 

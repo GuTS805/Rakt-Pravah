@@ -13,6 +13,10 @@ import '../../data/providers.dart';
 /// the switch shows a busy state while the change is in flight and reverts with
 /// a message if it fails (spec §15) — a local toggle never lies about server
 /// state.
+///
+/// While a donor is within the 90-day cooldown after their last donation,
+/// the switch is frozen — this isn't optional, it's the same real constraint
+/// the backend's matching query enforces, just made visible here.
 class DonorStatusCard extends ConsumerStatefulWidget {
   const DonorStatusCard({super.key});
 
@@ -48,7 +52,10 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final donor = ref.watch(donorProfileValueProvider);
-    final style = availabilityStyle(context, donor.availability);
+    final cooldown = donor.isInCooldown;
+    final style = cooldown
+        ? SemanticStyle(c.textTertiary, c.surfaceMuted, Icons.bedtime_rounded)
+        : availabilityStyle(context, donor.availability);
 
     return AppCard(
       child: Column(
@@ -73,12 +80,17 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
                       children: [
                         Text('Donor Mode', style: context.text.titleSmall),
                         const SizedBox(width: AppSpacing.sm),
-                        AvailabilityBadge(donor.availability, dense: true),
+                        if (cooldown)
+                          _CooldownBadge(remaining: donor.cooldownRemaining)
+                        else
+                          AvailabilityBadge(donor.availability, dense: true),
                       ],
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _subtitle(donor.availability),
+                      cooldown
+                          ? 'Resting after your last donation — thank you.'
+                          : _subtitle(donor.availability),
                       style: context.text.bodySmall,
                     ),
                   ],
@@ -94,9 +106,9 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
                 )
               else
                 Switch(
-                  value: donor.isOn,
+                  value: donor.isOn && !cooldown,
                   activeThumbColor: c.brand,
-                  onChanged: (v) => _toggle(v),
+                  onChanged: cooldown ? null : (v) => _toggle(v),
                 ),
             ],
           ),
@@ -114,5 +126,38 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
       case DonorAvailability.off:
         return 'You\'re not participating as a donor.';
     }
+  }
+}
+
+class _CooldownBadge extends StatelessWidget {
+  const _CooldownBadge({required this.remaining});
+  final Duration remaining;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final days = remaining.inHours < 24 ? 1 : (remaining.inHours / 24).ceil();
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 3),
+      decoration: BoxDecoration(
+        color: c.warningSubtle,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.bedtime_rounded, size: 12, color: c.warning),
+          const SizedBox(width: 4),
+          Text(
+            days == 1 ? 'Eligible tomorrow' : 'Eligible in $days days',
+            style: context.text.labelSmall?.copyWith(
+              color: c.warning,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

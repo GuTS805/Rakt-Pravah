@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/router/routes.dart';
 import '../../core/theme/app_spacing.dart';
@@ -54,7 +55,14 @@ class CoordinationScreen extends ConsumerWidget {
                 request: req,
               ),
               const SizedBox(height: AppSpacing.lg),
-              MapPanel(destination: req.destination, myLocation: myLocation),
+              MapPanel(
+                destination: req.destination,
+                myLocation: myLocation,
+                // Once the donor is sharing their live position, that's what
+                // this map follows — seeing them get closer matters more
+                // than the static destination pin at this point.
+                trackedLocation: req.donorLiveLocation,
+              ),
               const SizedBox(height: AppSpacing.lg),
               const SectionHeader('Coordinate'),
               _ActionTile(
@@ -69,6 +77,13 @@ class CoordinationScreen extends ConsumerWidget {
                 title: 'Share live location',
                 subtitle: 'Temporary — you choose when to start and stop',
                 onTap: () => context.push(Routes.liveLocation(requestId)),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _ActionTile(
+                icon: Icons.directions_rounded,
+                title: 'Get directions',
+                subtitle: 'Fastest route to ${req.destination.name}',
+                onTap: () => _openDirections(context, req.destination),
               ),
               const SizedBox(height: AppSpacing.xl),
               if (!iAmDonor && req.status == RequestStatus.coordinating)
@@ -87,6 +102,24 @@ class CoordinationScreen extends ConsumerWidget {
   Future<void> _fulfill(BuildContext context, WidgetRef ref) async {
     await ref.read(backendProvider).markFulfilled(requestId);
     if (context.mounted) context.pop();
+  }
+
+  /// Opens turn-by-turn navigation in the device's maps app — real
+  /// coordinates when the address geocoded successfully, otherwise a text
+  /// search so it still works rather than silently doing nothing.
+  Future<void> _openDirections(BuildContext context, Destination dest) async {
+    final loc = dest.location;
+    final query = loc != null
+        ? '${loc.lat},${loc.lng}'
+        : Uri.encodeComponent('${dest.name}, ${dest.address}');
+    final uri = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=$query&travelmode=driving');
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn\'t open maps for directions.')),
+      );
+    }
   }
 }
 

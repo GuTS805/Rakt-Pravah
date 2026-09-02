@@ -71,6 +71,24 @@ class DonorProfile {
 
   bool get isOn => availability != DonorAvailability.off;
 
+  /// Standard medical gap between whole-blood donations. Enforced here so
+  /// donors don't accidentally donate too soon, not just as a UI suggestion.
+  static const cooldownDuration = Duration(days: 90);
+
+  DateTime? get cooldownEndsAt => lastDonation?.add(cooldownDuration);
+
+  bool get isInCooldown {
+    final ends = cooldownEndsAt;
+    return ends != null && DateTime.now().isBefore(ends);
+  }
+
+  Duration get cooldownRemaining {
+    final ends = cooldownEndsAt;
+    if (ends == null) return Duration.zero;
+    final remaining = ends.difference(DateTime.now());
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+
   DonorProfile copyWith({
     DonorAvailability? availability,
     BloodGroup? bloodGroup,
@@ -145,6 +163,8 @@ class BloodRequest {
     this.acceptedDonorId,
     this.expiresAt,
     this.timeline = const [],
+    this.donorLiveLocation,
+    this.donorLiveLocationAt,
   });
 
   final String id;
@@ -171,6 +191,12 @@ class BloodRequest {
   final String? acceptedDonorId;
   final DateTime? expiresAt;
   final List<StatusEvent> timeline;
+
+  /// The donor's current position while they've chosen to share live
+  /// location (spec §19) — null whenever sharing isn't active. Lets the
+  /// requester's coordination map track the donor heading their way.
+  final GeoPoint? donorLiveLocation;
+  final DateTime? donorLiveLocationAt;
 
   bool get hasAcceptedDonor => acceptedDonorId != null;
 
