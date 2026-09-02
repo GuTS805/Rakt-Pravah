@@ -1,5 +1,6 @@
 import 'enums.dart';
 
+export 'blood_compatibility.dart';
 export 'enums.dart';
 
 /// Immutable domain entities for BloodLink. These are plain value objects; the
@@ -129,7 +130,7 @@ class BloodRequest {
     required this.id,
     required this.requesterId,
     required this.requesterName,
-    required this.bloodGroup,
+    required this.bloodGroups,
     required this.units,
     required this.urgency,
     required this.status,
@@ -149,7 +150,10 @@ class BloodRequest {
   final String id;
   final String requesterId;
   final String requesterName;
-  final BloodGroup bloodGroup;
+
+  /// Every blood group this request is open to — a patient can usually be
+  /// helped by more than one compatible donor type, not just an exact match.
+  final List<BloodGroup> bloodGroups;
   final int units;
   final Urgency urgency;
   final RequestStatus status;
@@ -171,7 +175,7 @@ class BloodRequest {
   bool get hasAcceptedDonor => acceptedDonorId != null;
 
   BloodRequest copyWith({
-    BloodGroup? bloodGroup,
+    List<BloodGroup>? bloodGroups,
     int? units,
     Urgency? urgency,
     RequestStatus? status,
@@ -191,7 +195,7 @@ class BloodRequest {
       requesterId: requesterId,
       requesterName: requesterName,
       createdAt: createdAt,
-      bloodGroup: bloodGroup ?? this.bloodGroup,
+      bloodGroups: bloodGroups ?? this.bloodGroups,
       units: units ?? this.units,
       urgency: urgency ?? this.urgency,
       status: status ?? this.status,
@@ -215,7 +219,7 @@ class Invitation {
   const Invitation({
     required this.id,
     required this.requestId,
-    required this.bloodGroup,
+    required this.bloodGroups,
     required this.units,
     required this.urgency,
     required this.distanceKm,
@@ -228,7 +232,7 @@ class Invitation {
 
   final String id;
   final String requestId;
-  final BloodGroup bloodGroup;
+  final List<BloodGroup> bloodGroups;
   final int units;
   final Urgency urgency;
   final double distanceKm;
@@ -241,7 +245,7 @@ class Invitation {
   Invitation copyWith({InvitationStatus? status}) => Invitation(
         id: id,
         requestId: requestId,
-        bloodGroup: bloodGroup,
+        bloodGroups: bloodGroups,
         units: units,
         urgency: urgency,
         distanceKm: distanceKm,

@@ -47,7 +47,7 @@ class InvitationCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              BloodGroupBadge(inv.bloodGroup, large: true),
+              BloodGroupBadges(inv.bloodGroups, large: true, maxVisible: 2),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(

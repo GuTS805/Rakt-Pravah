@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/services/location_service.dart';
-import 'mock/mock_backend.dart';
+import 'firebase/firebase_backend.dart';
 import 'models/models.dart';
 
-/// Single access point to the (mock) backend.
-final backendProvider = Provider<MockBackend>((ref) => MockBackend.instance);
+/// Single access point to the backend — Firebase (Firestore + Anonymous
+/// Auth). Screens never talk to Firestore directly; everything goes through
+/// this provider so the data layer stays swappable.
+final backendProvider =
+    Provider<FirebaseBackend>((ref) => FirebaseBackend.instance);
 
 // ---------------------------------------------------------------------------
 // Auth
@@ -23,29 +26,27 @@ class AuthController extends Notifier<AuthState> {
   @override
   AuthState build() => const AuthState(AuthStatus.unknown);
 
-  MockBackend get _backend => ref.read(backendProvider);
+  FirebaseBackend get _backend => ref.read(backendProvider);
 
-  /// Called by the splash once startup work (config, session restore) is done.
-  /// No session is persisted in the mock, so this resolves to unauthenticated.
-  void finishStartup() {
-    if (state.status == AuthStatus.unknown) {
-      state = const AuthState(AuthStatus.unauthenticated);
-    }
+  /// Called by the splash once startup work is done. Restores a session
+  /// already active on this device (Firebase Anonymous Auth persists
+  /// locally), so a returning user skips straight past Login.
+  Future<void> finishStartup() async {
+    if (state.status != AuthStatus.unknown) return;
+    final user = await _backend.restoreSession();
+    state = user == null
+        ? const AuthState(AuthStatus.unauthenticated)
+        : AuthState(AuthStatus.authenticated, user);
   }
 
-  Future<void> login({required String phone}) async {
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-    final user = UserProfile(
-      id: 'user_me',
-      name: 'Alok Sharma',
-      bloodGroup: BloodGroup.oPos,
-      phone: phone,
-      email: 'alok@example.com',
-      city: 'Bengaluru',
-      lastDonation: DateTime.now().subtract(const Duration(days: 96)),
-    );
-    _backend.seedForUser(user);
+  /// Returns false if no account exists for that phone number — there is no
+  /// account-recovery flow here (login only ever finds an existing profile
+  /// by phone; it never fabricates one), so the caller must handle that.
+  Future<bool> login({required String phone}) async {
+    final user = await _backend.loginByPhone(phone);
+    if (user == null) return false;
     state = AuthState(AuthStatus.authenticated, user);
+    return true;
   }
 
   Future<void> register({
@@ -54,15 +55,12 @@ class AuthController extends Notifier<AuthState> {
     required BloodGroup bloodGroup,
     String? city,
   }) async {
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    final user = UserProfile(
-      id: 'user_me',
+    final user = await _backend.register(
       name: name,
-      bloodGroup: bloodGroup,
       phone: phone,
+      bloodGroup: bloodGroup,
       city: city,
     );
-    _backend.seedForUser(user);
     state = AuthState(AuthStatus.needsOnboarding, user);
   }
 
@@ -76,28 +74,13 @@ class AuthController extends Notifier<AuthState> {
     required BloodGroup bloodGroup,
     String? city,
   }) async {
-    final user = state.user;
-    if (user == null) return;
-    await Future<void>.delayed(const Duration(milliseconds: 400));
-    final updated = UserProfile(
-      id: user.id,
-      name: name,
-      bloodGroup: bloodGroup,
-      phone: user.phone,
-      email: user.email,
-      city: city,
-      lastDonation: user.lastDonation,
-      isAdmin: user.isAdmin,
-    );
-    _backend.currentUser = updated;
-    // Keep donor blood group in sync with the profile.
-    await _backend.setDonorProfile(
-        _backend.donorProfile.copyWith(bloodGroup: bloodGroup));
-    state = AuthState(AuthStatus.authenticated, updated);
+    if (state.user == null) return;
+    await _backend.updateProfile(name: name, bloodGroup: bloodGroup, city: city);
+    state = AuthState(AuthStatus.authenticated, _backend.currentUser);
   }
 
-  void logout() {
-    _backend.reset();
+  Future<void> logout() async {
+    await _backend.signOut();
     state = const AuthState(AuthStatus.unauthenticated);
   }
 }
@@ -164,7 +147,8 @@ final activeRequestProvider = Provider<BloodRequest?>((ref) {
 });
 
 // ---------------------------------------------------------------------------
-// Invitations (donor opportunities)
+// Invitations (donor opportunities) — derived live from compatible open
+// requests via Firestore queries (spec §23), not a scripted mock.
 // ---------------------------------------------------------------------------
 final invitationsProvider = StreamProvider<List<Invitation>>((ref) {
   final backend = ref.watch(backendProvider);
@@ -252,8 +236,10 @@ class DeviceLocationController extends Notifier<DeviceLocationState> {
       LocationServiceDisabled() =>
         state.copyWith(status: DeviceLocationStatus.serviceDisabled),
     };
-    // Keep Donor Mode's location flag in sync with the real permission state.
+    // Keep Donor Mode's location flag, and the backend's cached position used
+    // to compute invitation distances, in sync with the real permission state.
     final backend = ref.read(backendProvider);
+    backend.myLocation = state.point;
     if (backend.currentUser != null) {
       backend.setDonorProfile(
           backend.donorProfile.copyWith(locationGranted: state.isGranted));

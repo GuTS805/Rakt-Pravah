@@ -355,7 +355,7 @@ class _ActiveRequestCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              BloodGroupBadge(request.bloodGroup),
+              BloodGroupBadges(request.bloodGroups, maxVisible: 2),
               const SizedBox(width: AppSpacing.sm),
               Text(Fmt.units(request.units), style: context.text.titleSmall),
               const Spacer(),
@@ -452,7 +452,7 @@ class _ActiveDonationCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              BloodGroupBadge(invitation.bloodGroup),
+              BloodGroupBadges(invitation.bloodGroups, maxVisible: 2),
               const SizedBox(width: AppSpacing.sm),
               Text(Fmt.units(invitation.units),
                   style: context.text.titleSmall),

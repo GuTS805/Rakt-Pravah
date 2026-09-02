@@ -1,0 +1,7 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {"platforms": {"android": {"default": {"projectId": "nobloodlink", "appId": "1:458287363105:android:086daa00fa4171b3005f60", "fileOutput": "android/app/google-services.json"}}, "dart": {"lib/firebase_options.dart": {"projectId": "nobloodlink", "configurations": {"android": "1:458287363105:android:086daa00fa4171b3005f60", "ios": "1:458287363105:ios:0c00cfe8296dc836005f60", "web": "1:458287363105:web:09a1f9af7fc04b6d005f60"}}}}}
+}

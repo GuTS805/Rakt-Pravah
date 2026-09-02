@@ -96,7 +96,7 @@ class _Donations extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              BloodGroupBadge(inv.bloodGroup),
+              BloodGroupBadges(inv.bloodGroups, maxVisible: 2),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(

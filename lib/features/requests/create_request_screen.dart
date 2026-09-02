@@ -30,8 +30,8 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   int _step = 0;
   bool _submitting = false;
 
-  // Step 1
-  BloodGroup? _group;
+  // Step 1 — open to any of these groups, not just one exact match.
+  Set<BloodGroup> _groups = {};
   int _units = 1;
   Urgency _urgency = Urgency.urgent;
 
@@ -49,7 +49,8 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   @override
   void initState() {
     super.initState();
-    _group = ref.read(currentUserProvider)?.bloodGroup;
+    final myGroup = ref.read(currentUserProvider)?.bloodGroup;
+    if (myGroup != null) _groups = {myGroup};
     // If location was already granted (e.g. prompted on Home), use it
     // immediately without asking again; otherwise prompt now.
     WidgetsBinding.instance.addPostFrameCallback((_) => _useDeviceLocation());
@@ -89,7 +90,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   bool get _canAdvance {
     switch (_step) {
       case 0:
-        return _group != null && _units >= 1;
+        return _groups.isNotEmpty && _units >= 1;
       case 1:
         return _location.text.trim().isNotEmpty;
       case 2:
@@ -129,7 +130,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
           .forwardGeocode(_destAddress.text.trim());
 
       final req = await ref.read(backendProvider).createRequest(
-            bloodGroup: _group!,
+            bloodGroups: _groups.toList(),
             units: _units,
             urgency: _urgency,
             requestLocationLabel: _location.text.trim(),
@@ -212,11 +213,11 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _StepTitle('What blood is needed?',
-            'Choose the group, how many units, and how urgent it is.'),
+            'Choose the groups that can help, how many units, and how urgent it is.'),
         Text('Blood group', style: context.text.titleSmall),
         const SizedBox(height: AppSpacing.md),
-        BloodGroupPicker(
-            selected: _group, onChanged: (g) => setState(() => _group = g)),
+        BloodGroupMultiPicker(
+            selected: _groups, onChanged: (g) => setState(() => _groups = g)),
         const SizedBox(height: AppSpacing.xl),
         Text('Units required', style: context.text.titleSmall),
         const SizedBox(height: AppSpacing.md),
@@ -351,7 +352,8 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
         AppCard(
           child: Column(
             children: [
-              _reviewRow('Blood group', _group?.label ?? '—', mono: true),
+              _reviewRowWidget('Blood group',
+                  BloodGroupBadges(_groups.toList(), large: false)),
               _divider(),
               _reviewRow('Units', Fmt.units(_units), mono: true),
               _divider(),
@@ -418,10 +420,11 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
 
   Widget _reviewRowWidget(String label, Widget value) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
             width: 120, child: Text(label, style: context.text.bodyMedium)),
-        value,
+        Expanded(child: value),
       ],
     );
   }

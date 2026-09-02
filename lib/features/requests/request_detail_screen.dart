@@ -106,7 +106,7 @@ class _SummaryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              BloodGroupBadge(request.bloodGroup, large: true),
+              BloodGroupBadges(request.bloodGroups, large: true, maxVisible: 3),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(

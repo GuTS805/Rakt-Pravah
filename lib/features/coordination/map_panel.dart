@@ -17,7 +17,7 @@ class MapPanel extends StatelessWidget {
     super.key,
     required this.destination,
     this.myLocation,
-    this.height = 200,
+    this.height = 260,
     this.interactive = true,
   });
 
@@ -39,7 +39,15 @@ class MapPanel extends StatelessWidget {
     final myLatLng =
         myLocation == null ? null : ll.LatLng(myLocation!.lat, myLocation!.lng);
 
-    final bounds = myLatLng == null
+    // Only fit both pins in view when they're actually close together. A
+    // geocoded address that resolves somewhere wildly far off (bad test
+    // data, a typo, an ambiguous place name) would otherwise force the map
+    // to zoom out to a whole-region view instead of showing a usable
+    // neighborhood-level map — better to just center on the destination.
+    final farApart = myLatLng != null &&
+        ((destLatLng.latitude - myLatLng.latitude).abs() > 1.5 ||
+            (destLatLng.longitude - myLatLng.longitude).abs() > 1.5);
+    final bounds = (myLatLng == null || farApart)
         ? null
         : LatLngBounds.fromPoints([destLatLng, myLatLng]);
 

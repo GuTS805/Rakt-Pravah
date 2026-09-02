@@ -32,9 +32,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
-      await ref
+      final found = await ref
           .read(authControllerProvider.notifier)
           .login(phone: _phone.text.trim());
+      if (!found && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'No account found for that number. Create one below.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Couldn\'t sign in. Try again.')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

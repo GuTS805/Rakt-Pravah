@@ -126,7 +126,7 @@ class _PartnerCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
-              BloodGroupBadge(request.bloodGroup),
+              BloodGroupBadges(request.bloodGroups, maxVisible: 2),
               const SizedBox(width: AppSpacing.sm),
               Text(Fmt.units(request.units), style: context.text.titleSmall),
               const Spacer(),

@@ -10,6 +10,9 @@ import '../../core/widgets/states.dart';
 import '../../data/models/enums.dart';
 import '../../data/providers.dart';
 
+String _groupsLabel(List<BloodGroup> groups) =>
+    groups.map((g) => g.label).join('/');
+
 class _Notif {
   const _Notif(this.icon, this.color, this.title, this.body, this.time, this.route);
   final IconData icon;
@@ -41,7 +44,7 @@ class NotificationsScreen extends ConsumerWidget {
           Icons.how_to_reg_rounded,
           c.success,
           'Donor accepted',
-          '${r.acceptedDonorName} accepted your ${r.bloodGroup.label} request.',
+          '${r.acceptedDonorName} accepted your ${_groupsLabel(r.bloodGroups)} request.',
           now.subtract(const Duration(minutes: 1)),
           Routes.requestDetail(r.id),
         ));
@@ -50,7 +53,7 @@ class NotificationsScreen extends ConsumerWidget {
           Icons.radar_rounded,
           c.info,
           'Searching for donors',
-          '${r.donorsContacted} donors contacted for your ${r.bloodGroup.label} request.',
+          '${r.donorsContacted} donors contacted for your ${_groupsLabel(r.bloodGroups)} request.',
           now.subtract(const Duration(minutes: 2)),
           Routes.requestDetail(r.id),
         ));
@@ -62,7 +65,7 @@ class NotificationsScreen extends ConsumerWidget {
         Icons.favorite_rounded,
         c.brand,
         'New donor invitation',
-        '${inv.bloodGroup.label} · ${Fmt.units(inv.units)} · '
+        '${_groupsLabel(inv.bloodGroups)} · ${Fmt.units(inv.units)} · '
             '${inv.distanceKm.toStringAsFixed(1)} km away.',
         inv.createdAt,
         Routes.invitationDetail(inv.id),

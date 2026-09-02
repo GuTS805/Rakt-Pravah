@@ -67,7 +67,7 @@ class _InvitationDetailScreenState
                   children: [
                     Row(
                       children: [
-                        BloodGroupBadge(inv.bloodGroup, large: true),
+                        BloodGroupBadges(inv.bloodGroups, large: true, maxVisible: 3),
                         const SizedBox(width: AppSpacing.md),
                         Expanded(
                           child: Text(Fmt.units(inv.units),
@@ -199,11 +199,24 @@ class _InvitationDetailScreenState
 
   Future<void> _accept(inv) async {
     setState(() => _busy = true);
-    await ref
-        .read(backendProvider)
-        .respondToInvitation(inv.id, InvitationStatus.accepted);
-    if (mounted) {
-      context.pushReplacement(Routes.coordination(inv.requestId));
+    try {
+      await ref
+          .read(backendProvider)
+          .respondToInvitation(inv.id, InvitationStatus.accepted);
+      if (mounted) {
+        context.pushReplacement(Routes.coordination(inv.requestId));
+      }
+    } catch (_) {
+      // Another donor accepted first — the transaction lost the race.
+      if (mounted) {
+        setState(() => _busy = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Someone else already accepted this request.')),
+        );
+        context.pop();
+      }
     }
   }
 }

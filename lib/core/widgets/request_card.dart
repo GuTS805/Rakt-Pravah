@@ -32,7 +32,7 @@ class RequestCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              BloodGroupBadge(request.bloodGroup),
+              BloodGroupBadges(request.bloodGroups, maxVisible: 2),
               const SizedBox(width: AppSpacing.sm),
               Text(Fmt.units(request.units), style: context.text.titleSmall),
               const Spacer(),

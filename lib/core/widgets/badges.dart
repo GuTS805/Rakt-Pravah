@@ -40,6 +40,58 @@ class BloodGroupBadge extends StatelessWidget {
   }
 }
 
+/// A request can be open to more than one compatible blood group, so this
+/// renders the full set. In space-constrained contexts (list cards) it shows
+/// the first couple and folds the rest into a "+N" chip rather than wrapping
+/// to a second line and breaking the card's rhythm.
+class BloodGroupBadges extends StatelessWidget {
+  const BloodGroupBadges(this.groups, {super.key, this.large = false, this.maxVisible});
+
+  final List<BloodGroup> groups;
+  final bool large;
+
+  /// Cap how many badges render before folding the rest into "+N". Null
+  /// shows every group (used in review/detail screens with room to spare).
+  final int? maxVisible;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final cap = maxVisible ?? groups.length;
+    final visible = groups.take(cap).toList();
+    final overflow = groups.length - visible.length;
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final g in visible) BloodGroupBadge(g, large: large),
+        if (overflow > 0)
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: large ? AppSpacing.md : AppSpacing.sm,
+              vertical: large ? AppSpacing.sm : AppSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: c.surfaceMuted,
+              borderRadius:
+                  BorderRadius.circular(large ? AppRadius.md : AppRadius.sm),
+              border: Border.all(color: c.border),
+            ),
+            child: Text(
+              '+$overflow',
+              style: AppTypography.mono(
+                size: large ? 20 : 14,
+                weight: FontWeight.w700,
+                color: c.textSecondary,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 /// A small pill conveying status via color, an icon, and a label — never color
 /// alone (accessibility).
 class _SemanticPill extends StatelessWidget {
