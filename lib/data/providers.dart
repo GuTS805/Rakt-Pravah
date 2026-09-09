@@ -79,6 +79,27 @@ class AuthController extends Notifier<AuthState> {
     state = AuthState(AuthStatus.authenticated, _backend.currentUser);
   }
 
+  /// Sends the passwordless sign-in link — the user must already have a
+  /// session (registered or restored) before verifying an email onto it.
+  Future<void> sendEmailVerification(String email) =>
+      _backend.sendVerificationEmailLink(email);
+
+  bool isEmailVerificationLink(String link) =>
+      _backend.isEmailSignInLink(link);
+
+  /// Completes verification once the user taps the emailed link. Keeps
+  /// whatever onboarding/authenticated status the user was already in —
+  /// this only ever refreshes `emailVerified`, it doesn't change where they
+  /// are in the signup flow.
+  Future<void> completeEmailVerification({
+    required String email,
+    required String link,
+  }) async {
+    final user = await _backend.completeEmailLinkVerification(
+        email: email, link: link);
+    state = AuthState(state.status, user);
+  }
+
   Future<void> logout() async {
     await _backend.signOut();
     state = const AuthState(AuthStatus.unauthenticated);

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
+import '../../core/services/verification_gate.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/semantics.dart';
@@ -198,6 +199,7 @@ class _InvitationDetailScreenState
   }
 
   Future<void> _accept(inv) async {
+    if (!requireVerifiedEmail(context, ref)) return;
     setState(() => _busy = true);
     try {
       await ref

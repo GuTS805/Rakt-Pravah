@@ -6,6 +6,7 @@ import '../../data/providers.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/onboarding_screen.dart';
 import '../../features/auth/register_screen.dart';
+import '../../features/auth/verify_email_screen.dart';
 import '../../features/coordination/chat_screen.dart';
 import '../../features/coordination/coordination_screen.dart';
 import '../../features/coordination/live_location_screen.dart';
@@ -56,6 +57,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               loc == Routes.onboarding) {
             return Routes.home;
           }
+          // Server-side-equivalent guard for the spec's "only a verified
+          // user may request or donate" rule — catches this route
+          // regardless of how it was reached, not just the button taps
+          // that also short-circuit with a friendlier message.
+          if (loc == Routes.createRequest &&
+              !(auth.user?.emailVerified ?? false)) {
+            return Routes.verifyEmail;
+          }
           return null;
       }
     },
@@ -69,6 +78,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: Routes.onboarding,
           builder: (_, __) => const OnboardingScreen()),
+      GoRoute(
+          path: Routes.verifyEmail,
+          builder: (_, __) => const VerifyEmailScreen()),
 
       // ---- Main app shell (4-tab bottom navigation) ----
       StatefulShellRoute.indexedStack(

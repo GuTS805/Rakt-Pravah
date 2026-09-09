@@ -123,6 +123,64 @@ class FirebaseBackend {
     donorProfile = donorProfile.copyWith(bloodGroup: bloodGroup);
   }
 
+  // ---------------------------------------------------------------------
+  // Email verification (spec: only a verified user may request or donate).
+  // Firebase's client SDK has no numeric email-OTP provider, so this uses
+  // its built-in passwordless Email Link sign-in instead: tapping the link
+  // proves ownership exactly like an OTP would, without needing a paid plan
+  // or a server-side code sender. The link opens straight back into the app
+  // via Android App Links (see hosting_public/.well-known/assetlinks.json —
+  // Firebase Dynamic Links, which used to handle this, has been shut down).
+  // ---------------------------------------------------------------------
+  static const _emailContinueUrl =
+      'https://nobloodlink.firebaseapp.com/finishSignIn.html';
+
+  Future<void> sendVerificationEmailLink(String email) async {
+    await _ensureSignedIn();
+    await _auth.sendSignInLinkToEmail(
+      email: email,
+      actionCodeSettings: fb_auth.ActionCodeSettings(
+        url: _emailContinueUrl,
+        handleCodeInApp: true,
+        androidPackageName: 'com.bloodlink.bloodlink',
+        androidInstallApp: true,
+        androidMinimumVersion: '1',
+        iOSBundleId: 'com.bloodlink.bloodlink',
+      ),
+    );
+  }
+
+  bool isEmailSignInLink(String link) => _auth.isSignInWithEmailLink(link);
+
+  /// Completes verification once the user taps the emailed link. Links the
+  /// email credential onto the current (likely anonymous) session so the uid
+  /// and all existing data stay put — unless that email was already
+  /// verified on a different device, in which case this signs into that
+  /// existing account instead. That fallback is also what gives verified
+  /// email a second job: real cross-device sign-in, which anonymous-only
+  /// auth never had.
+  Future<UserProfile> completeEmailLinkVerification({
+    required String email,
+    required String link,
+  }) async {
+    await _ensureSignedIn();
+    final credential = fb_auth.EmailAuthProvider.credentialWithLink(
+        email: email, emailLink: link);
+    try {
+      await _auth.currentUser!.linkWithCredential(credential);
+    } on fb_auth.FirebaseAuthException catch (e) {
+      if (e.code != 'credential-already-in-use' &&
+          e.code != 'email-already-in-use') {
+        rethrow;
+      }
+      await _auth.signInWithCredential(credential);
+    }
+    await _auth.currentUser!.reload();
+    await _users.doc(uid).set({'email': email}, fs.SetOptions(merge: true));
+    final doc = await _users.doc(uid).get();
+    return _applyProfileDoc(doc.data()!);
+  }
+
   UserProfile _applyProfileDoc(Map<String, dynamic> data) {
     final user = UserProfile(
       id: uid,
@@ -130,6 +188,9 @@ class FirebaseBackend {
       bloodGroup: BloodGroup.fromLabel(data['bloodGroup'] as String),
       phone: data['phone'] as String,
       email: data['email'] as String?,
+      // Sourced from Firebase Auth's own claim, never from the profile doc —
+      // a client can't write its way into being "verified".
+      emailVerified: _auth.currentUser?.emailVerified ?? false,
       city: data['city'] as String?,
       lastDonation: (data['lastDonation'] as fs.Timestamp?)?.toDate(),
       isAdmin: data['isAdmin'] as bool? ?? false,

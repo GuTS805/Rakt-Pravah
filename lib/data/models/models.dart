@@ -21,6 +21,7 @@ class UserProfile {
     required this.bloodGroup,
     required this.phone,
     this.email,
+    this.emailVerified = false,
     this.city,
     this.lastDonation,
     this.isAdmin = false,
@@ -31,6 +32,12 @@ class UserProfile {
   final BloodGroup bloodGroup;
   final String phone;
   final String? email;
+
+  /// True only once the user has proved ownership of [email] via the
+  /// sign-in-link flow (spec: only verified users may request or donate).
+  /// Sourced from Firebase Auth's own `emailVerified` claim, not a value we
+  /// set ourselves, so it can't be spoofed by writing to the profile doc.
+  final bool emailVerified;
   final String? city;
   final DateTime? lastDonation;
   final bool isAdmin;

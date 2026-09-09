@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
+import 'core/services/email_link_watcher_provider.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/notification_watcher_provider.dart';
 import 'core/theme/app_theme.dart';
@@ -27,6 +28,9 @@ class BloodLinkApp extends ConsumerWidget {
     // Keeps watching invitations/requests for the app's lifetime so a new
     // match or an accepted request surfaces a notification from any tab.
     ref.watch(notificationWatcherProvider);
+    // Completes email verification the moment the emailed link opens the
+    // app, whether that's a cold start or the app already running.
+    ref.watch(emailLinkWatcherProvider);
 
     return MaterialApp.router(
       title: 'BloodLink',

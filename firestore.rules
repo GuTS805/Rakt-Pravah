@@ -12,6 +12,13 @@ service cloud.firestore {
       return request.auth.uid == req.requesterId || request.auth.uid == req.acceptedDonorId;
     }
 
+    // Sourced from the ID token's own claim (set by Firebase Auth once the
+    // user completes the email-link sign-in flow), never from a client-
+    // writable field — spec: only a verified user may request or donate.
+    function isVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
     // Profile documents. Read is broader than write on purpose: logging in
     // by phone number needs to find an existing profile via a query, and
     // anonymous auth carries no verified phone claim to check against —
@@ -25,7 +32,7 @@ service cloud.firestore {
     match /blood_requests/{requestId} {
       allow read: if isSignedIn();
 
-      allow create: if isSignedIn()
+      allow create: if isSignedIn() && isVerified()
         && request.resource.data.requesterId == request.auth.uid;
 
       // Four, and only four, kinds of update are allowed:
@@ -40,7 +47,8 @@ service cloud.firestore {
       allow update: if isSignedIn() && (
         resource.data.requesterId == request.auth.uid
         || (resource.data.acceptedDonorId == null
-            && request.resource.data.acceptedDonorId == request.auth.uid)
+            && request.resource.data.acceptedDonorId == request.auth.uid
+            && isVerified())
         || (request.resource.data.declinedByDonorIds.hasAll(resource.data.declinedByDonorIds)
             && request.auth.uid in request.resource.data.declinedByDonorIds)
         || (resource.data.acceptedDonorId == request.auth.uid
