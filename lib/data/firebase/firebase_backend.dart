@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 
+import '../backend.dart';
 import '../models/models.dart';
 
 /// Real backend on Firebase (Firestore + Anonymous Auth). This replaces
@@ -23,7 +24,7 @@ import '../models/models.dart';
 /// moment they're created, via a live Firestore query filtered by the
 /// deterministic ABO/Rh compatibility table (spec §23). Accepting a request
 /// is a Firestore transaction so only the first donor to accept wins.
-class FirebaseBackend {
+class FirebaseBackend implements Backend {
   FirebaseBackend._();
   static final FirebaseBackend instance = FirebaseBackend._();
 

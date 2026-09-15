@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/services/location_service.dart';
+import 'backend.dart';
 import 'firebase/firebase_backend.dart';
 import 'models/models.dart';
 
-/// Single access point to the backend — Firebase (Firestore + Anonymous
-/// Auth). Screens never talk to Firestore directly; everything goes through
-/// this provider so the data layer stays swappable.
+/// Single access point to the backend. Screens never talk to Firestore
+/// directly; everything goes through this provider, typed to the [Backend]
+/// interface rather than the Firebase implementation, so tests can override
+/// it with a fake and drive real screens without a live project.
 final backendProvider =
-    Provider<FirebaseBackend>((ref) => FirebaseBackend.instance);
+    Provider<Backend>((ref) => FirebaseBackend.instance);
 
 // ---------------------------------------------------------------------------
 // Auth
@@ -26,7 +28,7 @@ class AuthController extends Notifier<AuthState> {
   @override
   AuthState build() => const AuthState(AuthStatus.unknown);
 
-  FirebaseBackend get _backend => ref.read(backendProvider);
+  Backend get _backend => ref.read(backendProvider);
 
   /// Called by the splash once startup work is done. Restores a session
   /// already active on this device (Firebase Anonymous Auth persists
