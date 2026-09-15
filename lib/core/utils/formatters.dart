@@ -37,4 +37,25 @@ abstract class Fmt {
 
   /// Units label, e.g. "2 units" / "1 unit".
   static String units(int n) => n == 1 ? '1 unit' : '$n units';
+
+  static final _coords = RegExp(r'^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$');
+
+  /// Picks a human place name to show the user, given a best-effort
+  /// reverse-geocoded label and the city on their profile.
+  ///
+  /// Reverse geocoding falls back to raw coordinates when it's unavailable
+  /// (Flutter Web, some emulators), and "12.9716, 77.5946" is not a place
+  /// name — so a coordinate pair is rejected in favour of the profile city.
+  /// Returns null when neither yields something real, so the caller can omit
+  /// the label entirely rather than showing someone their own coordinates.
+  /// Only the first segment of a label like "Indiranagar, Bengaluru,
+  /// Karnataka" is kept, since the chip has room for a neighbourhood, not an
+  /// address.
+  static String? placeName(String? geocodedLabel, String? city) {
+    final label = geocodedLabel?.trim();
+    final usable =
+        label != null && label.isNotEmpty && !_coords.hasMatch(label);
+    final resolved = usable ? label.split(',').first.trim() : city?.trim();
+    return (resolved == null || resolved.isEmpty) ? null : resolved;
+  }
 }

@@ -82,7 +82,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: [
                 _BrandRow(
                   hasUnread: pending > 0,
-                  place: _placeLabel(location, user?.city),
+                  place: location.status == DeviceLocationStatus.granted
+                      ? Fmt.placeName(location.label, user?.city)
+                      : null,
                 ),
                 const SizedBox(height: AppSpacing.xxl),
 
@@ -140,22 +142,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
-}
-
-/// The chip wants a place name, not a fix. Reverse geocoding is best-effort
-/// and falls back to raw coordinates when it's unavailable (Flutter Web, some
-/// emulators), so a lat/lng pair gets rejected in favour of the profile's city
-/// — and if neither is a real place, the chip is simply left off rather than
-/// showing someone their own coordinates.
-String? _placeLabel(DeviceLocationState location, String? city) {
-  if (location.status != DeviceLocationStatus.granted) return null;
-  final label = location.label?.trim();
-  final looksLikeCoords =
-      label != null && RegExp(r'^-?\d+\.\d+,\s*-?\d+\.\d+$').hasMatch(label);
-  final resolved = (label == null || label.isEmpty || looksLikeCoords)
-      ? city?.trim()
-      : label.split(',').first.trim();
-  return (resolved == null || resolved.isEmpty) ? null : resolved;
 }
 
 /// Brand identity, where you are, and what's waiting for you — the three
