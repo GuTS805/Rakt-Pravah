@@ -24,8 +24,7 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               for (final m in ThemeMode.values)
                 InkWell(
-                  onTap: () =>
-                      ref.read(themeModeProvider.notifier).set(m),
+                  onTap: () => ref.read(themeModeProvider.notifier).set(m),
                   child: Padding(
                     padding: const EdgeInsets.all(AppSpacing.md),
                     child: Row(
@@ -33,16 +32,25 @@ class SettingsScreen extends ConsumerWidget {
                         Icon(_icon(m), size: 20, color: c.textSecondary),
                         const SizedBox(width: AppSpacing.md),
                         Expanded(
-                          child: Text(_label(m),
-                              style: context.text.bodyLarge?.copyWith(
-                                  fontWeight: FontWeight.w500)),
+                          child: Text(
+                            _label(m),
+                            style: context.text.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
                         if (mode == m)
-                          Icon(Icons.check_circle_rounded,
-                              color: c.brand, size: 20)
+                          Icon(
+                            Icons.check_circle_rounded,
+                            color: c.brand,
+                            size: 20,
+                          )
                         else
-                          Icon(Icons.circle_outlined,
-                              color: c.border, size: 20),
+                          Icon(
+                            Icons.circle_outlined,
+                            color: c.border,
+                            size: 20,
+                          ),
                       ],
                     ),
                   ),
@@ -71,14 +79,14 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   IconData _icon(ThemeMode m) => switch (m) {
-        ThemeMode.system => Icons.brightness_auto_rounded,
-        ThemeMode.light => Icons.light_mode_rounded,
-        ThemeMode.dark => Icons.dark_mode_rounded,
-      };
+    ThemeMode.system => Icons.brightness_auto_rounded,
+    ThemeMode.light => Icons.light_mode_rounded,
+    ThemeMode.dark => Icons.dark_mode_rounded,
+  };
 
   String _label(ThemeMode m) => switch (m) {
-        ThemeMode.system => 'System default',
-        ThemeMode.light => 'Light',
-        ThemeMode.dark => 'Dark',
-      };
+    ThemeMode.system => 'System default',
+    ThemeMode.light => 'Light',
+    ThemeMode.dark => 'Dark',
+  };
 }

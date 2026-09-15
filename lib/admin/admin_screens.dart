@@ -27,16 +27,19 @@ Widget _headerRow(BuildContext context, List<(String, int)> columns) {
   final c = context.colors;
   return Container(
     padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+      horizontal: AppSpacing.lg,
+      vertical: AppSpacing.sm,
+    ),
     color: c.surfaceMuted,
     child: Row(
       children: [
         for (final (label, flex) in columns)
           Expanded(
             flex: flex,
-            child: Text(label,
-                style: context.text.labelSmall
-                    ?.copyWith(color: c.textSecondary)),
+            child: Text(
+              label,
+              style: context.text.labelSmall?.copyWith(color: c.textSecondary),
+            ),
           ),
       ],
     ),
@@ -55,27 +58,30 @@ class _StatusPill extends StatelessWidget {
     final (fg, bg) = switch (status) {
       RequestStatus.fulfilled => (c.success, c.successSubtle),
       RequestStatus.coordinating ||
-      RequestStatus.donorAccepted =>
-        (c.info, c.infoSubtle),
-      RequestStatus.searching || RequestStatus.created => (
-          c.warning,
-          c.warningSubtle
-        ),
+      RequestStatus.donorAccepted => (c.info, c.infoSubtle),
+      RequestStatus.searching ||
+      RequestStatus.created => (c.warning, c.warningSubtle),
       RequestStatus.removedByAdmin => (c.danger, c.dangerSubtle),
       _ => (c.textTertiary, c.surfaceMuted),
     };
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 3),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: 3,
+        ),
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
-        child: Text(status.label,
-            style: context.text.labelSmall
-                ?.copyWith(color: fg, fontWeight: FontWeight.w600)),
+        child: Text(
+          status.label,
+          style: context.text.labelSmall?.copyWith(
+            color: fg,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }
@@ -118,7 +124,9 @@ class _RequestTable extends StatelessWidget {
               color: r.isStale ? c.dangerSubtle.withValues(alpha: 0.35) : null,
             ),
             padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
+            ),
             child: Row(
               children: [
                 _Cell(
@@ -126,52 +134,62 @@ class _RequestTable extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(r.requesterName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: context.text.titleSmall),
-                      Text(r.destinationName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: context.text.bodySmall
-                              ?.copyWith(color: c.textTertiary)),
+                      Text(
+                        r.requesterName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.titleSmall,
+                      ),
+                      Text(
+                        r.destinationName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.bodySmall?.copyWith(
+                          color: c.textTertiary,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 _Cell(
                   flex: 2,
-                  Text(r.bloodGroups.map((g) => g.label).join(' '),
-                      style: AppTypography.mono(size: 12.5, color: c.brand)),
+                  Text(
+                    r.bloodGroups.map((g) => g.label).join(' '),
+                    style: AppTypography.mono(size: 12.5, color: c.brand),
+                  ),
                 ),
                 _Cell(
-                  Text('${r.units}',
-                      style: AppTypography.mono(
-                          size: 12.5, color: c.textPrimary)),
+                  Text(
+                    '${r.units}',
+                    style: AppTypography.mono(size: 12.5, color: c.textPrimary),
+                  ),
                 ),
                 _Cell(
                   flex: 2,
-                  Text(r.urgency.label,
-                      style: context.text.bodySmall?.copyWith(
-                        color: r.urgency == Urgency.critical
-                            ? c.danger
-                            : c.textSecondary,
-                        fontWeight: r.urgency == Urgency.critical
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                      )),
+                  Text(
+                    r.urgency.label,
+                    style: context.text.bodySmall?.copyWith(
+                      color: r.urgency == Urgency.critical
+                          ? c.danger
+                          : c.textSecondary,
+                      fontWeight: r.urgency == Urgency.critical
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                    ),
+                  ),
                 ),
                 _Cell(flex: 2, _StatusPill(r.status)),
                 _Cell(
                   flex: 3,
                   Text(
-                    r.acceptedDonorName ??
-                        (r.isUnmatched ? 'Nobody yet' : '—'),
+                    r.acceptedDonorName ?? (r.isUnmatched ? 'Nobody yet' : '—'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: context.text.bodySmall?.copyWith(
-                        color: r.acceptedDonorName == null
-                            ? c.textTertiary
-                            : c.textPrimary),
+                      color: r.acceptedDonorName == null
+                          ? c.textTertiary
+                          : c.textPrimary,
+                    ),
                   ),
                 ),
                 _Cell(
@@ -179,8 +197,9 @@ class _RequestTable extends StatelessWidget {
                   Text(
                     r.isStale ? 'Expired' : Fmt.relative(r.createdAt),
                     style: AppTypography.mono(
-                        size: 12,
-                        color: r.isStale ? c.danger : c.textSecondary),
+                      size: 12,
+                      color: r.isStale ? c.danger : c.textSecondary,
+                    ),
                   ),
                 ),
                 if (onRemove != null)
@@ -189,14 +208,20 @@ class _RequestTable extends StatelessWidget {
                     Align(
                       alignment: Alignment.centerRight,
                       child: r.status.isTerminal
-                          ? Text('Closed',
-                              style: context.text.bodySmall
-                                  ?.copyWith(color: c.textTertiary))
+                          ? Text(
+                              'Closed',
+                              style: context.text.bodySmall?.copyWith(
+                                color: c.textTertiary,
+                              ),
+                            )
                           : TextButton(
                               onPressed: () => onRemove!(r),
-                              child: Text('Remove',
-                                  style: context.text.labelMedium
-                                      ?.copyWith(color: c.danger)),
+                              child: Text(
+                                'Remove',
+                                style: context.text.labelMedium?.copyWith(
+                                  color: c.danger,
+                                ),
+                              ),
                             ),
                     ),
                   ),
@@ -228,8 +253,9 @@ class AdminDashboardScreen extends ConsumerWidget {
       child: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => AdminEmpty(
-            icon: Icons.error_outline_rounded,
-            message: 'Could not read requests: $e'),
+          icon: Icons.error_outline_rounded,
+          message: 'Could not read requests: $e',
+        ),
         data: (_) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -277,8 +303,10 @@ class AdminDashboardScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.xxl),
             AdminPanel(
               title: 'Needs attention',
-              trailing: Text('${queue.length} of ${stats.total}',
-                  style: AppTypography.mono(size: 12, color: c.textTertiary)),
+              trailing: Text(
+                '${queue.length} of ${stats.total}',
+                style: AppTypography.mono(size: 12, color: c.textTertiary),
+              ),
               child: _RequestTable(
                 requests: queue.take(15).toList(),
                 emptyMessage:
@@ -319,7 +347,9 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
       child: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => AdminEmpty(
-            icon: Icons.error_outline_rounded, message: 'Could not read: $e'),
+          icon: Icons.error_outline_rounded,
+          message: 'Could not read: $e',
+        ),
         data: (all) {
           final shown = _filter == null
               ? all
@@ -349,9 +379,10 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
               const SizedBox(height: AppSpacing.lg),
               AdminPanel(
                 title: _filter?.label ?? 'All requests',
-                trailing: Text('${shown.length}',
-                    style:
-                        AppTypography.mono(size: 12, color: c.textTertiary)),
+                trailing: Text(
+                  '${shown.length}',
+                  style: AppTypography.mono(size: 12, color: c.textTertiary),
+                ),
                 child: _RequestTable(requests: shown),
               ),
             ],
@@ -386,14 +417,19 @@ class _FilterChip extends StatelessWidget {
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppRadius.pill),
             border: Border.all(color: selected ? c.brand : c.border),
           ),
-          child: Text('$label  $count',
-              style: context.text.labelMedium?.copyWith(
-                  color: selected ? c.onBrand : c.textSecondary)),
+          child: Text(
+            '$label  $count',
+            style: context.text.labelMedium?.copyWith(
+              color: selected ? c.onBrand : c.textSecondary,
+            ),
+          ),
         ),
       ),
     );
@@ -418,11 +454,15 @@ class AdminUsersScreen extends ConsumerWidget {
       child: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => AdminEmpty(
-            icon: Icons.error_outline_rounded, message: 'Could not read: $e'),
+          icon: Icons.error_outline_rounded,
+          message: 'Could not read: $e',
+        ),
         data: (users) => AdminPanel(
           title: 'All users',
-          trailing: Text('${users.length}',
-              style: AppTypography.mono(size: 12, color: c.textTertiary)),
+          trailing: Text(
+            '${users.length}',
+            style: AppTypography.mono(size: 12, color: c.textTertiary),
+          ),
           child: users.isEmpty
               ? const AdminEmpty(message: 'Nobody has registered yet.')
               : Column(
@@ -442,8 +482,9 @@ class AdminUsersScreen extends ConsumerWidget {
                           border: Border(top: BorderSide(color: c.border)),
                         ),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.lg,
-                            vertical: AppSpacing.md),
+                          horizontal: AppSpacing.lg,
+                          vertical: AppSpacing.md,
+                        ),
                         child: Row(
                           children: [
                             _Cell(
@@ -451,38 +492,53 @@ class AdminUsersScreen extends ConsumerWidget {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(u.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: context.text.titleSmall),
+                                  Text(
+                                    u.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: context.text.titleSmall,
+                                  ),
                                   if (u.city != null)
-                                    Text(u.city!,
-                                        style: context.text.bodySmall
-                                            ?.copyWith(
-                                                color: c.textTertiary)),
+                                    Text(
+                                      u.city!,
+                                      style: context.text.bodySmall?.copyWith(
+                                        color: c.textTertiary,
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
                             _Cell(
-                              Text(u.bloodGroup.label,
-                                  style: AppTypography.mono(
-                                      size: 12.5, color: c.brand)),
+                              Text(
+                                u.bloodGroup.label,
+                                style: AppTypography.mono(
+                                  size: 12.5,
+                                  color: c.brand,
+                                ),
+                              ),
                             ),
                             _Cell(
                               flex: 2,
-                              Text(u.phone,
-                                  style: AppTypography.mono(
-                                      size: 12, color: c.textSecondary)),
+                              Text(
+                                u.phone,
+                                style: AppTypography.mono(
+                                  size: 12,
+                                  color: c.textSecondary,
+                                ),
+                              ),
                             ),
                             _Cell(
                               flex: 3,
-                              Text(u.email ?? 'Not verified',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: context.text.bodySmall?.copyWith(
-                                      color: u.email == null
-                                          ? c.textTertiary
-                                          : c.textPrimary)),
+                              Text(
+                                u.email ?? 'Not verified',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: context.text.bodySmall?.copyWith(
+                                  color: u.email == null
+                                      ? c.textTertiary
+                                      : c.textPrimary,
+                                ),
+                              ),
                             ),
                             _Cell(
                               flex: 2,
@@ -490,23 +546,27 @@ class AdminUsersScreen extends ConsumerWidget {
                                 u.isInCooldown
                                     ? 'Cooldown'
                                     : u.isDonorOn
-                                        ? 'On'
-                                        : 'Off',
+                                    ? 'On'
+                                    : 'Off',
                                 style: context.text.bodySmall?.copyWith(
                                   color: u.isInCooldown
                                       ? c.warning
                                       : u.isDonorOn
-                                          ? c.success
-                                          : c.textTertiary,
+                                      ? c.success
+                                      : c.textTertiary,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
                             _Cell(
                               flex: 2,
-                              Text('${u.totalDonations}',
-                                  style: AppTypography.mono(
-                                      size: 12.5, color: c.textPrimary)),
+                              Text(
+                                '${u.totalDonations}',
+                                style: AppTypography.mono(
+                                  size: 12.5,
+                                  color: c.textPrimary,
+                                ),
+                              ),
                             ),
                             _Cell(
                               flex: 2,
@@ -552,14 +612,12 @@ class _AdminToggleState extends ConsumerState<_AdminToggle> {
   Widget build(BuildContext context) {
     if (_busy) {
       return const SizedBox(
-          height: 16,
-          width: 16,
-          child: CircularProgressIndicator(strokeWidth: 2));
+        height: 16,
+        width: 16,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
     }
-    return Switch(
-      value: widget.user.isAdmin,
-      onChanged: _toggle,
-    );
+    return Switch(value: widget.user.isAdmin, onChanged: _toggle);
   }
 }
 
@@ -581,11 +639,15 @@ class AdminReportsScreen extends ConsumerWidget {
       child: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => AdminEmpty(
-            icon: Icons.error_outline_rounded, message: 'Could not read: $e'),
+          icon: Icons.error_outline_rounded,
+          message: 'Could not read: $e',
+        ),
         data: (reports) => AdminPanel(
           title: 'Filed reports',
-          trailing: Text('${reports.where((r) => r.isOpen).length} open',
-              style: AppTypography.mono(size: 12, color: c.textTertiary)),
+          trailing: Text(
+            '${reports.where((r) => r.isOpen).length} open',
+            style: AppTypography.mono(size: 12, color: c.textTertiary),
+          ),
           child: reports.isEmpty
               ? const AdminEmpty(
                   icon: Icons.flag_outlined,
@@ -610,8 +672,9 @@ class AdminReportsScreen extends ConsumerWidget {
                           border: Border(top: BorderSide(color: c.border)),
                         ),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.lg,
-                            vertical: AppSpacing.md),
+                          horizontal: AppSpacing.lg,
+                          vertical: AppSpacing.md,
+                        ),
                         child: Row(
                           children: [
                             _Cell(
@@ -619,13 +682,17 @@ class AdminReportsScreen extends ConsumerWidget {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(r.reason,
-                                      style: context.text.titleSmall),
+                                  Text(
+                                    r.reason,
+                                    style: context.text.titleSmall,
+                                  ),
                                   if (r.detail != null)
-                                    Text(r.detail!,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: context.text.bodySmall),
+                                    Text(
+                                      r.detail!,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: context.text.bodySmall,
+                                    ),
                                 ],
                               ),
                             ),
@@ -635,28 +702,35 @@ class AdminReportsScreen extends ConsumerWidget {
                                 r.targetRequestId != null
                                     ? 'Request ${r.targetRequestId}'
                                     : r.targetUserId != null
-                                        ? 'User ${r.targetUserId}'
-                                        : '—',
+                                    ? 'User ${r.targetUserId}'
+                                    : '—',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTypography.mono(
-                                    size: 11.5, color: c.textSecondary),
+                                  size: 11.5,
+                                  color: c.textSecondary,
+                                ),
                               ),
                             ),
                             _Cell(
                               flex: 2,
-                              Text(Fmt.relative(r.createdAt),
-                                  style: AppTypography.mono(
-                                      size: 12, color: c.textSecondary)),
+                              Text(
+                                Fmt.relative(r.createdAt),
+                                style: AppTypography.mono(
+                                  size: 12,
+                                  color: c.textSecondary,
+                                ),
+                              ),
                             ),
                             _Cell(
                               flex: 2,
-                              Text(r.isOpen ? 'Open' : 'Resolved',
-                                  style: context.text.bodySmall?.copyWith(
-                                      color: r.isOpen
-                                          ? c.warning
-                                          : c.success,
-                                      fontWeight: FontWeight.w600)),
+                              Text(
+                                r.isOpen ? 'Open' : 'Resolved',
+                                style: context.text.bodySmall?.copyWith(
+                                  color: r.isOpen ? c.warning : c.success,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                             _Cell(
                               flex: 2,
@@ -666,8 +740,7 @@ class AdminReportsScreen extends ConsumerWidget {
                                     ? TextButton(
                                         onPressed: () => ref
                                             .read(adminBackendProvider)
-                                            ?.resolveReport(
-                                                r.id, 'Reviewed'),
+                                            ?.resolveReport(r.id, 'Reviewed'),
                                         child: const Text('Resolve'),
                                       )
                                     : const SizedBox.shrink(),
@@ -692,7 +765,10 @@ class AdminModerationScreen extends ConsumerWidget {
   const AdminModerationScreen({super.key});
 
   Future<void> _remove(
-      BuildContext context, WidgetRef ref, AdminRequest request) async {
+    BuildContext context,
+    WidgetRef ref,
+    AdminRequest request,
+  ) async {
     final controller = TextEditingController();
     final reason = await showDialog<String>(
       context: context,
@@ -722,8 +798,9 @@ class AdminModerationScreen extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: const Text('Remove request'),
@@ -750,8 +827,10 @@ class AdminModerationScreen extends ConsumerWidget {
         children: [
           AdminPanel(
             title: 'Needs attention',
-            trailing: Text('${queue.length}',
-                style: AppTypography.mono(size: 12, color: c.textTertiary)),
+            trailing: Text(
+              '${queue.length}',
+              style: AppTypography.mono(size: 12, color: c.textTertiary),
+            ),
             child: _RequestTable(
               requests: queue,
               onRemove: (r) => _remove(context, ref, r),
@@ -763,8 +842,10 @@ class AdminModerationScreen extends ConsumerWidget {
           const SizedBox(height: AppSpacing.xxl),
           AdminPanel(
             title: 'All open requests',
-            trailing: Text('${open.length}',
-                style: AppTypography.mono(size: 12, color: c.textTertiary)),
+            trailing: Text(
+              '${open.length}',
+              style: AppTypography.mono(size: 12, color: c.textTertiary),
+            ),
             child: _RequestTable(
               requests: open,
               onRemove: (r) => _remove(context, ref, r),
@@ -795,11 +876,15 @@ class AdminAuditScreen extends ConsumerWidget {
       child: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => AdminEmpty(
-            icon: Icons.error_outline_rounded, message: 'Could not read: $e'),
+          icon: Icons.error_outline_rounded,
+          message: 'Could not read: $e',
+        ),
         data: (entries) => AdminPanel(
           title: 'Recent actions',
-          trailing: Text('${entries.length}',
-              style: AppTypography.mono(size: 12, color: c.textTertiary)),
+          trailing: Text(
+            '${entries.length}',
+            style: AppTypography.mono(size: 12, color: c.textTertiary),
+          ),
           child: entries.isEmpty
               ? const AdminEmpty(
                   icon: Icons.fact_check_outlined,
@@ -823,8 +908,9 @@ class AdminAuditScreen extends ConsumerWidget {
                           border: Border(top: BorderSide(color: c.border)),
                         ),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.lg,
-                            vertical: AppSpacing.md),
+                          horizontal: AppSpacing.lg,
+                          vertical: AppSpacing.md,
+                        ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -833,33 +919,49 @@ class AdminAuditScreen extends ConsumerWidget {
                               Text(
                                 '${Fmt.shortDate(e.at)} ${Fmt.clock(e.at)}',
                                 style: AppTypography.mono(
-                                    size: 12, color: c.textSecondary),
+                                  size: 12,
+                                  color: c.textSecondary,
+                                ),
                               ),
                             ),
                             _Cell(
-                                flex: 2,
-                                Text(e.actorName,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: context.text.bodySmall)),
+                              flex: 2,
+                              Text(
+                                e.actorName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: context.text.bodySmall,
+                              ),
+                            ),
                             _Cell(
                               flex: 2,
-                              Text(e.action,
-                                  style: AppTypography.mono(
-                                      size: 12, color: c.brand)),
+                              Text(
+                                e.action,
+                                style: AppTypography.mono(
+                                  size: 12,
+                                  color: c.brand,
+                                ),
+                              ),
                             ),
                             _Cell(
                               flex: 3,
-                              Text(e.targetId,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTypography.mono(
-                                      size: 11.5, color: c.textTertiary)),
+                              Text(
+                                e.targetId,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.mono(
+                                  size: 11.5,
+                                  color: c.textTertiary,
+                                ),
+                              ),
                             ),
                             _Cell(
-                                flex: 4,
-                                Text(e.detail ?? '—',
-                                    style: context.text.bodySmall)),
+                              flex: 4,
+                              Text(
+                                e.detail ?? '—',
+                                style: context.text.bodySmall,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -889,8 +991,7 @@ class AdminHealthScreen extends ConsumerWidget {
     final inCooldown = users.where((u) => u.isInCooldown).length;
     final verified = users.where((u) => u.email != null).length;
     final longUnmatched = requests
-        .where((r) =>
-            r.isUnmatched && r.age > const Duration(minutes: 30))
+        .where((r) => r.isUnmatched && r.age > const Duration(minutes: 30))
         .length;
 
     return AdminPage(
@@ -916,7 +1017,7 @@ class AdminHealthScreen extends ConsumerWidget {
                   detail: stats.stale == 0
                       ? 'Every open request is inside its window.'
                       : '${stats.stale} open request(s) are past their expiry '
-                          'and still not closed.',
+                            'and still not closed.',
                 ),
                 _Check(
                   label: 'Long-unmatched requests',
@@ -924,7 +1025,7 @@ class AdminHealthScreen extends ConsumerWidget {
                   detail: longUnmatched == 0
                       ? 'No request has waited over 30 minutes for a donor.'
                       : '$longUnmatched request(s) have waited over 30 '
-                          'minutes with nobody accepting.',
+                            'minutes with nobody accepting.',
                 ),
                 _Check(
                   label: 'Donor pool',
@@ -932,7 +1033,7 @@ class AdminHealthScreen extends ConsumerWidget {
                   detail: availableDonors > 0
                       ? '$availableDonors donor(s) currently available.'
                       : 'No donors have Donor Mode on — nothing can be '
-                          'matched right now.',
+                            'matched right now.',
                   last: true,
                 ),
               ],
@@ -944,8 +1045,7 @@ class AdminHealthScreen extends ConsumerWidget {
             runSpacing: AppSpacing.md,
             children: [
               AdminMetric(value: users.length, label: 'Registered users'),
-              AdminMetric(
-                  value: availableDonors, label: 'Donors available'),
+              AdminMetric(value: availableDonors, label: 'Donors available'),
               AdminMetric(value: inCooldown, label: 'Donors in cooldown'),
               AdminMetric(value: verified, label: 'Email on file'),
             ],
@@ -980,8 +1080,11 @@ class _Check extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(ok ? Icons.check_circle_rounded : Icons.warning_rounded,
-              size: 18, color: ok ? c.success : c.warning),
+          Icon(
+            ok ? Icons.check_circle_rounded : Icons.warning_rounded,
+            size: 18,
+            color: ok ? c.success : c.warning,
+          ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
@@ -989,9 +1092,12 @@ class _Check extends StatelessWidget {
               children: [
                 Text(label, style: context.text.titleSmall),
                 const SizedBox(height: 2),
-                Text(detail,
-                    style: context.text.bodySmall
-                        ?.copyWith(color: c.textSecondary)),
+                Text(
+                  detail,
+                  style: context.text.bodySmall?.copyWith(
+                    color: c.textSecondary,
+                  ),
+                ),
               ],
             ),
           ),

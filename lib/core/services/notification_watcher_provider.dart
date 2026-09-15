@@ -75,14 +75,16 @@ final notificationWatcherProvider = Provider<void>((ref) {
     for (final r in list) {
       final previous = lastKnownStatus[r.id];
       lastKnownStatus[r.id] = r.status;
-      final justAccepted = previous != null &&
+      final justAccepted =
+          previous != null &&
           previous != r.status &&
           r.status == RequestStatus.donorAccepted;
       if (justAccepted) {
         service.show(
           id: r.id.hashCode,
           title: 'A donor accepted your request',
-          body: '${r.acceptedDonorName ?? 'A donor'} is coordinating with '
+          body:
+              '${r.acceptedDonorName ?? 'A donor'} is coordinating with '
               'you now for ${r.destination.name}.',
           payload: 'request:${r.id}',
         );

@@ -69,7 +69,9 @@ class _AdminSignInScreenState extends ConsumerState<AdminSignInScreen> {
     });
     try {
       final email = _email.text.trim();
-      await ref.read(authControllerProvider.notifier).sendEmailVerification(email);
+      await ref
+          .read(authControllerProvider.notifier)
+          .sendEmailVerification(email);
       await _store.save(email);
       if (mounted) setState(() => _sent = true);
     } catch (e) {
@@ -106,20 +108,22 @@ class _AdminSignInScreenState extends ConsumerState<AdminSignInScreen> {
                     children: [
                       const BrandMark(size: 30),
                       const SizedBox(width: AppSpacing.md),
-                      Text('BloodLink Operations',
-                          style: context.text.titleLarge),
+                      Text(
+                        'BloodLink Operations',
+                        style: context.text.titleLarge,
+                      ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   if (_sent) ...[
-                    Text('Check your inbox',
-                        style: context.text.headlineSmall),
+                    Text('Check your inbox', style: context.text.headlineSmall),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
                       'A sign-in link is on its way to ${_email.text.trim()}. '
                       'Open it in this browser to finish signing in.',
-                      style: context.text.bodyMedium
-                          ?.copyWith(color: c.textSecondary),
+                      style: context.text.bodyMedium?.copyWith(
+                        color: c.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     TextButton(
@@ -132,8 +136,9 @@ class _AdminSignInScreenState extends ConsumerState<AdminSignInScreen> {
                     Text(
                       'Operator access only. You\'ll get a one-time sign-in '
                       'link by email.',
-                      style: context.text.bodyMedium
-                          ?.copyWith(color: c.textSecondary),
+                      style: context.text.bodyMedium?.copyWith(
+                        color: c.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.xl),
                     TextFormField(
@@ -157,9 +162,12 @@ class _AdminSignInScreenState extends ConsumerState<AdminSignInScreen> {
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: AppSpacing.md),
-                      Text(_error!,
-                          style: context.text.bodySmall
-                              ?.copyWith(color: c.danger)),
+                      Text(
+                        _error!,
+                        style: context.text.bodySmall?.copyWith(
+                          color: c.danger,
+                        ),
+                      ),
                     ],
                     const SizedBox(height: AppSpacing.xl),
                     PrimaryButton(
@@ -204,8 +212,9 @@ class AdminNoAccessScreen extends ConsumerWidget {
                 'have admin access. Someone with access has to grant it from '
                 'the Users page.',
                 textAlign: TextAlign.center,
-                style:
-                    context.text.bodyMedium?.copyWith(color: c.textSecondary),
+                style: context.text.bodyMedium?.copyWith(
+                  color: c.textSecondary,
+                ),
               ),
               const SizedBox(height: AppSpacing.xl),
               SecondaryButton(

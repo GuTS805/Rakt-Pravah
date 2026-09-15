@@ -55,10 +55,9 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
-      await ref.read(authControllerProvider.notifier).completeEmailVerification(
-            email: _email.text.trim(),
-            link: link,
-          );
+      await ref
+          .read(authControllerProvider.notifier)
+          .completeEmailVerification(email: _email.text.trim(), link: link);
       await _store.clear();
       if (mounted) {
         ref.read(pendingEmailLinkProvider.notifier).state = null;
@@ -67,8 +66,11 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Couldn\'t verify with that address. Check it '
-                  'matches the one you requested, or send a new link.')),
+            content: Text(
+              'Couldn\'t verify with that address. Check it '
+              'matches the one you requested, or send a new link.',
+            ),
+          ),
         );
       }
     } finally {
@@ -88,14 +90,19 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
     setState(() => _busy = true);
     try {
       final email = _email.text.trim();
-      await ref.read(authControllerProvider.notifier).sendEmailVerification(email);
+      await ref
+          .read(authControllerProvider.notifier)
+          .sendEmailVerification(email);
       await _store.save(email);
       if (mounted) setState(() => _sent = true);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Couldn\'t send the link. Check the address and try again.')),
+            content: Text(
+              'Couldn\'t send the link. Check the address and try again.',
+            ),
+          ),
         );
       }
     } finally {
@@ -129,7 +136,9 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                 Text(
                   'You can now request blood and turn on Donor Mode.',
                   textAlign: TextAlign.center,
-                  style: context.text.bodyMedium?.copyWith(color: c.textSecondary),
+                  style: context.text.bodyMedium?.copyWith(
+                    color: c.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 PrimaryButton(
@@ -158,12 +167,18 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.mark_email_unread_outlined, size: 40, color: c.brand),
+                  Icon(
+                    Icons.mark_email_unread_outlined,
+                    size: 40,
+                    color: c.brand,
+                  ),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
                     'Only verified people can request or donate blood on '
                     'BloodLink — it keeps the network real.',
-                    style: context.text.bodyMedium?.copyWith(color: c.textSecondary),
+                    style: context.text.bodyMedium?.copyWith(
+                      color: c.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.xxl),
                   if (_sent) ...[
@@ -186,7 +201,8 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                       ),
                       validator: (v) {
                         final value = (v ?? '').trim();
-                        if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value)) {
+                        if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                            .hasMatch(value)) {
                           return 'Enter a valid email address';
                         }
                         return null;
@@ -226,13 +242,18 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.mark_email_read_outlined, size: 40, color: c.brand),
+                  Icon(
+                    Icons.mark_email_read_outlined,
+                    size: 40,
+                    color: c.brand,
+                  ),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
                     'Type the email address you asked us to verify, so we can '
                     'match it to the link you just opened.',
-                    style:
-                        context.text.bodyMedium?.copyWith(color: c.textSecondary),
+                    style: context.text.bodyMedium?.copyWith(
+                      color: c.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.xxl),
                   Text('Email address', style: context.text.titleSmall),

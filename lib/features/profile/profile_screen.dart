@@ -28,7 +28,11 @@ class ProfileScreen extends ConsumerWidget {
         bottom: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.xxxl),
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.xxxl,
+          ),
           children: [
             Text('You', style: context.text.headlineMedium),
             const SizedBox(height: AppSpacing.lg),
@@ -148,7 +152,11 @@ class ProfileScreen extends ConsumerWidget {
       showDragHandle: true,
       builder: (context) => Padding(
         padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xxl),
+          AppSpacing.lg,
+          0,
+          AppSpacing.lg,
+          AppSpacing.xxl,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,8 +171,7 @@ class ProfileScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.lg),
             const TextField(
               maxLines: 4,
-              decoration:
-                  InputDecoration(hintText: 'Describe the problem…'),
+              decoration: InputDecoration(hintText: 'Describe the problem…'),
             ),
             const SizedBox(height: AppSpacing.lg),
             SizedBox(
@@ -173,7 +180,9 @@ class ProfileScreen extends ConsumerWidget {
                 onPressed: () {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Report submitted. Thank you.')),
+                    const SnackBar(
+                      content: Text('Report submitted. Thank you.'),
+                    ),
                   );
                 },
                 style: FilledButton.styleFrom(
@@ -199,8 +208,7 @@ class ProfileScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel',
-                style: TextStyle(color: c.textSecondary)),
+            child: Text('Cancel', style: TextStyle(color: c.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),

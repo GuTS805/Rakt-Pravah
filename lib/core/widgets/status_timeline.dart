@@ -23,7 +23,8 @@ class StatusTimeline extends StatelessWidget {
     // Determine which lifecycle steps to show. If terminal-and-not-fulfilled,
     // we show progress up to where it stopped, then the terminal node.
     final steps = <RequestStatus>[...RequestStatus.lifecycle];
-    final isUnhappyTerminal = current == RequestStatus.cancelled ||
+    final isUnhappyTerminal =
+        current == RequestStatus.cancelled ||
         current == RequestStatus.expired ||
         current == RequestStatus.removedByAdmin;
 
@@ -175,20 +176,28 @@ class _TimelineNode extends StatelessWidget {
                         Text(
                           Fmt.clock(event!.at),
                           style: AppTypography.mono(
-                              size: 11, color: c.textTertiary),
+                            size: 11,
+                            color: c.textTertiary,
+                          ),
                         ),
                     ],
                   ),
                   if (event?.note != null) ...[
                     const SizedBox(height: 2),
-                    Text(event!.note!,
-                        style: context.text.bodySmall
-                            ?.copyWith(color: c.textSecondary)),
+                    Text(
+                      event!.note!,
+                      style: context.text.bodySmall?.copyWith(
+                        color: c.textSecondary,
+                      ),
+                    ),
                   ] else if (state == _NodeState.upcoming) ...[
                     const SizedBox(height: 2),
-                    Text('Pending',
-                        style: context.text.bodySmall
-                            ?.copyWith(color: c.textTertiary)),
+                    Text(
+                      'Pending',
+                      style: context.text.bodySmall?.copyWith(
+                        color: c.textTertiary,
+                      ),
+                    ),
                   ],
                 ],
               ),

@@ -6,6 +6,11 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/models.dart';
 
+const _defaultTileUrl = String.fromEnvironment(
+  'MAP_TILE_URL',
+  defaultValue: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+);
+
 /// A real interactive map (OpenStreetMap tiles via flutter_map — no API key
 /// required, unlike Google Maps). Shows the destination pin and, when known,
 /// the user's own position and/or the donor's live position.
@@ -54,7 +59,8 @@ class _MapPanelState extends State<MapPanel> {
     super.didUpdateWidget(old);
     final tracked = widget.trackedLocation;
     if (tracked != null &&
-        (tracked.lat != _lastTracked?.lat || tracked.lng != _lastTracked?.lng)) {
+        (tracked.lat != _lastTracked?.lat ||
+            tracked.lng != _lastTracked?.lng)) {
       _lastTracked = tracked;
       // A live position update takes priority over whatever the viewer was
       // looking at — that's the point of tracking someone heading your way.
@@ -71,7 +77,8 @@ class _MapPanelState extends State<MapPanel> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final destPoint = widget.destination.location ?? const GeoPoint(12.9716, 77.5946);
+    final destPoint =
+        widget.destination.location ?? const GeoPoint(25.2048, 55.2708);
     final destLatLng = ll.LatLng(destPoint.lat, destPoint.lng);
     final myLatLng = widget.myLocation == null
         ? null
@@ -97,6 +104,7 @@ class _MapPanelState extends State<MapPanel> {
               trackedLatLng: trackedLatLng,
               interactive: widget.interactive,
               destination: widget.destination,
+              tileUrl: _defaultTileUrl,
             ),
             Positioned(
               left: AppSpacing.md,
@@ -139,8 +147,8 @@ class _MapView extends StatelessWidget {
     required this.trackedLatLng,
     required this.interactive,
     required this.destination,
-    this.initialZoom = 14,
-  });
+    required this.tileUrl,
+  }) : initialZoom = 14;
 
   final MapController controller;
   final ll.LatLng destLatLng;
@@ -148,6 +156,7 @@ class _MapView extends StatelessWidget {
   final ll.LatLng? trackedLatLng;
   final bool interactive;
   final Destination destination;
+  final String tileUrl;
   final double initialZoom;
 
   @override
@@ -159,7 +168,8 @@ class _MapView extends StatelessWidget {
     // together (a bad geocode landing far away shouldn't zoom the map out to
     // a whole-region view — better to just show the destination clearly).
     final anchor = trackedLatLng ?? destLatLng;
-    final farApart = myLatLng != null &&
+    final farApart =
+        myLatLng != null &&
         trackedLatLng == null &&
         ((destLatLng.latitude - myLatLng!.latitude).abs() > 1.5 ||
             (destLatLng.longitude - myLatLng!.longitude).abs() > 1.5);
@@ -174,14 +184,17 @@ class _MapView extends StatelessWidget {
         initialZoom: trackedLatLng != null ? 16 : initialZoom,
         initialCameraFit: bounds == null
             ? null
-            : CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(48)),
+            : CameraFit.bounds(
+                bounds: bounds,
+                padding: const EdgeInsets.all(48),
+              ),
         interactionOptions: InteractionOptions(
           flags: interactive ? InteractiveFlag.all : InteractiveFlag.none,
         ),
       ),
       children: [
         TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          urlTemplate: tileUrl,
           userAgentPackageName: 'com.bloodlink.bloodlink',
           maxZoom: 19,
         ),
@@ -210,6 +223,10 @@ class _MapView extends StatelessWidget {
               ),
           ],
         ),
+        const SimpleAttributionWidget(
+          source: Text('OpenStreetMap contributors'),
+          alignment: Alignment.topLeft,
+        ),
       ],
     );
   }
@@ -221,15 +238,15 @@ class _Dot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color,
-          border: Border.all(color: Colors.white, width: 3),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 4),
-          ],
-        ),
-      );
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: color,
+      border: Border.all(color: Colors.white, width: 3),
+      boxShadow: [
+        BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 4),
+      ],
+    ),
+  );
 }
 
 /// A gently pulsing marker — the visual cue that this point is live and
@@ -244,9 +261,10 @@ class _PulsingDot extends StatefulWidget {
 
 class _PulsingDotState extends State<_PulsingDot>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))
-        ..repeat();
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat();
 
   @override
   void dispose() {
@@ -279,7 +297,10 @@ class _PulsingDotState extends State<_PulsingDot>
                 color: widget.color,
                 border: Border.all(color: Colors.white, width: 2.5),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 4),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 4,
+                  ),
                 ],
               ),
             ),
@@ -298,7 +319,10 @@ class _DestinationChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: c.surface.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -314,10 +338,18 @@ class _DestinationChip extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(destination.name,
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: context.text.titleSmall),
-                Text(destination.address,
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: context.text.bodySmall),
+                Text(
+                  destination.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.titleSmall,
+                ),
+                Text(
+                  destination.address,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.bodySmall,
+                ),
               ],
             ),
           ),
@@ -328,7 +360,11 @@ class _DestinationChip extends StatelessWidget {
 }
 
 class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({required this.icon, required this.onTap, this.tooltip});
+  const _RoundIconButton({
+    required this.icon,
+    required this.onTap,
+    this.tooltip,
+  });
   final IconData icon;
   final VoidCallback onTap;
   final String? tooltip;
@@ -374,9 +410,11 @@ class _FullscreenMapState extends State<_FullscreenMap> {
 
   @override
   Widget build(BuildContext context) {
-    final destPoint = widget.destination.location ?? const GeoPoint(12.9716, 77.5946);
-    final myLatLng =
-        widget.myLocation == null ? null : ll.LatLng(widget.myLocation!.lat, widget.myLocation!.lng);
+    final destPoint =
+        widget.destination.location ?? const GeoPoint(25.2048, 55.2708);
+    final myLatLng = widget.myLocation == null
+        ? null
+        : ll.LatLng(widget.myLocation!.lat, widget.myLocation!.lng);
     final trackedLatLng = widget.trackedLocation == null
         ? null
         : ll.LatLng(widget.trackedLocation!.lat, widget.trackedLocation!.lng);
@@ -390,6 +428,7 @@ class _FullscreenMapState extends State<_FullscreenMap> {
         trackedLatLng: trackedLatLng,
         interactive: true,
         destination: widget.destination,
+        tileUrl: _defaultTileUrl,
       ),
     );
   }

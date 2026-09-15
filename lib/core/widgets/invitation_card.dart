@@ -32,7 +32,8 @@ class InvitationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final inv = invitation;
-    final expired = inv.status == InvitationStatus.expired ||
+    final expired =
+        inv.status == InvitationStatus.expired ||
         (inv.expiresAt != null && inv.expiresAt!.isBefore(DateTime.now()));
     final actionable = inv.status == InvitationStatus.pending && !expired;
 
@@ -40,7 +41,11 @@ class InvitationCard extends StatelessWidget {
       onTap: onTap,
       accent: urgencyStyle(context, inv.urgency).color,
       padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg + 4, AppSpacing.lg, AppSpacing.lg, AppSpacing.lg),
+        AppSpacing.lg + 4,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -55,8 +60,10 @@ class InvitationCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(Fmt.units(inv.units),
-                            style: context.text.titleMedium),
+                        Text(
+                          Fmt.units(inv.units),
+                          style: context.text.titleMedium,
+                        ),
                         const SizedBox(width: AppSpacing.sm),
                         DistanceIndicator(inv.distanceKm),
                       ],
@@ -79,7 +86,9 @@ class InvitationCard extends StatelessWidget {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
               decoration: BoxDecoration(
                 color: c.surfaceMuted,
                 borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -96,8 +105,9 @@ class InvitationCard extends StatelessWidget {
                 const SizedBox(width: AppSpacing.xs),
                 Text(
                   Fmt.remaining(inv.expiresAt),
-                  style:
-                      context.text.bodySmall?.copyWith(color: c.textSecondary),
+                  style: context.text.bodySmall?.copyWith(
+                    color: c.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -107,14 +117,17 @@ class InvitationCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: SecondaryButton(
-                        label: 'Decline', onPressed: busy ? null : onDecline),
+                      label: 'Decline',
+                      onPressed: busy ? null : onDecline,
+                    ),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: PrimaryButton(
-                        label: 'Accept',
-                        busy: busy,
-                        onPressed: onAccept),
+                      label: 'Accept',
+                      busy: busy,
+                      onPressed: onAccept,
+                    ),
                   ),
                 ],
               ),

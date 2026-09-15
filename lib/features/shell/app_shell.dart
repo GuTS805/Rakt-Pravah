@@ -24,7 +24,8 @@ class AppShell extends ConsumerWidget {
       bottomNavigationBar: AppBottomNavigation(
         currentIndex: shell.currentIndex,
         donateBadge: donorOn ? pending : 0,
-        onTap: (i) => shell.goBranch(i, initialLocation: i == shell.currentIndex),
+        onTap: (i) =>
+            shell.goBranch(i, initialLocation: i == shell.currentIndex),
       ),
     );
   }
@@ -122,8 +123,11 @@ class _NavButton extends StatelessWidget {
                 AnimatedScale(
                   scale: selected ? 1.06 : 1,
                   duration: const Duration(milliseconds: 180),
-                  child: Icon(selected ? item.activeIcon : item.icon,
-                      size: 24, color: color),
+                  child: Icon(
+                    selected ? item.activeIcon : item.icon,
+                    size: 24,
+                    color: color,
+                  ),
                 ),
                 if (badge > 0)
                   Positioned(
@@ -131,7 +135,9 @@ class _NavButton extends StatelessWidget {
                     top: -4,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 1),
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
                       constraints: const BoxConstraints(minWidth: 16),
                       decoration: BoxDecoration(
                         color: c.brand,
@@ -142,7 +148,10 @@ class _NavButton extends StatelessWidget {
                         '$badge',
                         textAlign: TextAlign.center,
                         style: AppTypography.mono(
-                            size: 9, weight: FontWeight.w700, color: c.onBrand),
+                          size: 9,
+                          weight: FontWeight.w700,
+                          color: c.onBrand,
+                        ),
                       ),
                     ),
                   ),

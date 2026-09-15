@@ -28,8 +28,11 @@ class NotificationService {
     const linux = LinuxInitializationSettings(defaultActionName: 'Open');
 
     await _plugin.initialize(
-      settings:
-          const InitializationSettings(android: android, iOS: ios, linux: linux),
+      settings: const InitializationSettings(
+        android: android,
+        iOS: ios,
+        linux: linux,
+      ),
       onDidReceiveNotificationResponse: (response) {
         final payload = response.payload;
         if (payload != null && payload.isNotEmpty) onTap?.call(payload);
@@ -38,11 +41,13 @@ class NotificationService {
 
     await _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.requestNotificationsPermission();
     await _plugin
         .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>()
+          IOSFlutterLocalNotificationsPlugin
+        >()
         ?.requestPermissions(alert: true, badge: true, sound: true);
 
     _ready = true;

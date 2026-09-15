@@ -48,7 +48,8 @@ class AdminBackend {
       );
       if (current.isTerminal) return;
       final timeline = List<Map<String, dynamic>>.from(
-          (data['timeline'] as List?) ?? const []);
+        (data['timeline'] as List?) ?? const [],
+      );
       timeline.add({
         'status': RequestStatus.removedByAdmin.name,
         'at': fs.Timestamp.fromDate(DateTime.now()),
@@ -59,11 +60,7 @@ class AdminBackend {
         'timeline': timeline,
       });
     });
-    await _writeAudit(
-      action: 'request.remove',
-      targetId: id,
-      detail: reason,
-    );
+    await _writeAudit(action: 'request.remove', targetId: id, detail: reason);
   }
 
   // --- Users -------------------------------------------------------------
@@ -99,8 +96,7 @@ class AdminBackend {
       'resolvedAt': fs.Timestamp.fromDate(DateTime.now()),
       'outcome': outcome,
     }, fs.SetOptions(merge: true));
-    await _writeAudit(
-        action: 'report.resolve', targetId: id, detail: outcome);
+    await _writeAudit(action: 'report.resolve', targetId: id, detail: outcome);
   }
 
   // --- Audit -------------------------------------------------------------
@@ -115,15 +111,14 @@ class AdminBackend {
     required String action,
     required String targetId,
     String? detail,
-  }) =>
-      _audit.add({
-        'action': action,
-        'targetId': targetId,
-        'detail': detail,
-        'actorId': actorId,
-        'actorName': actorName,
-        'at': fs.Timestamp.fromDate(DateTime.now()),
-      });
+  }) => _audit.add({
+    'action': action,
+    'targetId': targetId,
+    'detail': detail,
+    'actorId': actorId,
+    'actorName': actorName,
+    'at': fs.Timestamp.fromDate(DateTime.now()),
+  });
 }
 
 /// A request as an operator sees it: everything, including the fields the
@@ -178,7 +173,8 @@ class AdminRequest {
   Duration get age => DateTime.now().difference(createdAt);
 
   static AdminRequest fromDoc(
-      fs.QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    fs.QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final m = doc.data();
     return AdminRequest(
       id: doc.id,
@@ -187,15 +183,18 @@ class AdminRequest {
       bloodGroups: [
         for (final raw in (m['bloodGroups'] as List?) ?? const [])
           if (BloodGroup.values.any((g) => g.label == raw))
-            BloodGroup.fromLabel(raw as String)
+            BloodGroup.fromLabel(raw as String),
       ],
       units: (m['units'] as num?)?.toInt() ?? 0,
-      urgency: Urgency.values.firstWhere((u) => u.name == m['urgency'],
-          orElse: () => Urgency.routine),
-      status: RequestStatus.values.firstWhere((s) => s.name == m['status'],
-          orElse: () => RequestStatus.created),
-      createdAt:
-          (m['createdAt'] as fs.Timestamp?)?.toDate() ?? DateTime.now(),
+      urgency: Urgency.values.firstWhere(
+        (u) => u.name == m['urgency'],
+        orElse: () => Urgency.routine,
+      ),
+      status: RequestStatus.values.firstWhere(
+        (s) => s.name == m['status'],
+        orElse: () => RequestStatus.created,
+      ),
+      createdAt: (m['createdAt'] as fs.Timestamp?)?.toDate() ?? DateTime.now(),
       destinationName:
           ((m['destination'] as Map?)?['name'] as String?) ?? 'Unknown',
       locationLabel: m['requestLocationLabel'] as String? ?? '',
@@ -263,7 +262,8 @@ class AdminUser {
           ? null
           : DonorAvailability.values.firstWhere(
               (a) => a.name == donor['availability'],
-              orElse: () => DonorAvailability.off),
+              orElse: () => DonorAvailability.off,
+            ),
       totalDonations: (donor?['totalDonations'] as num?)?.toInt() ?? 0,
       lastDonation: (donor?['lastDonation'] as fs.Timestamp?)?.toDate(),
     );
@@ -294,14 +294,14 @@ class AdminReport {
   bool get isOpen => status != 'resolved';
 
   static AdminReport fromDoc(
-      fs.QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    fs.QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final m = doc.data();
     return AdminReport(
       id: doc.id,
       reason: m['reason'] as String? ?? 'Unspecified',
       status: m['status'] as String? ?? 'open',
-      createdAt:
-          (m['createdAt'] as fs.Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: (m['createdAt'] as fs.Timestamp?)?.toDate() ?? DateTime.now(),
       reporterId: m['reporterId'] as String?,
       targetRequestId: m['targetRequestId'] as String?,
       targetUserId: m['targetUserId'] as String?,
@@ -328,7 +328,8 @@ class AuditEntry {
   final String? detail;
 
   static AuditEntry fromDoc(
-      fs.QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    fs.QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final m = doc.data();
     return AuditEntry(
       id: doc.id,

@@ -22,7 +22,8 @@ class HistoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-          title: Text(donations ? 'Donation history' : 'Request history')),
+        title: Text(donations ? 'Donation history' : 'Request history'),
+      ),
       body: donations ? _Donations() : _Requests(),
     );
   }
@@ -52,7 +53,7 @@ class _Requests extends ConsumerWidget {
         return ListView.separated(
           padding: const EdgeInsets.all(AppSpacing.lg),
           itemCount: requests.length,
-          separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+          separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
           itemBuilder: (context, i) => RequestCard(
             request: requests[i],
             onTap: () => context.push(Routes.requestDetail(requests[i].id)),
@@ -67,10 +68,9 @@ class _Donations extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
-    final accepted =
-        (ref.watch(invitationsProvider).valueOrNull ?? const [])
-            .where((i) => i.status == InvitationStatus.accepted)
-            .toList();
+    final accepted = (ref.watch(invitationsProvider).valueOrNull ?? const [])
+        .where((i) => i.status == InvitationStatus.accepted)
+        .toList();
 
     if (accepted.isEmpty) {
       return const EmptyState(
@@ -84,7 +84,7 @@ class _Donations extends ConsumerWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(AppSpacing.lg),
       itemCount: accepted.length,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
       itemBuilder: (context, i) {
         final inv = accepted[i];
         return Container(
@@ -102,12 +102,12 @@ class _Donations extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(inv.destinationName,
-                        style: context.text.titleSmall),
+                    Text(inv.destinationName, style: context.text.titleSmall),
                     const SizedBox(height: 2),
                     Text(
-                        '${Fmt.units(inv.units)} · ${Fmt.relative(inv.createdAt)}',
-                        style: context.text.bodySmall),
+                      '${Fmt.units(inv.units)} · ${Fmt.relative(inv.createdAt)}',
+                      style: context.text.bodySmall,
+                    ),
                   ],
                 ),
               ),

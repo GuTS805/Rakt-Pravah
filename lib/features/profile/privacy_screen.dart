@@ -30,20 +30,23 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
     }
     final result = await ref.read(deviceLocationProvider.notifier).request();
     if (!result.isGranted && mounted) {
-      final deniedForever =
-          result.status == DeviceLocationStatus.deniedForever;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(deniedForever
-            ? 'Location is blocked for BloodLink. Enable it in system settings.'
-            : 'Location access is needed to match you with nearby requests.'),
-        action: deniedForever
-            ? SnackBarAction(
-                label: 'Open settings',
-                onPressed: () =>
-                    ref.read(locationServiceProvider).openAppSettings(),
-              )
-            : null,
-      ));
+      final deniedForever = result.status == DeviceLocationStatus.deniedForever;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            deniedForever
+                ? 'Location is blocked for BloodLink. Enable it in system settings.'
+                : 'Location access is needed to match you with nearby requests.',
+          ),
+          action: deniedForever
+              ? SnackBarAction(
+                  label: 'Open settings',
+                  onPressed: () =>
+                      ref.read(locationServiceProvider).openAppSettings(),
+                )
+              : null,
+        ),
+      );
     }
   }
 

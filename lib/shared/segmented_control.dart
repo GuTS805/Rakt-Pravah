@@ -51,11 +51,12 @@ class SegmentedControl extends StatelessWidget {
                     boxShadow: i == selected
                         ? [
                             BoxShadow(
-                              color: Colors.black
-                                  .withValues(alpha: context.isDark ? 0.3 : 0.06),
+                              color: Colors.black.withValues(
+                                alpha: context.isDark ? 0.3 : 0.06,
+                              ),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
-                            )
+                            ),
                           ]
                         : null,
                   ),
@@ -74,18 +75,20 @@ class SegmentedControl extends StatelessWidget {
                         const SizedBox(width: AppSpacing.xs + 2),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
                           decoration: BoxDecoration(
                             color: c.brand,
-                            borderRadius:
-                                BorderRadius.circular(AppRadius.pill),
+                            borderRadius: BorderRadius.circular(AppRadius.pill),
                           ),
                           child: Text(
                             '${segments[i].badge}',
                             style: AppTypography.mono(
-                                size: 10,
-                                weight: FontWeight.w700,
-                                color: c.onBrand),
+                              size: 10,
+                              weight: FontWeight.w700,
+                              color: c.onBrand,
+                            ),
                           ),
                         ),
                       ],

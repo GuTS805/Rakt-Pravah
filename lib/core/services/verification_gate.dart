@@ -17,7 +17,8 @@ bool requireVerifiedEmail(BuildContext context, WidgetRef ref) {
   if (!verified) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-          content: Text('Verify your email first — it only takes a minute.')),
+        content: Text('Verify your email first — it only takes a minute.'),
+      ),
     );
     context.push(Routes.verifyEmail);
   }

@@ -22,7 +22,10 @@ SemanticStyle urgencyStyle(BuildContext context, Urgency u) {
       return SemanticStyle(c.info, c.infoSubtle, Icons.schedule_rounded);
     case Urgency.urgent:
       return SemanticStyle(
-          c.warning, c.warningSubtle, Icons.priority_high_rounded);
+        c.warning,
+        c.warningSubtle,
+        Icons.priority_high_rounded,
+      );
     case Urgency.critical:
       return SemanticStyle(c.danger, c.dangerSubtle, Icons.warning_rounded);
   }
@@ -33,23 +36,38 @@ SemanticStyle statusStyle(BuildContext context, RequestStatus s) {
   switch (s) {
     case RequestStatus.created:
       return SemanticStyle(
-          c.textSecondary, c.surfaceMuted, Icons.add_circle_outline_rounded);
+        c.textSecondary,
+        c.surfaceMuted,
+        Icons.add_circle_outline_rounded,
+      );
     case RequestStatus.searching:
       return SemanticStyle(c.info, c.infoSubtle, Icons.radar_rounded);
     case RequestStatus.donorAccepted:
       return SemanticStyle(
-          c.success, c.successSubtle, Icons.how_to_reg_rounded);
+        c.success,
+        c.successSubtle,
+        Icons.how_to_reg_rounded,
+      );
     case RequestStatus.coordinating:
       return SemanticStyle(c.info, c.infoSubtle, Icons.forum_rounded);
     case RequestStatus.fulfilled:
       return SemanticStyle(
-          c.success, c.successSubtle, Icons.check_circle_rounded);
+        c.success,
+        c.successSubtle,
+        Icons.check_circle_rounded,
+      );
     case RequestStatus.cancelled:
       return SemanticStyle(
-          c.textTertiary, c.surfaceMuted, Icons.cancel_rounded);
+        c.textTertiary,
+        c.surfaceMuted,
+        Icons.cancel_rounded,
+      );
     case RequestStatus.expired:
       return SemanticStyle(
-          c.textTertiary, c.surfaceMuted, Icons.hourglass_disabled_rounded);
+        c.textTertiary,
+        c.surfaceMuted,
+        Icons.hourglass_disabled_rounded,
+      );
     case RequestStatus.removedByAdmin:
       return SemanticStyle(c.danger, c.dangerSubtle, Icons.gavel_rounded);
   }
@@ -60,12 +78,21 @@ SemanticStyle availabilityStyle(BuildContext context, DonorAvailability a) {
   switch (a) {
     case DonorAvailability.available:
       return SemanticStyle(
-          c.success, c.successSubtle, Icons.check_circle_rounded);
+        c.success,
+        c.successSubtle,
+        Icons.check_circle_rounded,
+      );
     case DonorAvailability.paused:
       return SemanticStyle(
-          c.warning, c.warningSubtle, Icons.pause_circle_rounded);
+        c.warning,
+        c.warningSubtle,
+        Icons.pause_circle_rounded,
+      );
     case DonorAvailability.off:
       return SemanticStyle(
-          c.textTertiary, c.surfaceMuted, Icons.do_not_disturb_on_rounded);
+        c.textTertiary,
+        c.surfaceMuted,
+        Icons.do_not_disturb_on_rounded,
+      );
   }
 }

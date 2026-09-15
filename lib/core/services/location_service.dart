@@ -14,8 +14,8 @@ class LocationGranted extends LocationResult {
   const LocationGranted(this.point, this.label);
   final GeoPoint point;
 
-  /// Best-effort human label from reverse geocoding, e.g. "Indiranagar,
-  /// Bengaluru". Falls back to raw coordinates if geocoding is unavailable.
+  /// Best-effort human label from reverse geocoding, e.g. "Dubai Marina,
+  /// Dubai". Falls back to raw coordinates if geocoding is unavailable.
   final String label;
 }
 
@@ -89,9 +89,7 @@ class LocationService {
 
   Future<LocationResult> _fetchPosition() async {
     final position = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-      ),
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
     );
     final point = GeoPoint(position.latitude, position.longitude);
     final label = await _reverseGeocode(point);
@@ -102,8 +100,10 @@ class LocationService {
     final geocoding = _geocodingOrNull;
     if (geocoding == null) return _coordsLabel(point);
     try {
-      final placemarks =
-          await geocoding.placemarkFromCoordinates(point.lat, point.lng);
+      final placemarks = await geocoding.placemarkFromCoordinates(
+        point.lat,
+        point.lng,
+      );
       if (placemarks.isEmpty) return _coordsLabel(point);
       final p = placemarks.first;
       final parts = <String>[

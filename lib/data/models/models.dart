@@ -43,8 +43,11 @@ class UserProfile {
   final bool isAdmin;
 
   String get initials {
-    final parts =
-        name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
     if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
     return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
@@ -139,11 +142,7 @@ class Destination {
 
 /// A single status transition, used to render the tracking timeline.
 class StatusEvent {
-  const StatusEvent({
-    required this.status,
-    required this.at,
-    this.note,
-  });
+  const StatusEvent({required this.status, required this.at, this.note});
 
   final RequestStatus status;
   final DateTime at;
@@ -276,18 +275,18 @@ class Invitation {
   final DateTime? expiresAt;
 
   Invitation copyWith({InvitationStatus? status}) => Invitation(
-        id: id,
-        requestId: requestId,
-        bloodGroups: bloodGroups,
-        units: units,
-        urgency: urgency,
-        distanceKm: distanceKm,
-        status: status ?? this.status,
-        destinationName: destinationName,
-        destinationArea: destinationArea,
-        createdAt: createdAt,
-        expiresAt: expiresAt,
-      );
+    id: id,
+    requestId: requestId,
+    bloodGroups: bloodGroups,
+    units: units,
+    urgency: urgency,
+    distanceKm: distanceKm,
+    status: status ?? this.status,
+    destinationName: destinationName,
+    destinationArea: destinationArea,
+    createdAt: createdAt,
+    expiresAt: expiresAt,
+  );
 }
 
 class ChatMessage {
@@ -312,13 +311,13 @@ class ChatMessage {
   final bool failed;
 
   ChatMessage copyWith({bool? pending, bool? failed}) => ChatMessage(
-        id: id,
-        requestId: requestId,
-        senderId: senderId,
-        senderName: senderName,
-        text: text,
-        sentAt: sentAt,
-        pending: pending ?? this.pending,
-        failed: failed ?? this.failed,
-      );
+    id: id,
+    requestId: requestId,
+    senderId: senderId,
+    senderName: senderName,
+    text: text,
+    sentAt: sentAt,
+    pending: pending ?? this.pending,
+    failed: failed ?? this.failed,
+  );
 }

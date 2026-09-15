@@ -66,7 +66,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              context.isDark ? const Color(0xFF1B1215) : const Color(0xFFFFF1F0),
+              context.isDark
+                  ? const Color(0xFF1B1215)
+                  : const Color(0xFFFFF1F0),
               c.background,
             ],
             stops: const [0, 0.42],
@@ -78,7 +80,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onRefresh: () async => ref.invalidate(myRequestsProvider),
             child: ListView(
               padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.xxxl),
+                AppSpacing.lg,
+                AppSpacing.md,
+                AppSpacing.lg,
+                AppSpacing.xxxl,
+              ),
               children: [
                 _BrandRow(
                   hasUnread: pending > 0,
@@ -163,8 +169,10 @@ class _BrandRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('BloodLink', style: context.text.titleLarge),
-              Text('Life, connected.',
-                  style: context.text.bodySmall?.copyWith(color: c.textTertiary)),
+              Text(
+                'Life, connected.',
+                style: context.text.bodySmall?.copyWith(color: c.textTertiary),
+              ),
             ],
           ),
         ),
@@ -188,7 +196,9 @@ class _LocationChip extends StatelessWidget {
     return Container(
       constraints: const BoxConstraints(maxWidth: 132),
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -234,8 +244,11 @@ class _BellButton extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            Icon(Icons.notifications_none_rounded,
-                size: 21, color: c.textPrimary),
+            Icon(
+              Icons.notifications_none_rounded,
+              size: 21,
+              color: c.textPrimary,
+            ),
             if (hasUnread)
               Positioned(
                 right: 9,
@@ -277,8 +290,8 @@ class _Hero extends StatelessWidget {
     final headline = hasActiveRequest
         ? 'Your request is live.'
         : isDonating
-            ? 'Someone is counting on you.'
-            : 'A little help can\nmean everything.';
+        ? 'Someone is counting on you.'
+        : 'A little help can\nmean everything.';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -345,17 +358,18 @@ class _EmergencyCard extends StatelessWidget {
               children: [
                 Text(
                   compact ? 'Need blood for someone else?' : 'Need blood now?',
-                  style: (compact
-                          ? context.text.titleLarge
-                          : context.text.headlineMedium)
-                      ?.copyWith(color: c.onBrand),
+                  style:
+                      (compact
+                              ? context.text.titleLarge
+                              : context.text.headlineMedium)
+                          ?.copyWith(color: c.onBrand),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   compact
                       ? 'Start a second request.'
                       : 'Create a request in under a minute. We\'ll alert '
-                          'nearby donors whose blood type matches.',
+                            'nearby donors whose blood type matches.',
                   style: context.text.bodyMedium?.copyWith(
                     color: c.onBrand.withValues(alpha: 0.88),
                     height: 1.45,
@@ -383,7 +397,9 @@ class _CtaPill extends StatelessWidget {
     final c = context.colors;
     return Container(
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xl, vertical: AppSpacing.md),
+        horizontal: AppSpacing.xl,
+        vertical: AppSpacing.md,
+      ),
       decoration: BoxDecoration(
         color: c.onBrand,
         borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -393,8 +409,7 @@ class _CtaPill extends StatelessWidget {
         children: [
           Icon(Icons.add_circle_outline_rounded, size: 19, color: c.brand),
           const SizedBox(width: AppSpacing.sm),
-          Text(label,
-              style: context.text.labelLarge?.copyWith(color: c.brand)),
+          Text(label, style: context.text.labelLarge?.copyWith(color: c.brand)),
         ],
       ),
     );
@@ -466,8 +481,10 @@ class _Stat extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
-        Text(label,
-            style: context.text.bodySmall?.copyWith(color: c.textTertiary)),
+        Text(
+          label,
+          style: context.text.bodySmall?.copyWith(color: c.textTertiary),
+        ),
       ],
     );
   }
@@ -541,21 +558,18 @@ class _LocationBannerState extends ConsumerState<_LocationBanner> {
     final c = context.colors;
     final (title, action) = switch (widget.status) {
       DeviceLocationStatus.deniedForever => (
-          'Location is blocked for BloodLink',
-          'Open settings',
-        ),
+        'Location is blocked for BloodLink',
+        'Open settings',
+      ),
       DeviceLocationStatus.serviceDisabled => (
-          'Turn on device location',
-          'Open settings',
-        ),
+        'Turn on device location',
+        'Open settings',
+      ),
       DeviceLocationStatus.denied => (
-          'Location access was declined',
-          'Try again',
-        ),
-      _ => (
-          'Enable location to match you with nearby requests',
-          'Enable',
-        ),
+        'Location access was declined',
+        'Try again',
+      ),
+      _ => ('Enable location to match you with nearby requests', 'Enable'),
     };
 
     return AppCard(
@@ -574,9 +588,13 @@ class _LocationBannerState extends ConsumerState<_LocationBanner> {
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
-            child: Text(title,
-                style: context.text.bodyMedium?.copyWith(
-                    color: c.textPrimary, fontWeight: FontWeight.w500)),
+            child: Text(
+              title,
+              style: context.text.bodyMedium?.copyWith(
+                color: c.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
           const SizedBox(width: AppSpacing.sm),
           if (_busy)
@@ -584,10 +602,15 @@ class _LocationBannerState extends ConsumerState<_LocationBanner> {
               height: 16,
               width: 16,
               child: CircularProgressIndicator(
-                  strokeWidth: 2, valueColor: AlwaysStoppedAnimation(c.info)),
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(c.info),
+              ),
             )
           else
-            Text(action, style: context.text.labelLarge?.copyWith(color: c.brand)),
+            Text(
+              action,
+              style: context.text.labelLarge?.copyWith(color: c.brand),
+            ),
         ],
       ),
     );
@@ -611,8 +634,10 @@ class _ActiveRequestCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text('Your active request',
-                    style: context.text.titleSmall),
+                child: Text(
+                  'Your active request',
+                  style: context.text.titleSmall,
+                ),
               ),
               StatusBadge(request.status, dense: true),
             ],
@@ -636,8 +661,9 @@ class _ActiveRequestCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     _statusLine(request),
-                    style:
-                        context.text.bodyMedium?.copyWith(color: c.textPrimary),
+                    style: context.text.bodyMedium?.copyWith(
+                      color: c.textPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -645,8 +671,10 @@ class _ActiveRequestCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           Row(
             children: [
-              Text('Track request',
-                  style: context.text.labelLarge?.copyWith(color: c.brand)),
+              Text(
+                'Track request',
+                style: context.text.labelLarge?.copyWith(color: c.brand),
+              ),
               const SizedBox(width: AppSpacing.xs),
               Icon(Icons.arrow_forward_rounded, size: 16, color: c.brand),
             ],
@@ -683,7 +711,9 @@ class _SearchingRow extends StatelessWidget {
           height: 16,
           width: 16,
           child: CircularProgressIndicator(
-              strokeWidth: 2, valueColor: AlwaysStoppedAnimation(c.info)),
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation(c.info),
+          ),
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
@@ -691,7 +721,7 @@ class _SearchingRow extends StatelessWidget {
             request.donorsContacted == 0
                 ? 'Searching for nearby donors…'
                 : '${request.donorsContacted} donors contacted · '
-                    'within ${request.searchRadiusKm.toStringAsFixed(0)} km',
+                      'within ${request.searchRadiusKm.toStringAsFixed(0)} km',
             style: AppTypography.mono(size: 12.5, color: c.textSecondary),
           ),
         ),
@@ -716,8 +746,7 @@ class _ActiveDonationCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child:
-                    Text('You\'re donating', style: context.text.titleSmall),
+                child: Text('You\'re donating', style: context.text.titleSmall),
               ),
               Icon(Icons.how_to_reg_rounded, size: 18, color: c.success),
             ],
@@ -731,13 +760,17 @@ class _ActiveDonationCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          Text('${invitation.destinationName} · ${invitation.destinationArea}',
-              style: context.text.bodyMedium),
+          Text(
+            '${invitation.destinationName} · ${invitation.destinationArea}',
+            style: context.text.bodyMedium,
+          ),
           const SizedBox(height: AppSpacing.lg),
           Row(
             children: [
-              Text('Open coordination',
-                  style: context.text.labelLarge?.copyWith(color: c.brand)),
+              Text(
+                'Open coordination',
+                style: context.text.labelLarge?.copyWith(color: c.brand),
+              ),
               const SizedBox(width: AppSpacing.xs),
               Icon(Icons.arrow_forward_rounded, size: 16, color: c.brand),
             ],

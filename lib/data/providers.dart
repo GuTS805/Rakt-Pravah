@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/services/location_service.dart';
 import 'backend.dart';
@@ -10,8 +13,7 @@ import 'models/models.dart';
 /// directly; everything goes through this provider, typed to the [Backend]
 /// interface rather than the Firebase implementation, so tests can override
 /// it with a fake and drive real screens without a live project.
-final backendProvider =
-    Provider<Backend>((ref) => FirebaseBackend.instance);
+final backendProvider = Provider<Backend>((ref) => FirebaseBackend.instance);
 
 // ---------------------------------------------------------------------------
 // Auth
@@ -77,7 +79,11 @@ class AuthController extends Notifier<AuthState> {
     String? city,
   }) async {
     if (state.user == null) return;
-    await _backend.updateProfile(name: name, bloodGroup: bloodGroup, city: city);
+    await _backend.updateProfile(
+      name: name,
+      bloodGroup: bloodGroup,
+      city: city,
+    );
     state = AuthState(AuthStatus.authenticated, _backend.currentUser);
   }
 
@@ -86,8 +92,7 @@ class AuthController extends Notifier<AuthState> {
   Future<void> sendEmailVerification(String email) =>
       _backend.sendVerificationEmailLink(email);
 
-  bool isEmailVerificationLink(String link) =>
-      _backend.isEmailSignInLink(link);
+  bool isEmailVerificationLink(String link) => _backend.isEmailSignInLink(link);
 
   /// Completes verification once the user taps the emailed link. Keeps
   /// whatever onboarding/authenticated status the user was already in —
@@ -98,7 +103,9 @@ class AuthController extends Notifier<AuthState> {
     required String link,
   }) async {
     final user = await _backend.completeEmailLinkVerification(
-        email: email, link: link);
+      email: email,
+      link: link,
+    );
     state = AuthState(state.status, user);
   }
 
@@ -108,24 +115,49 @@ class AuthController extends Notifier<AuthState> {
   }
 }
 
-final authControllerProvider =
-    NotifierProvider<AuthController, AuthState>(AuthController.new);
+final authControllerProvider = NotifierProvider<AuthController, AuthState>(
+  AuthController.new,
+);
 
 final currentUserProvider = Provider<UserProfile?>(
-    (ref) => ref.watch(authControllerProvider).user);
+  (ref) => ref.watch(authControllerProvider).user,
+);
 
 // ---------------------------------------------------------------------------
 // Theme mode
 // ---------------------------------------------------------------------------
-final themeModeProvider =
-    NotifierProvider<ThemeModeController, ThemeMode>(ThemeModeController.new);
+final themeModeProvider = NotifierProvider<ThemeModeController, ThemeMode>(
+  ThemeModeController.new,
+);
 
 class ThemeModeController extends Notifier<ThemeMode> {
+  static const _preferenceKey = 'bloodlink_appearance_theme_mode';
+
   @override
-  ThemeMode build() => ThemeMode.system;
-  void set(ThemeMode mode) => state = mode;
-  void toggle() => state =
-      state == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+  ThemeMode build() {
+    unawaited(_restore());
+    return ThemeMode.system;
+  }
+
+  Future<void> _restore() async {
+    final preferences = await SharedPreferences.getInstance();
+    final savedMode = preferences.getString(_preferenceKey);
+    final modes = ThemeMode.values.where((mode) => mode.name == savedMode);
+    if (modes.isNotEmpty) state = modes.first;
+  }
+
+  void set(ThemeMode mode) {
+    state = mode;
+    unawaited(_persist(mode));
+  }
+
+  Future<void> _persist(ThemeMode mode) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_preferenceKey, mode.name);
+  }
+
+  void toggle() =>
+      set(state == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark);
 }
 
 // ---------------------------------------------------------------------------
@@ -139,10 +171,9 @@ final donorProfileProvider = StreamProvider<DonorProfile>((ref) {
 /// Synchronous view of donor state with the seeded default as fallback.
 final donorProfileValueProvider = Provider<DonorProfile>((ref) {
   final backend = ref.watch(backendProvider);
-  return ref.watch(donorProfileProvider).maybeWhen(
-        data: (d) => d,
-        orElse: () => backend.donorProfile,
-      );
+  return ref
+      .watch(donorProfileProvider)
+      .maybeWhen(data: (d) => d, orElse: () => backend.donorProfile);
 });
 
 // ---------------------------------------------------------------------------
@@ -154,8 +185,7 @@ final myRequestsProvider = StreamProvider<List<BloodRequest>>((ref) {
 });
 
 /// Live stream of a single request (auto-updating tracking screen).
-final requestProvider =
-    StreamProvider.family<BloodRequest, String>((ref, id) {
+final requestProvider = StreamProvider.family<BloodRequest, String>((ref, id) {
   final backend = ref.watch(backendProvider);
   return backend.requestStream(id);
 });
@@ -197,9 +227,18 @@ final acceptedInvitationProvider = Provider<Invitation?>((ref) {
 // ---------------------------------------------------------------------------
 // Device location (real GPS + permission — not demo data)
 // ---------------------------------------------------------------------------
-final locationServiceProvider = Provider<LocationService>((ref) => LocationService());
+final locationServiceProvider = Provider<LocationService>(
+  (ref) => LocationService(),
+);
 
-enum DeviceLocationStatus { unknown, requesting, granted, denied, deniedForever, serviceDisabled }
+enum DeviceLocationStatus {
+  unknown,
+  requesting,
+  granted,
+  denied,
+  deniedForever,
+  serviceDisabled,
+}
 
 class DeviceLocationState {
   const DeviceLocationState({
@@ -214,13 +253,15 @@ class DeviceLocationState {
 
   bool get isGranted => status == DeviceLocationStatus.granted && point != null;
 
-  DeviceLocationState copyWith(
-          {DeviceLocationStatus? status, GeoPoint? point, String? label}) =>
-      DeviceLocationState(
-        status: status ?? this.status,
-        point: point ?? this.point,
-        label: label ?? this.label,
-      );
+  DeviceLocationState copyWith({
+    DeviceLocationStatus? status,
+    GeoPoint? point,
+    String? label,
+  }) => DeviceLocationState(
+    status: status ?? this.status,
+    point: point ?? this.point,
+    label: label ?? this.label,
+  );
 }
 
 /// Real device location state. Backed entirely by the OS location permission
@@ -251,13 +292,17 @@ class DeviceLocationController extends Notifier<DeviceLocationState> {
   void _apply(LocationResult result) {
     state = switch (result) {
       LocationGranted(:final point, :final label) => DeviceLocationState(
-          status: DeviceLocationStatus.granted, point: point, label: label),
-      LocationDenied() =>
-        state.copyWith(status: DeviceLocationStatus.denied),
-      LocationDeniedForever() =>
-        state.copyWith(status: DeviceLocationStatus.deniedForever),
-      LocationServiceDisabled() =>
-        state.copyWith(status: DeviceLocationStatus.serviceDisabled),
+        status: DeviceLocationStatus.granted,
+        point: point,
+        label: label,
+      ),
+      LocationDenied() => state.copyWith(status: DeviceLocationStatus.denied),
+      LocationDeniedForever() => state.copyWith(
+        status: DeviceLocationStatus.deniedForever,
+      ),
+      LocationServiceDisabled() => state.copyWith(
+        status: DeviceLocationStatus.serviceDisabled,
+      ),
     };
     // Keep Donor Mode's location flag, and the backend's cached position used
     // to compute invitation distances, in sync with the real permission state.
@@ -265,20 +310,24 @@ class DeviceLocationController extends Notifier<DeviceLocationState> {
     backend.myLocation = state.point;
     if (backend.currentUser != null) {
       backend.setDonorProfile(
-          backend.donorProfile.copyWith(locationGranted: state.isGranted));
+        backend.donorProfile.copyWith(locationGranted: state.isGranted),
+      );
     }
   }
 }
 
 final deviceLocationProvider =
     NotifierProvider<DeviceLocationController, DeviceLocationState>(
-        DeviceLocationController.new);
+      DeviceLocationController.new,
+    );
 
 // ---------------------------------------------------------------------------
 // Chat
 // ---------------------------------------------------------------------------
-final chatProvider =
-    StreamProvider.family<List<ChatMessage>, String>((ref, requestId) {
+final chatProvider = StreamProvider.family<List<ChatMessage>, String>((
+  ref,
+  requestId,
+) {
   final backend = ref.watch(backendProvider);
   return backend.chatStream(requestId);
 });

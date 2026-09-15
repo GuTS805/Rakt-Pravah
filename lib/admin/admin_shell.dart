@@ -56,8 +56,12 @@ class AdminShell extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg,
-                      AppSpacing.xl, AppSpacing.lg, AppSpacing.lg),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.xl,
+                    AppSpacing.lg,
+                    AppSpacing.lg,
+                  ),
                   child: Row(
                     children: [
                       const BrandMark(size: 26),
@@ -66,11 +70,13 @@ class AdminShell extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('BloodLink',
-                                style: context.text.titleMedium),
-                            Text('Operations',
-                                style: context.text.bodySmall
-                                    ?.copyWith(color: c.textTertiary)),
+                            Text('BloodLink', style: context.text.titleMedium),
+                            Text(
+                              'Operations',
+                              style: context.text.bodySmall?.copyWith(
+                                color: c.textTertiary,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -99,13 +105,18 @@ class AdminShell extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(user?.name ?? 'Signed out',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: context.text.titleSmall),
-                            Text('Administrator',
-                                style: context.text.bodySmall
-                                    ?.copyWith(color: c.textTertiary)),
+                            Text(
+                              user?.name ?? 'Signed out',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.text.titleSmall,
+                            ),
+                            Text(
+                              'Administrator',
+                              style: context.text.bodySmall?.copyWith(
+                                color: c.textTertiary,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -139,7 +150,9 @@ class _NavItem extends StatelessWidget {
     final c = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm, vertical: 1),
+        horizontal: AppSpacing.sm,
+        vertical: 1,
+      ),
       child: Material(
         color: selected ? c.brandSubtle : Colors.transparent,
         borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -148,36 +161,44 @@ class _NavItem extends StatelessWidget {
           onTap: () => context.go(section.path),
           child: Padding(
             padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md, vertical: AppSpacing.md),
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
             child: Row(
               children: [
-                Icon(section.icon,
-                    size: 18,
-                    color: selected ? c.brand : c.textSecondary),
+                Icon(
+                  section.icon,
+                  size: 18,
+                  color: selected ? c.brand : c.textSecondary,
+                ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Text(
                     section.label,
                     style: context.text.titleSmall?.copyWith(
                       color: selected ? c.brand : c.textPrimary,
-                      fontWeight:
-                          selected ? FontWeight.w600 : FontWeight.w500,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                     ),
                   ),
                 ),
                 if (badge != null)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: c.warning,
                       borderRadius: BorderRadius.circular(AppRadius.pill),
                     ),
-                    child: Text('$badge',
-                        style: AppTypography.mono(
-                            size: 11,
-                            weight: FontWeight.w700,
-                            color: Colors.white)),
+                    child: Text(
+                      '$badge',
+                      style: AppTypography.mono(
+                        size: 11,
+                        weight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -212,7 +233,11 @@ class AdminPage extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.fromLTRB(
-              AppSpacing.xxl, AppSpacing.xl, AppSpacing.xxl, AppSpacing.lg),
+            AppSpacing.xxl,
+            AppSpacing.xl,
+            AppSpacing.xxl,
+            AppSpacing.lg,
+          ),
           decoration: BoxDecoration(
             color: c.surface,
             border: Border(bottom: BorderSide(color: c.border)),
@@ -225,9 +250,12 @@ class AdminPage extends StatelessWidget {
                   children: [
                     Text(title, style: context.text.headlineSmall),
                     const SizedBox(height: 2),
-                    Text(subtitle,
-                        style: context.text.bodyMedium
-                            ?.copyWith(color: c.textSecondary)),
+                    Text(
+                      subtitle,
+                      style: context.text.bodyMedium?.copyWith(
+                        color: c.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -278,16 +306,22 @@ class AdminMetric extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$value',
-              style: AppTypography.mono(
-                  size: 30, weight: FontWeight.w700, color: colour)),
+          Text(
+            '$value',
+            style: AppTypography.mono(
+              size: 30,
+              weight: FontWeight.w700,
+              color: colour,
+            ),
+          ),
           const SizedBox(height: AppSpacing.xs),
           Text(label, style: context.text.titleSmall),
           if (hint != null) ...[
             const SizedBox(height: 2),
-            Text(hint!,
-                style:
-                    context.text.bodySmall?.copyWith(color: c.textTertiary)),
+            Text(
+              hint!,
+              style: context.text.bodySmall?.copyWith(color: c.textTertiary),
+            ),
           ],
         ],
       ),
@@ -298,7 +332,12 @@ class AdminMetric extends StatelessWidget {
 /// A bordered surface for a table or list. Tables scroll horizontally inside
 /// it rather than forcing the page to.
 class AdminPanel extends StatelessWidget {
-  const AdminPanel({super.key, required this.title, required this.child, this.trailing});
+  const AdminPanel({
+    super.key,
+    required this.title,
+    required this.child,
+    this.trailing,
+  });
   final String title;
   final Widget child;
   final Widget? trailing;
@@ -316,8 +355,12 @@ class AdminPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md,
-                AppSpacing.md, AppSpacing.md),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.md,
+            ),
             child: Row(
               children: [
                 Expanded(child: Text(title, style: context.text.titleMedium)),
@@ -355,8 +398,9 @@ class AdminEmpty extends StatelessWidget {
               child: Text(
                 message,
                 textAlign: TextAlign.center,
-                style:
-                    context.text.bodyMedium?.copyWith(color: c.textSecondary),
+                style: context.text.bodyMedium?.copyWith(
+                  color: c.textSecondary,
+                ),
               ),
             ),
           ],

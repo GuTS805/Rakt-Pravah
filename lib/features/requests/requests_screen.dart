@@ -35,7 +35,11 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.sm),
+                AppSpacing.lg,
+                AppSpacing.md,
+                AppSpacing.lg,
+                AppSpacing.sm,
+              ),
               child: Row(
                 children: [
                   Text('Requests', style: context.text.headlineMedium),
@@ -97,19 +101,27 @@ class _MyRequests extends ConsumerWidget {
         final past = requests.where((r) => r.status.isTerminal).toList();
         return ListView(
           padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xxxl),
+            AppSpacing.lg,
+            0,
+            AppSpacing.lg,
+            AppSpacing.xxxl,
+          ),
           children: [
             if (active.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Text('Active',
-                    style: context.text.labelMedium
-                        ?.copyWith(color: context.colors.textTertiary)),
+                child: Text(
+                  'Active',
+                  style: context.text.labelMedium?.copyWith(
+                    color: context.colors.textTertiary,
+                  ),
+                ),
               ),
               for (final r in active) ...[
                 RequestCard(
-                    request: r,
-                    onTap: () => context.push(Routes.requestDetail(r.id))),
+                  request: r,
+                  onTap: () => context.push(Routes.requestDetail(r.id)),
+                ),
                 const SizedBox(height: AppSpacing.md),
               ],
             ],
@@ -117,14 +129,18 @@ class _MyRequests extends ConsumerWidget {
               const SizedBox(height: AppSpacing.sm),
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Text('Past',
-                    style: context.text.labelMedium
-                        ?.copyWith(color: context.colors.textTertiary)),
+                child: Text(
+                  'Past',
+                  style: context.text.labelMedium?.copyWith(
+                    color: context.colors.textTertiary,
+                  ),
+                ),
               ),
               for (final r in past) ...[
                 RequestCard(
-                    request: r,
-                    onTap: () => context.push(Routes.requestDetail(r.id))),
+                  request: r,
+                  onTap: () => context.push(Routes.requestDetail(r.id)),
+                ),
                 const SizedBox(height: AppSpacing.md),
               ],
             ],
@@ -150,8 +166,9 @@ class _Invitations extends ConsumerWidget {
         onRetry: () => ref.invalidate(invitationsProvider),
       ),
       data: (invites) {
-        final visible =
-            invites.where((i) => i.status != InvitationStatus.declined).toList();
+        final visible = invites
+            .where((i) => i.status != InvitationStatus.declined)
+            .toList();
         if (!donorOn) {
           return EmptyState(
             icon: Icons.favorite_outline_rounded,
@@ -167,15 +184,20 @@ class _Invitations extends ConsumerWidget {
           return const EmptyState(
             icon: Icons.inbox_outlined,
             title: 'No invitations right now',
-            message: 'We\'ll notify you the moment someone nearby needs your '
+            message:
+                'We\'ll notify you the moment someone nearby needs your '
                 'help.',
           );
         }
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xxxl),
+            AppSpacing.lg,
+            0,
+            AppSpacing.lg,
+            AppSpacing.xxxl,
+          ),
           itemCount: visible.length,
-          separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+          separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
           itemBuilder: (context, i) {
             final inv = visible[i];
             return InvitationCard(
@@ -197,12 +219,16 @@ class _ListSkeleton extends StatelessWidget {
   const _ListSkeleton();
   @override
   Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xxxl),
-        children: const [
-          CardSkeleton(),
-          SizedBox(height: AppSpacing.md),
-          CardSkeleton(),
-        ],
-      );
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.lg,
+      0,
+      AppSpacing.lg,
+      AppSpacing.xxxl,
+    ),
+    children: const [
+      CardSkeleton(),
+      SizedBox(height: AppSpacing.md),
+      CardSkeleton(),
+    ],
+  );
 }

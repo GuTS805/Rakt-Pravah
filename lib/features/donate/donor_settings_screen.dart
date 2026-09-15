@@ -23,27 +23,34 @@ class DonorSettingsScreen extends ConsumerWidget {
   /// matching; it can't revoke an already-granted OS permission from inside
   /// the app, so we're upfront about that rather than pretending otherwise.
   Future<void> _toggleLocation(
-      BuildContext context, WidgetRef ref, DonorProfile donor, bool on) async {
+    BuildContext context,
+    WidgetRef ref,
+    DonorProfile donor,
+    bool on,
+  ) async {
     if (!on) {
       await _update(ref, donor.copyWith(locationGranted: false));
       return;
     }
     final result = await ref.read(deviceLocationProvider.notifier).request();
     if (!result.isGranted && context.mounted) {
-      final deniedForever =
-          result.status == DeviceLocationStatus.deniedForever;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(deniedForever
-            ? 'Location is blocked for BloodLink. Enable it in system settings.'
-            : 'Location access is needed to match you by distance.'),
-        action: deniedForever
-            ? SnackBarAction(
-                label: 'Open settings',
-                onPressed: () =>
-                    ref.read(locationServiceProvider).openAppSettings(),
-              )
-            : null,
-      ));
+      final deniedForever = result.status == DeviceLocationStatus.deniedForever;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            deniedForever
+                ? 'Location is blocked for BloodLink. Enable it in system settings.'
+                : 'Location access is needed to match you by distance.',
+          ),
+          action: deniedForever
+              ? SnackBarAction(
+                  label: 'Open settings',
+                  onPressed: () =>
+                      ref.read(locationServiceProvider).openAppSettings(),
+                )
+              : null,
+        ),
+      );
     }
     // On success, DeviceLocationController already syncs donor.locationGranted.
   }
@@ -65,7 +72,8 @@ class DonorSettingsScreen extends ConsumerWidget {
                 _AvailabilityRow(
                   availability: a,
                   selected: donor.availability == a,
-                  locked: donor.isInCooldown && a == DonorAvailability.available,
+                  locked:
+                      donor.isInCooldown && a == DonorAvailability.available,
                   onTap: () {
                     if (a == DonorAvailability.available &&
                         !requireVerifiedEmail(context, ref)) {
@@ -89,8 +97,7 @@ class DonorSettingsScreen extends ConsumerWidget {
                 title: 'Push notifications',
                 subtitle: 'Get notified about matching requests',
                 value: donor.notifyPush,
-                onChanged: (v) =>
-                    _update(ref, donor.copyWith(notifyPush: v)),
+                onChanged: (v) => _update(ref, donor.copyWith(notifyPush: v)),
               ),
               SettingsSwitchTile(
                 icon: Icons.priority_high_rounded,
@@ -105,9 +112,13 @@ class DonorSettingsScreen extends ConsumerWidget {
           const SizedBox(height: AppSpacing.xl),
           Padding(
             padding: const EdgeInsets.only(
-                left: AppSpacing.xs, bottom: AppSpacing.sm),
-            child: Text('MATCH RADIUS',
-                style: AppTypography.eyebrow(c.textTertiary)),
+              left: AppSpacing.xs,
+              bottom: AppSpacing.sm,
+            ),
+            child: Text(
+              'MATCH RADIUS',
+              style: AppTypography.eyebrow(c.textTertiary),
+            ),
           ),
           Container(
             padding: const EdgeInsets.all(AppSpacing.lg),
@@ -123,11 +134,14 @@ class DonorSettingsScreen extends ConsumerWidget {
                   children: [
                     Text('Notify me within', style: context.text.bodyLarge),
                     const Spacer(),
-                    Text('${donor.maxDistanceKm.toStringAsFixed(0)} km',
-                        style: AppTypography.mono(
-                            size: 15,
-                            weight: FontWeight.w600,
-                            color: c.brand)),
+                    Text(
+                      '${donor.maxDistanceKm.toStringAsFixed(0)} km',
+                      style: AppTypography.mono(
+                        size: 15,
+                        weight: FontWeight.w600,
+                        color: c.brand,
+                      ),
+                    ),
                   ],
                 ),
                 Slider(
@@ -188,16 +202,26 @@ class _AvailabilityRow extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
-              Icon(locked ? Icons.bedtime_rounded : style.icon,
-                  size: 20, color: style.color),
+              Icon(
+                locked ? Icons.bedtime_rounded : style.icon,
+                size: 20,
+                color: style.color,
+              ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: Text(availability.label,
-                    style: context.text.bodyLarge
-                        ?.copyWith(fontWeight: FontWeight.w500)),
+                child: Text(
+                  availability.label,
+                  style: context.text.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
               if (locked)
-                Icon(Icons.lock_outline_rounded, color: c.textTertiary, size: 18)
+                Icon(
+                  Icons.lock_outline_rounded,
+                  color: c.textTertiary,
+                  size: 18,
+                )
               else if (selected)
                 Icon(Icons.check_circle_rounded, color: c.brand, size: 20)
               else
