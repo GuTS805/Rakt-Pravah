@@ -20,7 +20,10 @@ class NotificationService {
 
   Future<void> init() async {
     if (_ready) return;
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    // A dedicated white-on-transparent silhouette: Android flattens a
+    // notification icon to its alpha and tints it, so pointing this at the
+    // colour launcher icon renders a solid blob in the status bar.
+    const android = AndroidInitializationSettings('@drawable/ic_notification');
     const ios = DarwinInitializationSettings();
     const linux = LinuxInitializationSettings(defaultActionName: 'Open');
 

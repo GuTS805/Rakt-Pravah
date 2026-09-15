@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
 
-/// BloodLink's mark: a blood drop with a coordination "link" node inside it.
-/// Drawn (not an asset) so it scales crisply and picks up theme colors.
+/// BloodLink's mark: the blood drop with two hands inside it.
+///
+/// Presented on a white chip rather than free-standing, because the hands are
+/// white negative space that opens out to the background — lift the artwork
+/// off white and the hands turn into holes. White is a real colour in this
+/// mark, so the chip is part of it. The chip also keeps the mark legible on
+/// both themes without needing two versions of the file.
 class BrandMark extends StatelessWidget {
   const BrandMark({super.key, this.size = 40});
   final double size;
@@ -11,55 +16,27 @@ class BrandMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return SizedBox(
+    return Container(
       height: size,
       width: size,
-      child: CustomPaint(painter: _DropPainter(c.brand, c.onBrand)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        // Without this the chip dissolves into a light background.
+        border: Border.all(color: c.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      // A circle inscribed in the square artwork would clip the drop's point
+      // and shoulders, so the art is inset to sit inside the circle rather
+      // than being cropped by it.
+      child: Padding(
+        padding: EdgeInsets.all(size * 0.13),
+        child: Image.asset(
+          'assets/logo_mark.png',
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
+        ),
+      ),
     );
   }
-}
-
-class _DropPainter extends CustomPainter {
-  _DropPainter(this.fill, this.node);
-  final Color fill;
-  final Color node;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final path = Path();
-    // Teardrop: pointed top, round bottom.
-    path.moveTo(w * 0.5, 0);
-    path.cubicTo(w * 0.5, h * 0.28, w, h * 0.42, w, h * 0.62);
-    path.arcToPoint(
-      Offset(w * 0.5, h),
-      radius: Radius.circular(w * 0.5),
-      clockwise: true,
-    );
-    path.arcToPoint(
-      Offset(0, h * 0.62),
-      radius: Radius.circular(w * 0.5),
-      clockwise: true,
-    );
-    path.cubicTo(0, h * 0.42, w * 0.5, h * 0.28, w * 0.5, 0);
-    path.close();
-
-    canvas.drawPath(path, Paint()..color = fill);
-
-    // A small "link" node: two joined dots signifying donor <-> requester.
-    final cy = h * 0.62;
-    final r = w * 0.09;
-    final p = Paint()..color = node;
-    canvas.drawCircle(Offset(w * 0.38, cy), r, p);
-    canvas.drawCircle(Offset(w * 0.62, cy), r, p);
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.38, cy - r * 0.45, w * 0.24, r * 0.9),
-      p,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _DropPainter old) =>
-      old.fill != fill || old.node != node;
 }
