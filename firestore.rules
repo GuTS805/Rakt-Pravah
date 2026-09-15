@@ -19,6 +19,14 @@ service cloud.firestore {
       return request.auth.token.email_verified == true;
     }
 
+    // Operator access for the admin console (spec §27). The flag lives on the
+    // user's own profile document, which only an existing admin can set —
+    // see the users rule below, which refuses self-promotion.
+    function isAdmin() {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
     // Profile documents. Read is broader than write on purpose: logging in
     // by phone number needs to find an existing profile via a query, and
     // anonymous auth carries no verified phone claim to check against —
@@ -26,7 +34,42 @@ service cloud.firestore {
     // with no OTP step. Writes are always locked to the owner.
     match /users/{uid} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && request.auth.uid == uid;
+
+      // Owners write their own profile, but the admin flag is not theirs to
+      // set — without this split, any user could promote themselves to
+      // operator by writing one field to their own document.
+      allow create: if isSignedIn() && request.auth.uid == uid
+        && request.resource.data.get('isAdmin', false) == false;
+
+      allow update: if isSignedIn() && (
+        (request.auth.uid == uid
+          && request.resource.data.get('isAdmin', false)
+             == resource.data.get('isAdmin', false))
+        || (isAdmin()
+          && request.resource.data.diff(resource.data)
+               .affectedKeys().hasOnly(['isAdmin']))
+      );
+
+      allow delete: if false;
+    }
+
+    // Append-only record of operator actions (spec §27). Nobody, including
+    // admins, can rewrite history here — that is the whole point of it.
+    match /admin_audit/{entryId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.actorId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Abuse reports. Any signed-in user can file one (for the mobile Report
+    // screen); only operators can read or resolve them.
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn()
+        && request.resource.data.reporterId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
     match /blood_requests/{requestId} {
@@ -35,7 +78,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && isVerified()
         && request.resource.data.requesterId == request.auth.uid;
 
-      // Four, and only four, kinds of update are allowed:
+      // Five, and only five, kinds of update are allowed:
       //  1. the requester changes their own request (cancel, fulfil, etc.)
       //  2. a donor claims a request nobody has claimed yet (the same
       //     first-writer-wins check the client transaction performs — this
@@ -54,6 +97,13 @@ service cloud.firestore {
         || (resource.data.acceptedDonorId == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys()
                  .hasOnly(['donorLiveLocation', 'donorLiveLocationAt']))
+        //  5. an operator removes a request (spec §27 moderation). Scoped to
+        //     the two fields that removal touches, so admin access can't be
+        //     used to quietly rewrite someone's request.
+        || (isAdmin()
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['status', 'timeline'])
+            && request.resource.data.status == 'removedByAdmin')
       );
 
       allow delete: if false;
