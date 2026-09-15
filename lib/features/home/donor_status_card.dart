@@ -4,9 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/services/verification_gate.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/semantics.dart';
 import '../../core/widgets/app_card.dart';
-import '../../core/widgets/badges.dart';
 import '../../data/models/enums.dart';
 import '../../data/providers.dart';
 
@@ -55,65 +53,75 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
     final c = context.colors;
     final donor = ref.watch(donorProfileValueProvider);
     final cooldown = donor.isInCooldown;
-    final style = cooldown
-        ? SemanticStyle(c.textTertiary, c.surfaceMuted, Icons.bedtime_rounded)
-        : availabilityStyle(context, donor.availability);
+    // The heart stays warm whether or not Donor Mode is on — it's an
+    // invitation, and the switch beside it already says what the state is.
+    // Greying it out only when the cooldown locks the control keeps "off"
+    // looking switchable instead of looking broken.
+    final (tint, tintSubtle) = cooldown
+        ? (c.textTertiary, c.surfaceMuted)
+        : donor.availability == DonorAvailability.paused
+            ? (c.warning, c.warningSubtle)
+            : (c.brand, c.brandSubtle);
 
     return AppCard(
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                height: 44,
-                width: 44,
-                decoration: BoxDecoration(
-                  color: style.subtle,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                ),
-                child: Icon(style.icon, color: style.color, size: 22),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          Container(
+            height: 46,
+            width: 46,
+            decoration: BoxDecoration(
+              color: tintSubtle,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: Icon(
+              cooldown ? Icons.bedtime_rounded : Icons.favorite_rounded,
+              color: tint,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Text('Donor Mode', style: context.text.titleSmall),
-                        const SizedBox(width: AppSpacing.sm),
-                        if (cooldown)
-                          _CooldownBadge(remaining: donor.cooldownRemaining)
-                        else
-                          AvailabilityBadge(donor.availability, dense: true),
-                      ],
+                    Flexible(
+                      child:
+                          Text('Donor Mode', style: context.text.titleMedium),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      cooldown
-                          ? 'Resting after your last donation — thank you.'
-                          : _subtitle(donor.availability),
-                      style: context.text.bodySmall,
-                    ),
+                    // Only the cooldown badge survives: it carries a number
+                    // the subtitle doesn't. An availability chip would just
+                    // repeat the line underneath it.
+                    if (cooldown) ...[
+                      const SizedBox(width: AppSpacing.sm),
+                      _CooldownBadge(remaining: donor.cooldownRemaining),
+                    ],
                   ],
                 ),
-              ),
-              if (_busy)
-                SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation(c.brand)),
-                )
-              else
-                Switch(
-                  value: donor.isOn && !cooldown,
-                  activeThumbColor: c.brand,
-                  onChanged: cooldown ? null : (v) => _toggle(v),
+                const SizedBox(height: 2),
+                Text(
+                  cooldown
+                      ? 'Resting after your last donation — thank you.'
+                      : _subtitle(donor.availability),
+                  style: context.text.bodySmall,
                 ),
-            ],
+              ],
+            ),
           ),
+          if (_busy)
+            SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, valueColor: AlwaysStoppedAnimation(c.brand)),
+            )
+          else
+            Switch(
+              value: donor.isOn && !cooldown,
+              activeThumbColor: c.brand,
+              onChanged: cooldown ? null : (v) => _toggle(v),
+            ),
         ],
       ),
     );
