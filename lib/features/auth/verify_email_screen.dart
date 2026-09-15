@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/router/routes.dart';
 import '../../core/services/email_link_store.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
@@ -33,12 +34,53 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
     super.initState();
     final existing = ref.read(currentUserProvider)?.email;
     if (existing != null) _email.text = existing;
+    // A retry after a failed verify should arrive pre-filled with whatever
+    // address the link was actually requested for.
+    _store.read().then((saved) {
+      if (mounted && saved != null && _email.text.isEmpty) {
+        setState(() => _email.text = saved);
+      }
+    });
   }
 
   @override
   void dispose() {
     _email.dispose();
     super.dispose();
+  }
+
+  /// Completes sign-in for a link that arrived without a stored email, using
+  /// the address the user just confirmed.
+  Future<void> _confirm(String link) async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(authControllerProvider.notifier).completeEmailVerification(
+            email: _email.text.trim(),
+            link: link,
+          );
+      await _store.clear();
+      if (mounted) {
+        ref.read(pendingEmailLinkProvider.notifier).state = null;
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Couldn\'t verify with that address. Check it '
+                  'matches the one you requested, or send a new link.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Abandons a link that can't be completed (expired, or the wrong address)
+  /// and returns to the send form — always an escape hatch, never a dead end.
+  void _startOver() {
+    ref.read(pendingEmailLinkProvider.notifier).state = null;
+    setState(() => _sent = false);
   }
 
   Future<void> _send() async {
@@ -65,6 +107,11 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final verified = ref.watch(currentUserProvider)?.emailVerified ?? false;
+    final pendingLink = ref.watch(pendingEmailLinkProvider);
+
+    if (!verified && pendingLink != null) {
+      return _confirmView(context, pendingLink);
+    }
 
     if (verified) {
       return Scaffold(
@@ -87,7 +134,10 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                 const SizedBox(height: AppSpacing.xl),
                 PrimaryButton(
                   label: 'Continue',
-                  onPressed: () => context.pop(),
+                  // go, not pop: this screen is often reached by redirect
+                  // (from a link or a blocked action) with nothing beneath
+                  // it on the stack to pop back to.
+                  onPressed: () => context.go(Routes.home),
                 ),
               ],
             ),
@@ -150,6 +200,74 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                       onPressed: _send,
                     ),
                   ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Shown when a verification link opened the app but nothing here knows
+  /// which address it belongs to. Asking is the only honest recovery — the
+  /// link alone doesn't carry a verifiable address.
+  Widget _confirmView(BuildContext context, String link) {
+    final c = context.colors;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Confirm your email')),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.mark_email_read_outlined, size: 40, color: c.brand),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    'Type the email address you asked us to verify, so we can '
+                    'match it to the link you just opened.',
+                    style:
+                        context.text.bodyMedium?.copyWith(color: c.textSecondary),
+                  ),
+                  const SizedBox(height: AppSpacing.xxl),
+                  Text('Email address', style: context.text.titleSmall),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextFormField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.email],
+                    decoration: const InputDecoration(
+                      hintText: 'you@example.com',
+                      prefixIcon: Icon(Icons.email_outlined),
+                    ),
+                    validator: (v) {
+                      final value = (v ?? '').trim();
+                      if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                          .hasMatch(value)) {
+                        return 'Enter a valid email address';
+                      }
+                      return null;
+                    },
+                    onFieldSubmitted: (_) => _confirm(link),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  PrimaryButton(
+                    label: 'Verify email',
+                    busy: _busy,
+                    onPressed: () => _confirm(link),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Center(
+                    child: TextButton(
+                      onPressed: _busy ? null : _startOver,
+                      child: const Text('Send a new link instead'),
+                    ),
+                  ),
                 ],
               ),
             ),

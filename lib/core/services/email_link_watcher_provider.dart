@@ -21,17 +21,29 @@ final emailLinkWatcherProvider = Provider<void>((ref) {
     if (!auth.isEmailVerificationLink(link)) return;
 
     final email = await store.read();
-    if (email == null) return;
+
+    // Opened on a device that never requested it, or after app data was
+    // cleared: hand the link to the Verify Email screen so the user can
+    // confirm which address it was sent to. Failing silently here would leave
+    // them staring at an unchanged screen with no idea why.
+    if (email == null) {
+      ref.read(pendingEmailLinkProvider.notifier).state = link;
+      ref.read(routerProvider).go(Routes.verifyEmail);
+      return;
+    }
 
     try {
       await auth.completeEmailVerification(email: email, link: link);
       await store.clear();
+      ref.read(pendingEmailLinkProvider.notifier).state = null;
       ref.read(routerProvider).go(Routes.home);
     } catch (_) {
-      // Link expired, already used, or the network dropped mid-verify — the
-      // Verify Email screen's own "resend" path is the recovery route, so
-      // there's nothing more to do here than leave the pending email in
-      // place for a retry.
+      // Expired, already used, or the network dropped mid-verify. Send the
+      // user somewhere that can explain it and offer a fresh link, rather
+      // than swallowing the failure. The stored email is deliberately kept so
+      // the retry arrives pre-filled.
+      ref.read(pendingEmailLinkProvider.notifier).state = link;
+      ref.read(routerProvider).go(Routes.verifyEmail);
     }
   }
 

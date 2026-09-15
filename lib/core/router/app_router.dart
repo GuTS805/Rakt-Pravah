@@ -25,6 +25,7 @@ import '../../features/requests/request_detail_screen.dart';
 import '../../features/requests/requests_screen.dart';
 import '../../features/shell/app_shell.dart';
 import '../../features/splash/splash_screen.dart';
+import '../services/email_link_store.dart';
 import 'routes.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -52,6 +53,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         case AuthStatus.needsOnboarding:
           return loc == Routes.onboarding ? null : Routes.onboarding;
         case AuthStatus.authenticated:
+          // A verification link that arrived before auth finished resolving
+          // would otherwise be stranded: the watcher's own go() fires while
+          // the status is still `unknown`, gets bounced to splash, and the
+          // user lands on Home with no idea why. Re-checking here means the
+          // moment auth resolves, the link gets its screen.
+          if (ref.read(pendingEmailLinkProvider) != null &&
+              loc != Routes.verifyEmail &&
+              !(auth.user?.emailVerified ?? false)) {
+            return Routes.verifyEmail;
+          }
           if (loc == Routes.splash ||
               authPages.contains(loc) ||
               loc == Routes.onboarding) {
