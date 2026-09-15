@@ -41,7 +41,9 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   Future<void> _save() async {
     if (_name.text.trim().length < 2) return;
     setState(() => _busy = true);
-    await ref.read(authControllerProvider.notifier).updateProfile(
+    await ref
+        .read(authControllerProvider.notifier)
+        .updateProfile(
           name: _name.text.trim(),
           bloodGroup: _group,
           city: _city.text.trim().isEmpty ? null : _city.text.trim(),
@@ -71,14 +73,16 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           Text('Blood group', style: context.text.titleSmall),
           const SizedBox(height: AppSpacing.md),
           BloodGroupPicker(
-              selected: _group, onChanged: (g) => setState(() => _group = g)),
+            selected: _group,
+            onChanged: (g) => setState(() => _group = g),
+          ),
           const SizedBox(height: AppSpacing.lg),
           Text('City', style: context.text.titleSmall),
           const SizedBox(height: AppSpacing.sm),
           TextField(
             controller: _city,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(hintText: 'e.g. Bengaluru'),
+            decoration: const InputDecoration(hintText: 'e.g. Dubai'),
           ),
           const SizedBox(height: AppSpacing.xxl),
           PrimaryButton(label: 'Save changes', busy: _busy, onPressed: _save),

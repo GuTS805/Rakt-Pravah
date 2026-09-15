@@ -42,7 +42,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     setState(() => _busy = true);
     try {
-      await ref.read(authControllerProvider.notifier).register(
+      await ref
+          .read(authControllerProvider.notifier)
+          .register(
             name: _name.text.trim(),
             phone: _phone.text.trim(),
             bloodGroup: _group!,
@@ -91,11 +93,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]')),
                       ],
-                      decoration:
-                          const InputDecoration(hintText: '+91 98xxxxxx00'),
+                      decoration: const InputDecoration(
+                        hintText: '+971 50 123 4567',
+                      ),
                       validator: (v) {
-                        final digits =
-                            (v ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+                        final digits = (v ?? '').replaceAll(
+                          RegExp(r'[^0-9]'),
+                          '',
+                        );
                         return digits.length < 10
                             ? 'Enter a valid phone number'
                             : null;
@@ -112,17 +117,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                     if (_groupError) ...[
                       const SizedBox(height: AppSpacing.sm),
-                      Text('Select your blood group',
-                          style: context.text.bodySmall
-                              ?.copyWith(color: c.danger)),
+                      Text(
+                        'Select your blood group',
+                        style: context.text.bodySmall?.copyWith(
+                          color: c.danger,
+                        ),
+                      ),
                     ],
                     const SizedBox(height: AppSpacing.lg),
                     _Label('City (optional)'),
                     TextFormField(
                       controller: _city,
                       textCapitalization: TextCapitalization.words,
-                      decoration:
-                          const InputDecoration(hintText: 'e.g. Bengaluru'),
+                      decoration: const InputDecoration(hintText: 'e.g. Dubai'),
                     ),
                     const SizedBox(height: AppSpacing.xxl),
                     PrimaryButton(
@@ -153,7 +160,7 @@ class _Label extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-        child: Text(text, style: context.text.titleSmall),
-      );
+    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+    child: Text(text, style: context.text.titleSmall),
+  );
 }

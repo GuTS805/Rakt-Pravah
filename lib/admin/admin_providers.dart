@@ -60,19 +60,20 @@ class AdminStats {
   final int fulfilled;
 
   static AdminStats from(List<AdminRequest> requests) => AdminStats(
-        total: requests.length,
-        open: requests.where((r) => r.isOpen).length,
-        unmatched: requests.where((r) => r.isUnmatched).length,
-        stale: requests.where((r) => r.isStale).length,
-        critical: requests
-            .where((r) => r.isOpen && r.urgency == Urgency.critical)
-            .length,
-        coordinating: requests
-            .where((r) => r.status == RequestStatus.coordinating)
-            .length,
-        fulfilled:
-            requests.where((r) => r.status == RequestStatus.fulfilled).length,
-      );
+    total: requests.length,
+    open: requests.where((r) => r.isOpen).length,
+    unmatched: requests.where((r) => r.isUnmatched).length,
+    stale: requests.where((r) => r.isStale).length,
+    critical: requests
+        .where((r) => r.isOpen && r.urgency == Urgency.critical)
+        .length,
+    coordinating: requests
+        .where((r) => r.status == RequestStatus.coordinating)
+        .length,
+    fulfilled: requests
+        .where((r) => r.status == RequestStatus.fulfilled)
+        .length,
+  );
 }
 
 final adminStatsProvider = Provider<AdminStats>((ref) {
@@ -85,12 +86,10 @@ final adminStatsProvider = Provider<AdminStats>((ref) {
 /// each band.
 final adminAttentionQueueProvider = Provider<List<AdminRequest>>((ref) {
   final requests = ref.watch(adminRequestsProvider).valueOrNull ?? const [];
-  final needing =
-      requests.where((r) => r.isStale || r.isUnmatched).toList();
+  final needing = requests.where((r) => r.isStale || r.isUnmatched).toList();
   needing.sort((a, b) {
     if (a.isStale != b.isStale) return a.isStale ? -1 : 1;
-    final byUrgency =
-        b.urgency.index.compareTo(a.urgency.index);
+    final byUrgency = b.urgency.index.compareTo(a.urgency.index);
     if (byUrgency != 0) return byUrgency;
     return a.createdAt.compareTo(b.createdAt);
   });

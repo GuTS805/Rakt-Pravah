@@ -29,13 +29,18 @@ final _adminRouter = GoRouter(
       routes: [
         GoRoute(path: '/', builder: (_, _) => const AdminDashboardScreen()),
         GoRoute(
-            path: '/requests', builder: (_, _) => const AdminRequestsScreen()),
+          path: '/requests',
+          builder: (_, _) => const AdminRequestsScreen(),
+        ),
         GoRoute(path: '/users', builder: (_, _) => const AdminUsersScreen()),
         GoRoute(
-            path: '/reports', builder: (_, _) => const AdminReportsScreen()),
+          path: '/reports',
+          builder: (_, _) => const AdminReportsScreen(),
+        ),
         GoRoute(
-            path: '/moderation',
-            builder: (_, _) => const AdminModerationScreen()),
+          path: '/moderation',
+          builder: (_, _) => const AdminModerationScreen(),
+        ),
         GoRoute(path: '/audit', builder: (_, _) => const AdminAuditScreen()),
         GoRoute(path: '/health', builder: (_, _) => const AdminHealthScreen()),
       ],
@@ -77,9 +82,10 @@ class _AdminAppState extends ConsumerState<AdminApp> {
         return switch (auth.status) {
           AuthStatus.unknown => const _Booting(),
           AuthStatus.unauthenticated => const AdminSignInScreen(),
-          _ => (auth.user?.isAdmin ?? false)
-              ? (child ?? const SizedBox.shrink())
-              : const AdminNoAccessScreen(),
+          _ =>
+            (auth.user?.isAdmin ?? false)
+                ? (child ?? const SizedBox.shrink())
+                : const AdminNoAccessScreen(),
         };
       },
     );
@@ -90,7 +96,6 @@ class _Booting extends StatelessWidget {
   const _Booting();
 
   @override
-  Widget build(BuildContext context) => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+  Widget build(BuildContext context) =>
+      const Scaffold(body: Center(child: CircularProgressIndicator()));
 }

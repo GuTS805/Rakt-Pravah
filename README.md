@@ -16,12 +16,16 @@ Built with Flutter for **Android, iOS, and web** from a single codebase.
 
 ## Status
 
-This repository is the **Flutter frontend**, built against a **swappable
-in-memory backend** (`lib/data/mock/`) that simulates the real system:
-progressive donor-matching waves, the request state machine, live status
-updates, and chat. When the production backend (FastAPI + PostgreSQL/PostGIS +
-matching worker + FCM + WebSockets) is ready, only the repository/data layer is
-replaced — screens and state consume the same models and streams unchanged.
+This repository is the **Flutter client**. Its default production data layer is
+Firebase Authentication plus Cloud Firestore (`lib/data/firebase/`), isolated
+behind the typed `Backend` interface. Tests override that interface with a fake
+backend, so UI and domain flows can be exercised without a live Firebase
+project. Firestore rules live in `firestore.rules`; deploy and validate them
+separately from an app build.
+
+BloodLink coordinates registered people. It does not claim hospital
+partnerships, blood-bank inventory, automated medical eligibility, or a medical
+recommendation engine. Medical decisions remain with qualified professionals.
 
 > iOS builds require macOS + Xcode. Android and web build and run on any
 > platform, including the Windows machine this was developed on.
@@ -40,7 +44,8 @@ lib/
     utils/                      Formatters
   data/
     models/                     Domain entities + enums (incl. request state machine)
-    mock/                       In-memory backend (the swappable seam)
+    firebase/                   Firebase Auth + Firestore backend
+    backend.dart                Typed backend contract (the swappable seam)
     providers.dart              Riverpod providers (auth, requests, donor, chat…)
   features/                     One folder per feature (screens + local widgets)
     splash, auth, home, requests, donate, invitations,
@@ -75,10 +80,19 @@ flutter test                 # widget tests
 flutter analyze              # static analysis (0 errors, 0 warnings)
 ```
 
-## The demo backend
+## Local development boundaries
 
-Because there's no live server yet, the mock backend scripts a realistic flow:
-create a request and it advances on its own — *created → searching* (donors
-contacted in widening waves) *→ a donor accepts → coordinating* — with the
-tracking screen updating live. Turn on Donor Mode to see incoming opportunities;
-accept one to open a coordination context with private chat.
+The test suite uses `FakeBackend` from the test tree. Passing it is local test
+evidence only; it does not verify Firebase Authentication, Firestore rules,
+notifications, or a deployed release.
+
+Maps use OpenStreetMap tiles during development and visibly attribute their
+source. The tile endpoint is configurable for a policy-compliant production
+provider or self-hosted tile service:
+
+```bash
+flutter run --dart-define=MAP_TILE_URL='https://tiles.example.com/{z}/{x}/{y}.png'
+```
+
+Do not treat the public OpenStreetMap tile service as a production CDN. Review
+the provider's usage policy before launch.

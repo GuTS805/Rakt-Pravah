@@ -32,9 +32,7 @@ class AppCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: AppRadius.cardLg,
-        border: Border.all(
-          color: emphasize ? c.borderStrong : c.border,
-        ),
+        border: Border.all(color: emphasize ? c.borderStrong : c.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: context.isDark ? 0.18 : 0.03),
@@ -96,7 +94,7 @@ class SectionHeader extends StatelessWidget {
               style: AppTypography.eyebrow(c.textTertiary),
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );

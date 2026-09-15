@@ -26,18 +26,18 @@ class BloodGroupPicker extends StatelessWidget {
       runSpacing: AppSpacing.sm,
       children: [
         for (final g in BloodGroup.values)
-          _Chip(
-            group: g,
-            selected: g == selected,
-            onTap: () => onChanged(g),
-          ),
+          _Chip(group: g, selected: g == selected, onTap: () => onChanged(g)),
       ],
     );
   }
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip({required this.group, required this.selected, required this.onTap});
+  const _Chip({
+    required this.group,
+    required this.selected,
+    required this.onTap,
+  });
 
   final BloodGroup group;
   final bool selected;
@@ -139,16 +139,18 @@ class BloodGroupMultiPicker extends StatelessWidget {
                 selected.isEmpty
                     ? 'Choose at least one group.'
                     : selected.length == 1
-                        ? 'Donors with this exact type will see it.'
-                        : 'Donors with any of these ${selected.length} types will see it.',
+                    ? 'Donors with this exact type will see it.'
+                    : 'Donors with any of these ${selected.length} types will see it.',
                 style: context.text.bodySmall,
               ),
             ),
             TextButton.icon(
               onPressed: () => _openSuggestSheet(context),
               icon: Icon(Icons.auto_awesome_rounded, size: 16, color: c.brand),
-              label: Text('Suggest for a patient',
-                  style: context.text.labelMedium?.copyWith(color: c.brand)),
+              label: Text(
+                'Suggest for a patient',
+                style: context.text.labelMedium?.copyWith(color: c.brand),
+              ),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                 minimumSize: Size.zero,
@@ -163,7 +165,11 @@ class BloodGroupMultiPicker extends StatelessWidget {
 }
 
 class _MultiChip extends StatefulWidget {
-  const _MultiChip({required this.group, required this.selected, required this.onTap});
+  const _MultiChip({
+    required this.group,
+    required this.selected,
+    required this.onTap,
+  });
 
   final BloodGroup group;
   final bool selected;
@@ -181,12 +187,13 @@ class _MultiChipState extends State<_MultiChip>
     lowerBound: 0.0,
     upperBound: 1.0,
   );
-  late final Animation<double> _scale =
-      Tween(begin: 1.0, end: 0.9).animate(CurvedAnimation(
-    parent: _ctrl,
-    curve: Curves.easeOut,
-    reverseCurve: Curves.easeIn,
-  ));
+  late final Animation<double> _scale = Tween(begin: 1.0, end: 0.9).animate(
+    CurvedAnimation(
+      parent: _ctrl,
+      curve: Curves.easeOut,
+      reverseCurve: Curves.easeIn,
+    ),
+  );
 
   @override
   void dispose() {
@@ -246,8 +253,11 @@ class _MultiChipState extends State<_MultiChip>
                         shape: BoxShape.circle,
                         border: Border.all(color: c.surface, width: 1.5),
                       ),
-                      child: Icon(Icons.check_rounded,
-                          size: 11, color: c.onBrand),
+                      child: Icon(
+                        Icons.check_rounded,
+                        size: 11,
+                        color: c.onBrand,
+                      ),
                     ),
                   ),
               ],
@@ -277,17 +287,22 @@ class _SuggestSheetState extends State<_SuggestSheet> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final preview =
-        _patient == null ? null : donorsCompatibleWith(_patient!);
+    final preview = _patient == null ? null : donorsCompatibleWith(_patient!);
     return Padding(
-      padding: EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg,
-          AppSpacing.xxl + MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        0,
+        AppSpacing.lg,
+        AppSpacing.xxl + MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('What\'s the patient\'s blood group?',
-              style: context.text.titleLarge),
+          Text(
+            'What\'s the patient\'s blood group?',
+            style: context.text.titleLarge,
+          ),
           const SizedBox(height: AppSpacing.xs),
           Text(
             'We\'ll select every donor type that can safely give to this '
@@ -308,16 +323,21 @@ class _SuggestSheetState extends State<_SuggestSheet> {
                 for (final g in preview)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xs,
+                    ),
                     decoration: BoxDecoration(
                       color: c.successSubtle,
                       borderRadius: BorderRadius.circular(AppRadius.sm),
                     ),
-                    child: Text(g.label,
-                        style: AppTypography.mono(
-                            size: 13,
-                            weight: FontWeight.w700,
-                            color: c.success)),
+                    child: Text(
+                      g.label,
+                      style: AppTypography.mono(
+                        size: 13,
+                        weight: FontWeight.w700,
+                        color: c.success,
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -325,8 +345,9 @@ class _SuggestSheetState extends State<_SuggestSheet> {
           const SizedBox(height: AppSpacing.xl),
           PrimaryButton(
             label: 'Use these groups',
-            onPressed:
-                _patient == null ? null : () => Navigator.pop(context, _patient),
+            onPressed: _patient == null
+                ? null
+                : () => Navigator.pop(context, _patient),
           ),
         ],
       ),

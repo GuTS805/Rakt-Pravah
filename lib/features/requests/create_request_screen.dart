@@ -129,7 +129,9 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
           .read(locationServiceProvider)
           .forwardGeocode(_destAddress.text.trim());
 
-      final req = await ref.read(backendProvider).createRequest(
+      final req = await ref
+          .read(backendProvider)
+          .createRequest(
             bloodGroups: _groups.toList(),
             units: _units,
             urgency: _urgency,
@@ -138,8 +140,9 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
             destination: Destination(
               name: _destName.text.trim(),
               address: _destAddress.text.trim(),
-              wardOrContact:
-                  _destWard.text.trim().isEmpty ? null : _destWard.text.trim(),
+              wardOrContact: _destWard.text.trim().isEmpty
+                  ? null
+                  : _destWard.text.trim(),
               location: destPoint,
             ),
           );
@@ -149,7 +152,8 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
         setState(() => _submitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Couldn\'t create the request. Try again.')),
+            content: Text('Couldn\'t create the request. Try again.'),
+          ),
         );
       }
     }
@@ -212,12 +216,16 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
       key: const ValueKey(0),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _StepTitle('What blood is needed?',
-            'Choose the groups that can help, how many units, and how urgent it is.'),
+        _StepTitle(
+          'What blood is needed?',
+          'Choose the groups that can help, how many units, and how urgent it is.',
+        ),
         Text('Blood group', style: context.text.titleSmall),
         const SizedBox(height: AppSpacing.md),
         BloodGroupMultiPicker(
-            selected: _groups, onChanged: (g) => setState(() => _groups = g)),
+          selected: _groups,
+          onChanged: (g) => setState(() => _groups = g),
+        ),
         const SizedBox(height: AppSpacing.xl),
         Text('Units required', style: context.text.titleSmall),
         const SizedBox(height: AppSpacing.md),
@@ -246,35 +254,39 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
       key: const ValueKey(1),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _StepTitle('Where is the request?',
-            'This helps us find donors closest to you.'),
-        Consumer(builder: (context, ref, _) {
-          final deviceLoc = ref.watch(deviceLocationProvider);
-          final subtitle = _locating
-              ? 'Getting your location…'
-              : _useCurrent && _requestPoint != null
-                  ? '${_location.text} · detected automatically'
-                  : deviceLoc.status == DeviceLocationStatus.denied ||
-                          deviceLoc.status == DeviceLocationStatus.deniedForever
-                      ? 'Location access denied — tap to allow'
-                      : deviceLoc.status == DeviceLocationStatus.serviceDisabled
-                          ? 'Turn on device location, then tap to retry'
-                          : 'Tap to detect your location';
-          return _SelectableTile(
-            icon: _locating
-                ? Icons.hourglass_top_rounded
-                : Icons.my_location_rounded,
-            title: 'Use current location',
-            subtitle: subtitle,
-            selected: _useCurrent && _requestPoint != null,
-            onTap: _locating
-                ? () {}
-                : () {
-                    setState(() => _useCurrent = true);
-                    _useDeviceLocation();
-                  },
-          );
-        }),
+        _StepTitle(
+          'Where is the request?',
+          'This helps us find donors closest to you.',
+        ),
+        Consumer(
+          builder: (context, ref, _) {
+            final deviceLoc = ref.watch(deviceLocationProvider);
+            final subtitle = _locating
+                ? 'Getting your location…'
+                : _useCurrent && _requestPoint != null
+                ? '${_location.text} · detected automatically'
+                : deviceLoc.status == DeviceLocationStatus.denied ||
+                      deviceLoc.status == DeviceLocationStatus.deniedForever
+                ? 'Location access denied — tap to allow'
+                : deviceLoc.status == DeviceLocationStatus.serviceDisabled
+                ? 'Turn on device location, then tap to retry'
+                : 'Tap to detect your location';
+            return _SelectableTile(
+              icon: _locating
+                  ? Icons.hourglass_top_rounded
+                  : Icons.my_location_rounded,
+              title: 'Use current location',
+              subtitle: subtitle,
+              selected: _useCurrent && _requestPoint != null,
+              onTap: _locating
+                  ? () {}
+                  : () {
+                      setState(() => _useCurrent = true);
+                      _useDeviceLocation();
+                    },
+            );
+          },
+        ),
         const SizedBox(height: AppSpacing.sm),
         _SelectableTile(
           icon: Icons.edit_location_alt_rounded,
@@ -294,7 +306,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
             autofocus: true,
             onChanged: (_) => setState(() {}),
             decoration: const InputDecoration(
-              hintText: 'e.g. Indiranagar, Bengaluru',
+              hintText: 'e.g. Dubai Marina',
               prefixIcon: Icon(Icons.search_rounded),
             ),
           ),
@@ -309,16 +321,19 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
       key: const ValueKey(2),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _StepTitle('Where should donors go?',
-            'The hospital or blood bank where the donation is needed.'),
+        _StepTitle(
+          'Where should donors go?',
+          'The hospital or blood bank where the donation is needed.',
+        ),
         Text('Hospital / destination', style: context.text.titleSmall),
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _destName,
           textCapitalization: TextCapitalization.words,
           onChanged: (_) => setState(() {}),
-          decoration:
-              const InputDecoration(hintText: 'e.g. City General Hospital'),
+          decoration: const InputDecoration(
+            hintText: 'e.g. City General Hospital',
+          ),
         ),
         const SizedBox(height: AppSpacing.lg),
         Text('Address', style: context.text.titleSmall),
@@ -333,8 +348,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _destWard,
-          decoration:
-              const InputDecoration(hintText: 'e.g. Ward 3B, Dr. Rao'),
+          decoration: const InputDecoration(hintText: 'e.g. Ward 3B, Dr. Rao'),
         ),
       ],
     );
@@ -347,13 +361,17 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
       key: const ValueKey(3),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _StepTitle('Review your request',
-            'Check the details. Donors nearby will be notified right away.'),
+        _StepTitle(
+          'Review your request',
+          'Check the details. Donors nearby will be notified right away.',
+        ),
         AppCard(
           child: Column(
             children: [
-              _reviewRowWidget('Blood group',
-                  BloodGroupBadges(_groups.toList(), large: false)),
+              _reviewRowWidget(
+                'Blood group',
+                BloodGroupBadges(_groups.toList(), large: false),
+              ),
               _divider(),
               _reviewRow('Units', Fmt.units(_units), mono: true),
               _divider(),
@@ -395,7 +413,8 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
     );
   }
 
-  Widget _divider() => Divider(height: AppSpacing.xl, color: context.colors.border);
+  Widget _divider() =>
+      Divider(height: AppSpacing.xl, color: context.colors.border);
 
   Widget _reviewRow(String label, String value, {bool mono = false}) {
     return Row(
@@ -410,8 +429,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
             value.isEmpty ? '—' : value,
             style: mono
                 ? context.text.titleSmall
-                : context.text.bodyLarge
-                    ?.copyWith(fontWeight: FontWeight.w500),
+                : context.text.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -423,7 +441,9 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-            width: 120, child: Text(label, style: context.text.bodyMedium)),
+          width: 120,
+          child: Text(label, style: context.text.bodyMedium),
+        ),
         Expanded(child: value),
       ],
     );
@@ -440,7 +460,11 @@ class _StepIndicator extends StatelessWidget {
     final c = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg, AppSpacing.xs, AppSpacing.lg, AppSpacing.lg),
+        AppSpacing.lg,
+        AppSpacing.xs,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
       child: Row(
         children: [
           for (int i = 0; i < steps.length; i++) ...[
@@ -459,8 +483,9 @@ class _StepIndicator extends StatelessWidget {
                     steps[i],
                     style: context.text.labelSmall?.copyWith(
                       color: i <= current ? c.textPrimary : c.textTertiary,
-                      fontWeight:
-                          i == current ? FontWeight.w600 : FontWeight.w500,
+                      fontWeight: i == current
+                          ? FontWeight.w600
+                          : FontWeight.w500,
                     ),
                   ),
                 ],
@@ -541,16 +566,18 @@ class _UnitStepper extends StatelessWidget {
     return Row(
       children: [
         _StepBtn(
-            icon: Icons.remove_rounded,
-            onTap: value > 1 ? () => onChanged(value - 1) : null),
+          icon: Icons.remove_rounded,
+          onTap: value > 1 ? () => onChanged(value - 1) : null,
+        ),
         Expanded(
           child: Center(
             child: Text(Fmt.units(value), style: context.text.titleMedium),
           ),
         ),
         _StepBtn(
-            icon: Icons.add_rounded,
-            onTap: value < 10 ? () => onChanged(value + 1) : null),
+          icon: Icons.add_rounded,
+          onTap: value < 10 ? () => onChanged(value + 1) : null,
+        ),
       ],
     );
   }
@@ -578,8 +605,11 @@ class _StepBtn extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadius.md),
             border: Border.all(color: c.border),
           ),
-          child: Icon(icon,
-              color: enabled ? c.textPrimary : c.textTertiary, size: 20),
+          child: Icon(
+            icon,
+            color: enabled ? c.textPrimary : c.textTertiary,
+            size: 20,
+          ),
         ),
       ),
     );
@@ -587,8 +617,11 @@ class _StepBtn extends StatelessWidget {
 }
 
 class _UrgencyOption extends StatelessWidget {
-  const _UrgencyOption(
-      {required this.urgency, required this.selected, required this.onTap});
+  const _UrgencyOption({
+    required this.urgency,
+    required this.selected,
+    required this.onTap,
+  });
   final Urgency urgency;
   final bool selected;
   final VoidCallback onTap;
@@ -615,9 +648,10 @@ class _UrgencyOption extends StatelessWidget {
             Icon(style.icon, color: style.color, size: 20),
             const SizedBox(width: AppSpacing.md),
             Expanded(
-              child: Text(urgency.label,
-                  style: context.text.titleSmall
-                      ?.copyWith(color: c.textPrimary)),
+              child: Text(
+                urgency.label,
+                style: context.text.titleSmall?.copyWith(color: c.textPrimary),
+              ),
             ),
             if (selected) Icon(Icons.check_circle_rounded, color: style.color),
           ],

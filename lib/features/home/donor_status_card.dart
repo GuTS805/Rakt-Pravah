@@ -32,15 +32,19 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
     final current = ref.read(donorProfileValueProvider);
     setState(() => _busy = true);
     try {
-      await backend.setDonorProfile(current.copyWith(
-        availability:
-            on ? DonorAvailability.available : DonorAvailability.off,
-      ));
+      await backend.setDonorProfile(
+        current.copyWith(
+          availability: on
+              ? DonorAvailability.available
+              : DonorAvailability.off,
+        ),
+      );
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Couldn\'t update Donor Mode. Try again.')),
+            content: Text('Couldn\'t update Donor Mode. Try again.'),
+          ),
         );
       }
     } finally {
@@ -60,8 +64,8 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
     final (tint, tintSubtle) = cooldown
         ? (c.textTertiary, c.surfaceMuted)
         : donor.availability == DonorAvailability.paused
-            ? (c.warning, c.warningSubtle)
-            : (c.brand, c.brandSubtle);
+        ? (c.warning, c.warningSubtle)
+        : (c.brand, c.brandSubtle);
 
     return AppCard(
       child: Row(
@@ -87,8 +91,10 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
                 Row(
                   children: [
                     Flexible(
-                      child:
-                          Text('Donor Mode', style: context.text.titleMedium),
+                      child: Text(
+                        'Donor Mode',
+                        style: context.text.titleMedium,
+                      ),
                     ),
                     // Only the cooldown badge survives: it carries a number
                     // the subtitle doesn't. An availability chip would just
@@ -114,7 +120,9 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
               height: 20,
               width: 20,
               child: CircularProgressIndicator(
-                  strokeWidth: 2, valueColor: AlwaysStoppedAnimation(c.brand)),
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(c.brand),
+              ),
             )
           else
             Switch(
@@ -148,8 +156,10 @@ class _CooldownBadge extends StatelessWidget {
     final c = context.colors;
     final days = remaining.inHours < 24 ? 1 : (remaining.inHours / 24).ceil();
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 3,
+      ),
       decoration: BoxDecoration(
         color: c.warningSubtle,
         borderRadius: BorderRadius.circular(AppRadius.pill),

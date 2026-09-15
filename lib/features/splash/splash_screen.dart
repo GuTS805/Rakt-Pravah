@@ -38,15 +38,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             const SizedBox(height: AppSpacing.lg),
             Text('BloodLink', style: context.text.headlineMedium),
             const SizedBox(height: AppSpacing.xs),
-            Text('Emergency blood, coordinated',
-                style: context.text.bodyMedium),
+            Text(
+              'Emergency blood, coordinated',
+              style: context.text.bodyMedium,
+            ),
             const SizedBox(height: AppSpacing.xxxl),
             SizedBox(
               height: 22,
               width: 22,
               child: CircularProgressIndicator(
-                  strokeWidth: 2.2,
-                  valueColor: AlwaysStoppedAnimation(c.brand)),
+                strokeWidth: 2.2,
+                valueColor: AlwaysStoppedAnimation(c.brand),
+              ),
             ),
           ],
         ),

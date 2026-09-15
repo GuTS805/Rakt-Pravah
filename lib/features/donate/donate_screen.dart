@@ -29,7 +29,11 @@ class DonateScreen extends ConsumerWidget {
         bottom: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.xxxl),
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.xxxl,
+          ),
           children: [
             Text('Donate', style: context.text.headlineMedium),
             const SizedBox(height: AppSpacing.lg),
@@ -65,14 +69,16 @@ class DonateScreen extends ConsumerWidget {
                       for (final inv in pending) ...[
                         InvitationCard(
                           invitation: inv,
-                          onTap: () => context
-                              .push(Routes.invitationDetail(inv.id)),
-                          onAccept: () => context
-                              .push(Routes.invitationDetail(inv.id)),
+                          onTap: () =>
+                              context.push(Routes.invitationDetail(inv.id)),
+                          onAccept: () =>
+                              context.push(Routes.invitationDetail(inv.id)),
                           onDecline: () => ref
                               .read(backendProvider)
                               .respondToInvitation(
-                                  inv.id, InvitationStatus.declined),
+                                inv.id,
+                                InvitationStatus.declined,
+                              ),
                         ),
                         const SizedBox(height: AppSpacing.md),
                       ],
@@ -109,8 +115,10 @@ class _DonorSummary extends StatelessWidget {
             context,
             icon: Icons.social_distance_rounded,
             label: 'Match radius',
-            trailing: Text('${donor.maxDistanceKm.toStringAsFixed(0)} km',
-                style: AppTypography.mono(size: 14, color: c.textPrimary)),
+            trailing: Text(
+              '${donor.maxDistanceKm.toStringAsFixed(0)} km',
+              style: AppTypography.mono(size: 14, color: c.textPrimary),
+            ),
           ),
           _divider(context),
           _row(
@@ -135,9 +143,10 @@ class _DonorSummary extends StatelessWidget {
                 children: [
                   Icon(Icons.tune_rounded, size: 16, color: c.brand),
                   const SizedBox(width: AppSpacing.xs),
-                  Text('Donor settings',
-                      style: context.text.labelLarge
-                          ?.copyWith(color: c.brand)),
+                  Text(
+                    'Donor settings',
+                    style: context.text.labelLarge?.copyWith(color: c.brand),
+                  ),
                 ],
               ),
             ),
@@ -147,10 +156,12 @@ class _DonorSummary extends StatelessWidget {
     );
   }
 
-  Widget _row(BuildContext context,
-      {required IconData icon,
-      required String label,
-      required Widget trailing}) {
+  Widget _row(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required Widget trailing,
+  }) {
     final c = context.colors;
     return Row(
       children: [
@@ -180,8 +191,11 @@ class _DonorOffNote extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.do_not_disturb_on_outlined,
-              size: 20, color: c.textTertiary),
+          Icon(
+            Icons.do_not_disturb_on_outlined,
+            size: 20,
+            color: c.textTertiary,
+          ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(

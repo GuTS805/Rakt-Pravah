@@ -13,15 +13,19 @@ abstract class AppTypography {
   static TextTheme textTheme(Color primary, Color secondary) {
     final sans = GoogleFonts.ibmPlexSans;
 
-    TextStyle s(double size, FontWeight weight, double height,
-            {double spacing = 0, Color? color}) =>
-        sans(
-          fontSize: size,
-          fontWeight: weight,
-          height: height,
-          letterSpacing: spacing,
-          color: color ?? primary,
-        );
+    TextStyle s(
+      double size,
+      FontWeight weight,
+      double height, {
+      double spacing = 0,
+      Color? color,
+    }) => sans(
+      fontSize: size,
+      fontWeight: weight,
+      height: height,
+      letterSpacing: spacing,
+      color: color ?? primary,
+    );
 
     return TextTheme(
       // Display / big moments (used sparingly)
@@ -48,21 +52,20 @@ abstract class AppTypography {
     Color? color,
     double spacing = 0.2,
     double height = 1.2,
-  }) =>
-      GoogleFonts.ibmPlexMono(
-        fontSize: size,
-        fontWeight: weight,
-        color: color,
-        letterSpacing: spacing,
-        height: height,
-      );
+  }) => GoogleFonts.ibmPlexMono(
+    fontSize: size,
+    fontWeight: weight,
+    color: color,
+    letterSpacing: spacing,
+    height: height,
+  );
 
   /// Uppercase eyebrow/label style used for section headers and badges.
   static TextStyle eyebrow(Color color) => GoogleFonts.ibmPlexMono(
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 1.2,
-        color: color,
-        height: 1.2,
-      );
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 1.2,
+    color: color,
+    height: 1.2,
+  );
 }

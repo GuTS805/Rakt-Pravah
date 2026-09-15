@@ -19,14 +19,19 @@ class RequestCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final accent =
-        request.status.isActive ? urgencyStyle(context, request.urgency).color : null;
+    final accent = request.status.isActive
+        ? urgencyStyle(context, request.urgency).color
+        : null;
 
     return AppCard(
       onTap: onTap,
       accent: accent,
       padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg + 4, AppSpacing.lg, AppSpacing.lg, AppSpacing.lg),
+        AppSpacing.lg + 4,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -49,7 +54,9 @@ class RequestCard extends StatelessWidget {
                   request.destination.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.text.bodyMedium?.copyWith(color: c.textPrimary),
+                  style: context.text.bodyMedium?.copyWith(
+                    color: c.textPrimary,
+                  ),
                 ),
               ),
             ],

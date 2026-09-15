@@ -44,15 +44,15 @@ class _LoadingBody extends StatelessWidget {
   const _LoadingBody();
   @override
   Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          children: [
-            CardSkeleton(),
-            SizedBox(height: AppSpacing.lg),
-            CardSkeleton(),
-          ],
-        ),
-      );
+    padding: EdgeInsets.all(AppSpacing.lg),
+    child: Column(
+      children: [
+        CardSkeleton(),
+        SizedBox(height: AppSpacing.lg),
+        CardSkeleton(),
+      ],
+    ),
+  );
 }
 
 class _Body extends ConsumerWidget {
@@ -112,11 +112,15 @@ class _SummaryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(Fmt.units(request.units),
-                        style: context.text.titleLarge),
+                    Text(
+                      Fmt.units(request.units),
+                      style: context.text.titleLarge,
+                    ),
                     const SizedBox(height: 2),
-                    Text('Created ${Fmt.relative(request.createdAt)}',
-                        style: context.text.bodySmall),
+                    Text(
+                      'Created ${Fmt.relative(request.createdAt)}',
+                      style: context.text.bodySmall,
+                    ),
                   ],
                 ),
               ),
@@ -129,12 +133,17 @@ class _SummaryCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                  child: DataField(
-                      label: 'Urgency', value: request.urgency.label)),
+                child: DataField(
+                  label: 'Urgency',
+                  value: request.urgency.label,
+                ),
+              ),
               Expanded(
-                  child: DataField(
-                      label: 'Location',
-                      value: request.requestLocationLabel.split('·').first.trim())),
+                child: DataField(
+                  label: 'Location',
+                  value: request.requestLocationLabel.split('·').first.trim(),
+                ),
+              ),
             ],
           ),
         ],
@@ -160,13 +169,16 @@ class _SearchingCard extends StatelessWidget {
                 height: 18,
                 width: 18,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2.2,
-                    valueColor: AlwaysStoppedAnimation(c.info)),
+                  strokeWidth: 2.2,
+                  valueColor: AlwaysStoppedAnimation(c.info),
+                ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: Text('Searching for nearby donors…',
-                    style: context.text.titleSmall),
+                child: Text(
+                  'Searching for nearby donors…',
+                  style: context.text.titleSmall,
+                ),
               ),
             ],
           ),
@@ -189,8 +201,10 @@ class _SearchingCard extends StatelessWidget {
           ),
           if (request.currentWave > 1) ...[
             const SizedBox(height: AppSpacing.md),
-            Text('Expanding search area to reach more donors…',
-                style: context.text.bodySmall),
+            Text(
+              'Expanding search area to reach more donors…',
+              style: context.text.bodySmall,
+            ),
           ],
         ],
       ),
@@ -217,8 +231,11 @@ class _DestinationCard extends StatelessWidget {
               color: c.surfaceMuted,
               borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
-            child: Icon(Icons.local_hospital_rounded,
-                color: c.textSecondary, size: 20),
+            child: Icon(
+              Icons.local_hospital_rounded,
+              color: c.textSecondary,
+              size: 20,
+            ),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
@@ -230,9 +247,12 @@ class _DestinationCard extends StatelessWidget {
                 Text(d.address, style: context.text.bodyMedium),
                 if (d.wardOrContact != null) ...[
                   const SizedBox(height: AppSpacing.xs),
-                  Text(d.wardOrContact!,
-                      style: context.text.bodySmall
-                          ?.copyWith(color: c.textTertiary)),
+                  Text(
+                    d.wardOrContact!,
+                    style: context.text.bodySmall?.copyWith(
+                      color: c.textTertiary,
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -252,21 +272,21 @@ class _TerminalNote extends StatelessWidget {
     final style = statusStyle(context, status);
     final (title, body) = switch (status) {
       RequestStatus.fulfilled => (
-          'Request fulfilled',
-          'Thank you. This request is complete — no further donors will be contacted.'
-        ),
+        'Request fulfilled',
+        'Thank you. This request is complete — no further donors will be contacted.',
+      ),
       RequestStatus.cancelled => (
-          'Request cancelled',
-          'This request was cancelled. Donors are no longer being contacted.'
-        ),
+        'Request cancelled',
+        'This request was cancelled. Donors are no longer being contacted.',
+      ),
       RequestStatus.expired => (
-          'Request expired',
-          'This request is no longer active. Create a new one if you still need help.'
-        ),
+        'Request expired',
+        'This request is no longer active. Create a new one if you still need help.',
+      ),
       RequestStatus.removedByAdmin => (
-          'Removed by an administrator',
-          'This request was removed. Contact support if you believe this is a mistake.'
-        ),
+        'Removed by an administrator',
+        'This request was removed. Contact support if you believe this is a mistake.',
+      ),
       _ => ('', ''),
     };
     return Container(
@@ -360,7 +380,8 @@ class _ActionBar extends ConsumerWidget {
     final ok = await _confirm(
       context,
       title: 'Cancel this request?',
-      body: 'Donors will stop being contacted. You can create a new request '
+      body:
+          'Donors will stop being contacted. You can create a new request '
           'anytime.',
       confirmLabel: 'Cancel request',
       destructive: true,
@@ -400,15 +421,19 @@ Future<bool?> _confirm(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: Text('Keep',
-              style: context.text.labelLarge
-                  ?.copyWith(color: c.textSecondary)),
+          child: Text(
+            'Keep',
+            style: context.text.labelLarge?.copyWith(color: c.textSecondary),
+          ),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, true),
-          child: Text(confirmLabel,
-              style: context.text.labelLarge
-                  ?.copyWith(color: destructive ? c.danger : c.brand)),
+          child: Text(
+            confirmLabel,
+            style: context.text.labelLarge?.copyWith(
+              color: destructive ? c.danger : c.brand,
+            ),
+          ),
         ),
       ],
     ),

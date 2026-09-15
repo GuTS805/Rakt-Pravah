@@ -21,36 +21,33 @@ UserProfile _user({
   String name = 'Alok Sharma',
   BloodGroup group = BloodGroup.oPos,
   String? city,
-}) =>
-    UserProfile(
-      id: 'u1',
-      name: name,
-      bloodGroup: group,
-      phone: '9876543210',
-      email: verified ? 'alok@example.com' : null,
-      emailVerified: verified,
-      city: city,
-    );
+}) => UserProfile(
+  id: 'u1',
+  name: name,
+  bloodGroup: group,
+  phone: '9876543210',
+  email: verified ? 'alok@example.com' : null,
+  emailVerified: verified,
+  city: city,
+);
 
 BloodRequest _request({
   String id = 'r1',
   RequestStatus status = RequestStatus.searching,
   List<BloodGroup>? groups,
   int units = 2,
-}) =>
-    BloodRequest(
-      id: id,
-      requesterId: 'u1',
-      requesterName: 'Alok Sharma',
-      bloodGroups: groups ?? [BloodGroup.oPos],
-      units: units,
-      urgency: Urgency.critical,
-      status: status,
-      createdAt: DateTime.now(),
-      destination:
-          const Destination(name: 'City Hospital', address: 'MG Road'),
-      requestLocationLabel: 'Bengaluru',
-    );
+}) => BloodRequest(
+  id: id,
+  requesterId: 'u1',
+  requesterName: 'Alok Sharma',
+  bloodGroups: groups ?? [BloodGroup.oPos],
+  units: units,
+  urgency: Urgency.critical,
+  status: status,
+  createdAt: DateTime.now(),
+  destination: const Destination(name: 'City Hospital', address: 'MG Road'),
+  requestLocationLabel: 'Bengaluru',
+);
 
 /// Boots a screen with the fake backend wired in, plus a router carrying just
 /// enough routes for the gate to have somewhere to send people.
@@ -79,10 +76,7 @@ Widget _app({
       currentUserProvider.overrideWithValue(user),
       locationServiceProvider.overrideWithValue(FakeLocationService()),
     ],
-    child: MaterialApp.router(
-      theme: AppTheme.light(),
-      routerConfig: router,
-    ),
+    child: MaterialApp.router(theme: AppTheme.light(), routerConfig: router),
   );
 }
 
@@ -108,33 +102,44 @@ void _useTallPhone(WidgetTester tester) {
 
 void main() {
   group('verification gate', () {
-    testWidgets('an unverified user cannot switch Donor Mode on',
-        (tester) async {
+    testWidgets('an unverified user cannot switch Donor Mode on', (
+      tester,
+    ) async {
       final backend = FakeBackend(user: _user());
-      await tester.pumpWidget(_app(
-        backend: backend,
-        user: _user(),
-        screen: const Scaffold(body: DonorStatusCard()),
-      ));
+      await tester.pumpWidget(
+        _app(
+          backend: backend,
+          user: _user(),
+          screen: const Scaffold(body: DonorStatusCard()),
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
 
-      expect(find.text('VERIFY EMAIL SCREEN'), findsOneWidget,
-          reason: 'the gate should route to verification');
-      expect(backend.setDonorProfileCalls, isEmpty,
-          reason: 'Donor Mode must not be enabled before verification');
+      expect(
+        find.text('VERIFY EMAIL SCREEN'),
+        findsOneWidget,
+        reason: 'the gate should route to verification',
+      );
+      expect(
+        backend.setDonorProfileCalls,
+        isEmpty,
+        reason: 'Donor Mode must not be enabled before verification',
+      );
     });
 
     testWidgets('a verified user can switch Donor Mode on', (tester) async {
       final user = _user(verified: true);
       final backend = FakeBackend(user: user);
-      await tester.pumpWidget(_app(
-        backend: backend,
-        user: user,
-        screen: const Scaffold(body: DonorStatusCard()),
-      ));
+      await tester.pumpWidget(
+        _app(
+          backend: backend,
+          user: user,
+          screen: const Scaffold(body: DonorStatusCard()),
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byType(Switch));
@@ -142,8 +147,10 @@ void main() {
 
       expect(find.text('VERIFY EMAIL SCREEN'), findsNothing);
       expect(backend.setDonorProfileCalls, hasLength(1));
-      expect(backend.setDonorProfileCalls.single.availability,
-          DonorAvailability.available);
+      expect(
+        backend.setDonorProfileCalls.single.availability,
+        DonorAvailability.available,
+      );
     });
 
     testWidgets('switching Donor Mode off is never gated', (tester) async {
@@ -155,26 +162,34 @@ void main() {
           bloodGroup: BloodGroup.oPos,
         ),
       );
-      await tester.pumpWidget(_app(
-        backend: backend,
-        user: user,
-        screen: const Scaffold(body: DonorStatusCard()),
-      ));
+      await tester.pumpWidget(
+        _app(
+          backend: backend,
+          user: user,
+          screen: const Scaffold(body: DonorStatusCard()),
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
 
-      expect(find.text('VERIFY EMAIL SCREEN'), findsNothing,
-          reason: 'turning off is a safety action, never blocked');
-      expect(backend.setDonorProfileCalls.single.availability,
-          DonorAvailability.off);
+      expect(
+        find.text('VERIFY EMAIL SCREEN'),
+        findsNothing,
+        reason: 'turning off is a safety action, never blocked',
+      );
+      expect(
+        backend.setDonorProfileCalls.single.availability,
+        DonorAvailability.off,
+      );
     });
   });
 
   group('donation cooldown in the UI', () {
-    testWidgets('a donor inside the 90-day window cannot re-enable',
-        (tester) async {
+    testWidgets('a donor inside the 90-day window cannot re-enable', (
+      tester,
+    ) async {
       final user = _user(verified: true);
       final backend = FakeBackend(
         user: user,
@@ -184,19 +199,26 @@ void main() {
           lastDonation: DateTime.now().subtract(const Duration(days: 10)),
         ),
       );
-      await tester.pumpWidget(_app(
-        backend: backend,
-        user: user,
-        screen: const Scaffold(body: DonorStatusCard()),
-      ));
+      await tester.pumpWidget(
+        _app(
+          backend: backend,
+          user: user,
+          screen: const Scaffold(body: DonorStatusCard()),
+        ),
+      );
       await tester.pumpAndSettle();
 
       final toggle = tester.widget<Switch>(find.byType(Switch));
-      expect(toggle.onChanged, isNull,
-          reason: 'the switch must be frozen during cooldown');
+      expect(
+        toggle.onChanged,
+        isNull,
+        reason: 'the switch must be frozen during cooldown',
+      );
       expect(find.textContaining('Eligible in'), findsOneWidget);
-      expect(find.textContaining('Resting after your last donation'),
-          findsOneWidget);
+      expect(
+        find.textContaining('Resting after your last donation'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('a donor past the cooldown can enable again', (tester) async {
@@ -209,11 +231,13 @@ void main() {
           lastDonation: DateTime.now().subtract(const Duration(days: 120)),
         ),
       );
-      await tester.pumpWidget(_app(
-        backend: backend,
-        user: user,
-        screen: const Scaffold(body: DonorStatusCard()),
-      ));
+      await tester.pumpWidget(
+        _app(
+          backend: backend,
+          user: user,
+          screen: const Scaffold(body: DonorStatusCard()),
+        ),
+      );
       await tester.pumpAndSettle();
 
       final toggle = tester.widget<Switch>(find.byType(Switch));
@@ -228,7 +252,8 @@ void main() {
       _useTallPhone(tester);
       final backend = FakeBackend(user: user);
       await tester.pumpWidget(
-          _app(backend: backend, user: user, screen: const HomeScreen()));
+        _app(backend: backend, user: user, screen: const HomeScreen()),
+      );
       await tester.pumpAndSettle();
 
       expect(find.textContaining('A little help'), findsOneWidget);
@@ -241,13 +266,17 @@ void main() {
       _useTallPhone(tester);
       final backend = FakeBackend(user: user, requests: [_request()]);
       await tester.pumpWidget(
-          _app(backend: backend, user: user, screen: const HomeScreen()));
+        _app(backend: backend, user: user, screen: const HomeScreen()),
+      );
       await _pumpFrames(tester);
 
       expect(find.text('Your request is live.'), findsOneWidget);
       expect(find.textContaining('A little help'), findsNothing);
       expect(find.text('Your active request'), findsOneWidget);
-      expect(find.textContaining('Searching for nearby donors'), findsOneWidget);
+      expect(
+        find.textContaining('Searching for nearby donors'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('a fulfilled request is not treated as active', (tester) async {
@@ -258,20 +287,28 @@ void main() {
       );
       _useTallPhone(tester);
       await tester.pumpWidget(
-          _app(backend: backend, user: user, screen: const HomeScreen()));
+        _app(backend: backend, user: user, screen: const HomeScreen()),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Your active request'), findsNothing);
-      expect(find.textContaining('A little help'), findsOneWidget,
-          reason: 'a finished request should return Home to its idle state');
+      expect(
+        find.textContaining('A little help'),
+        findsOneWidget,
+        reason: 'a finished request should return Home to its idle state',
+      );
     });
 
-    testWidgets('the stats strip reports real counts and blood group',
-        (tester) async {
+    testWidgets('the stats strip reports real counts and blood group', (
+      tester,
+    ) async {
       final user = _user(verified: true, group: BloodGroup.bNeg);
       final backend = FakeBackend(
         user: user,
-        requests: [_request(id: 'r1'), _request(id: 'r2')],
+        requests: [
+          _request(id: 'r1'),
+          _request(id: 'r2'),
+        ],
         donor: const DonorProfile(
           availability: DonorAvailability.available,
           bloodGroup: BloodGroup.bNeg,
@@ -280,7 +317,8 @@ void main() {
       );
       _useTallPhone(tester);
       await tester.pumpWidget(
-          _app(backend: backend, user: user, screen: const HomeScreen()));
+        _app(backend: backend, user: user, screen: const HomeScreen()),
+      );
       await _pumpFrames(tester);
 
       expect(find.text('Requests'), findsOneWidget);
@@ -296,24 +334,30 @@ void main() {
       _useTallPhone(tester);
       final backend = FakeBackend(user: user);
       await tester.pumpWidget(
-          _app(backend: backend, user: user, screen: const HomeScreen()));
+        _app(backend: backend, user: user, screen: const HomeScreen()),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Your active request'), findsNothing);
 
       backend.emitRequests([_request()]);
       await _pumpFrames(tester);
 
-      expect(find.text('Your active request'), findsOneWidget,
-          reason: 'the stream should drive the UI without a manual refresh');
+      expect(
+        find.text('Your active request'),
+        findsOneWidget,
+        reason: 'the stream should drive the UI without a manual refresh',
+      );
     });
 
-    testWidgets('an unverified user is gated out of creating a request',
-        (tester) async {
+    testWidgets('an unverified user is gated out of creating a request', (
+      tester,
+    ) async {
       final user = _user();
       _useTallPhone(tester);
       final backend = FakeBackend(user: user);
       await tester.pumpWidget(
-          _app(backend: backend, user: user, screen: const HomeScreen()));
+        _app(backend: backend, user: user, screen: const HomeScreen()),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Create blood request'));
@@ -323,13 +367,15 @@ void main() {
       expect(find.text('CREATE REQUEST SCREEN'), findsNothing);
     });
 
-    testWidgets('a verified user reaches the create request screen',
-        (tester) async {
+    testWidgets('a verified user reaches the create request screen', (
+      tester,
+    ) async {
       final user = _user(verified: true);
       _useTallPhone(tester);
       final backend = FakeBackend(user: user);
       await tester.pumpWidget(
-          _app(backend: backend, user: user, screen: const HomeScreen()));
+        _app(backend: backend, user: user, screen: const HomeScreen()),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Create blood request'));

@@ -12,7 +12,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/badges.dart';
 import '../../core/widgets/buttons.dart';
 import '../../core/widgets/states.dart';
-import '../../data/models/enums.dart';
+import '../../data/models/models.dart';
 import '../../data/providers.dart';
 
 /// Donor opportunity detail. Before acceptance it exposes only what's needed to
@@ -51,7 +51,8 @@ class _InvitationDetailScreenState
 
   Widget _content(BuildContext context, inv) {
     final c = context.colors;
-    final expired = inv.status == InvitationStatus.expired ||
+    final expired =
+        inv.status == InvitationStatus.expired ||
         (inv.expiresAt != null && inv.expiresAt!.isBefore(DateTime.now()));
     final acted = inv.status != InvitationStatus.pending;
 
@@ -68,11 +69,17 @@ class _InvitationDetailScreenState
                   children: [
                     Row(
                       children: [
-                        BloodGroupBadges(inv.bloodGroups, large: true, maxVisible: 3),
+                        BloodGroupBadges(
+                          inv.bloodGroups,
+                          large: true,
+                          maxVisible: 3,
+                        ),
                         const SizedBox(width: AppSpacing.md),
                         Expanded(
-                          child: Text(Fmt.units(inv.units),
-                              style: context.text.headlineSmall),
+                          child: Text(
+                            Fmt.units(inv.units),
+                            style: context.text.headlineSmall,
+                          ),
                         ),
                         UrgencyBadge(inv.urgency),
                       ],
@@ -83,14 +90,17 @@ class _InvitationDetailScreenState
                     Row(
                       children: [
                         Expanded(
-                            child: DataField(
-                                label: 'Distance',
-                                value:
-                                    '${inv.distanceKm.toStringAsFixed(1)} km')),
+                          child: DataField(
+                            label: 'Distance',
+                            value: '${inv.distanceKm.toStringAsFixed(1)} km',
+                          ),
+                        ),
                         Expanded(
-                            child: DataField(
-                                label: 'Expires in',
-                                value: Fmt.remaining(inv.expiresAt))),
+                          child: DataField(
+                            label: 'Expires in',
+                            value: Fmt.remaining(inv.expiresAt),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -102,18 +112,25 @@ class _InvitationDetailScreenState
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.local_hospital_rounded,
-                        color: c.textSecondary, size: 20),
+                    Icon(
+                      Icons.local_hospital_rounded,
+                      color: c.textSecondary,
+                      size: 20,
+                    ),
                     const SizedBox(width: AppSpacing.md),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(inv.destinationName,
-                              style: context.text.titleSmall),
+                          Text(
+                            inv.destinationName,
+                            style: context.text.titleSmall,
+                          ),
                           const SizedBox(height: 2),
-                          Text(inv.destinationArea,
-                              style: context.text.bodyMedium),
+                          Text(
+                            inv.destinationArea,
+                            style: context.text.bodyMedium,
+                          ),
                         ],
                       ),
                     ),
@@ -169,13 +186,13 @@ class _InvitationDetailScreenState
     );
   }
 
-  Widget _statusBar(BuildContext context, inv, bool expired) {
+  Widget _statusBar(BuildContext context, Invitation inv, bool expired) {
     final c = context.colors;
     final label = expired
         ? 'This opportunity is no longer available.'
         : inv.status == InvitationStatus.accepted
-            ? 'You accepted this request.'
-            : 'You declined this request.';
+        ? 'You accepted this request.'
+        : 'You declined this request.';
     return Container(
       width: double.infinity,
       color: c.surfaceMuted,
@@ -183,14 +200,17 @@ class _InvitationDetailScreenState
         top: false,
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Text(label,
-              textAlign: TextAlign.center, style: context.text.bodyMedium),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: context.text.bodyMedium,
+          ),
         ),
       ),
     );
   }
 
-  Future<void> _decline(inv) async {
+  Future<void> _decline(Invitation inv) async {
     setState(() => _busy = true);
     await ref
         .read(backendProvider)
@@ -198,7 +218,7 @@ class _InvitationDetailScreenState
     if (mounted) context.pop();
   }
 
-  Future<void> _accept(inv) async {
+  Future<void> _accept(Invitation inv) async {
     if (!requireVerifiedEmail(context, ref)) return;
     setState(() => _busy = true);
     try {
@@ -214,8 +234,8 @@ class _InvitationDetailScreenState
         setState(() => _busy = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text(
-                  'Someone else already accepted this request.')),
+            content: Text('Someone else already accepted this request.'),
+          ),
         );
         context.pop();
       }

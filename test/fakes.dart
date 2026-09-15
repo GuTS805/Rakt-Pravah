@@ -46,14 +46,16 @@ class FakeBackend implements Backend {
     DonorProfile? donor,
     List<BloodRequest> requests = const [],
     List<Invitation> invitations = const [],
-  })  : currentUser = user,
-        _donor = _Replay(donor ??
-            const DonorProfile(
-              availability: DonorAvailability.off,
-              bloodGroup: BloodGroup.oPos,
-            )),
-        _requests = _Replay(requests),
-        _invitations = _Replay(invitations);
+  }) : currentUser = user,
+       _donor = _Replay(
+         donor ??
+             const DonorProfile(
+               availability: DonorAvailability.off,
+               bloodGroup: BloodGroup.oPos,
+             ),
+       ),
+       _requests = _Replay(requests),
+       _invitations = _Replay(invitations);
 
   @override
   UserProfile? currentUser;
@@ -160,7 +162,7 @@ class FakeBackend implements Backend {
     invitationResponses.add((id, status));
     _invitations.value = [
       for (final i in _invitations.value)
-        if (i.id == id) i.copyWith(status: status) else i
+        if (i.id == id) i.copyWith(status: status) else i,
     ];
   }
 
@@ -296,6 +298,6 @@ class FakeLocationService implements LocationService {
   @override
   Future<LocationPermission> checkPermission() async =>
       result is LocationGranted
-          ? LocationPermission.whileInUse
-          : LocationPermission.denied;
+      ? LocationPermission.whileInUse
+      : LocationPermission.denied;
 }

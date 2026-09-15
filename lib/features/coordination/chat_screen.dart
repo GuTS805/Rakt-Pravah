@@ -49,9 +49,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
-        _scroll.animateTo(_scroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut);
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
       }
     });
   }
@@ -95,11 +97,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               },
             ),
           ),
-          _Composer(
-            controller: _controller,
-            sending: _sending,
-            onSend: _send,
-          ),
+          _Composer(controller: _controller, sending: _sending, onSend: _send),
         ],
       ),
     );
@@ -119,13 +117,16 @@ class _Bubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
-        mainAxisAlignment:
-            mine ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: mine
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: [
           Flexible(
             child: Container(
               padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
               decoration: BoxDecoration(
                 color: bg,
                 borderRadius: BorderRadius.only(
@@ -139,8 +140,10 @@ class _Bubble extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(message.text,
-                      style: context.text.bodyLarge?.copyWith(color: fg)),
+                  Text(
+                    message.text,
+                    style: context.text.bodyLarge?.copyWith(color: fg),
+                  ),
                   const SizedBox(height: 3),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -156,20 +159,27 @@ class _Bubble extends StatelessWidget {
                       ),
                       if (message.pending) ...[
                         const SizedBox(width: 4),
-                        Icon(Icons.schedule_rounded,
-                            size: 11,
-                            color: mine
-                                ? c.onBrand.withValues(alpha: 0.75)
-                                : c.textTertiary),
+                        Icon(
+                          Icons.schedule_rounded,
+                          size: 11,
+                          color: mine
+                              ? c.onBrand.withValues(alpha: 0.75)
+                              : c.textTertiary,
+                        ),
                       ] else if (message.failed) ...[
                         const SizedBox(width: 4),
-                        Icon(Icons.error_outline_rounded,
-                            size: 11, color: c.warning),
+                        Icon(
+                          Icons.error_outline_rounded,
+                          size: 11,
+                          color: c.warning,
+                        ),
                       ] else if (mine) ...[
                         const SizedBox(width: 4),
-                        Icon(Icons.done_rounded,
-                            size: 12,
-                            color: c.onBrand.withValues(alpha: 0.75)),
+                        Icon(
+                          Icons.done_rounded,
+                          size: 12,
+                          color: c.onBrand.withValues(alpha: 0.75),
+                        ),
                       ],
                     ],
                   ),
@@ -218,7 +228,9 @@ class _Composer extends StatelessWidget {
                   decoration: InputDecoration(
                     hintText: 'Message…',
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm + 2,
+                    ),
                     fillColor: c.surfaceMuted,
                   ),
                 ),
@@ -232,8 +244,11 @@ class _Composer extends StatelessWidget {
                   onTap: sending ? null : onSend,
                   child: Padding(
                     padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Icon(Icons.arrow_upward_rounded,
-                        color: c.onBrand, size: 22),
+                    child: Icon(
+                      Icons.arrow_upward_rounded,
+                      color: c.onBrand,
+                      size: 22,
+                    ),
                   ),
                 ),
               ),

@@ -20,16 +20,18 @@ import 'package:bloodlink/shared/brand_mark.dart';
 /// Wraps a widget with the theme its descendants need — `context.colors` is a
 /// theme extension, so a bare MaterialApp null-checks and crashes.
 Widget _themed(Widget child) => MaterialApp(
-      theme: AppTheme.light(),
-      home: Scaffold(body: child),
-    );
+  theme: AppTheme.light(),
+  home: Scaffold(body: child),
+);
 
-DonorProfile _donor({DateTime? lastDonation, DonorAvailability? availability}) =>
-    DonorProfile(
-      availability: availability ?? DonorAvailability.available,
-      bloodGroup: BloodGroup.oPos,
-      lastDonation: lastDonation,
-    );
+DonorProfile _donor({
+  DateTime? lastDonation,
+  DonorAvailability? availability,
+}) => DonorProfile(
+  availability: availability ?? DonorAvailability.available,
+  bloodGroup: BloodGroup.oPos,
+  lastDonation: lastDonation,
+);
 
 void main() {
   testWidgets('BrandMark renders without error', (tester) async {
@@ -47,20 +49,26 @@ void main() {
     });
 
     test('A+ can give to A+ and AB+ only', () {
-      expect(recipientsFor(BloodGroup.aPos),
-          containsAll([BloodGroup.aPos, BloodGroup.abPos]));
+      expect(
+        recipientsFor(BloodGroup.aPos),
+        containsAll([BloodGroup.aPos, BloodGroup.abPos]),
+      );
       expect(recipientsFor(BloodGroup.aPos).length, 2);
     });
 
     test('AB+ patient can receive from every group (universal recipient)', () {
-      expect(donorsCompatibleWith(BloodGroup.abPos),
-          containsAll(BloodGroup.values));
+      expect(
+        donorsCompatibleWith(BloodGroup.abPos),
+        containsAll(BloodGroup.values),
+      );
     });
 
-    test('O- patient can only receive from O- (inverse of universal donor)',
-        () {
-      expect(donorsCompatibleWith(BloodGroup.oNeg), [BloodGroup.oNeg]);
-    });
+    test(
+      'O- patient can only receive from O- (inverse of universal donor)',
+      () {
+        expect(donorsCompatibleWith(BloodGroup.oNeg), [BloodGroup.oNeg]);
+      },
+    );
 
     test('donorsCompatibleWith is the true inverse of recipientsFor', () {
       for (final donor in BloodGroup.values) {
@@ -100,14 +108,17 @@ void main() {
 
     test('still in cooldown one day before the 90 days elapse', () {
       final donor = _donor(
-          lastDonation: DateTime.now().subtract(const Duration(days: 89)));
+        lastDonation: DateTime.now().subtract(const Duration(days: 89)),
+      );
       expect(donor.isInCooldown, isTrue);
     });
 
     test('out of cooldown once 90 days have passed', () {
       final donor = _donor(
-          lastDonation:
-              DateTime.now().subtract(const Duration(days: 90, minutes: 1)));
+        lastDonation: DateTime.now().subtract(
+          const Duration(days: 90, minutes: 1),
+        ),
+      );
       expect(donor.isInCooldown, isFalse);
       expect(donor.cooldownRemaining, Duration.zero);
     });
@@ -120,7 +131,8 @@ void main() {
 
     test('remaining time never goes negative', () {
       final donor = _donor(
-          lastDonation: DateTime.now().subtract(const Duration(days: 400)));
+        lastDonation: DateTime.now().subtract(const Duration(days: 400)),
+      );
       expect(donor.cooldownRemaining, Duration.zero);
       expect(donor.cooldownRemaining.isNegative, isFalse);
     });
@@ -128,7 +140,8 @@ void main() {
     test('remaining time shrinks as the cooldown elapses', () {
       final fresh = _donor(lastDonation: DateTime.now());
       final older = _donor(
-          lastDonation: DateTime.now().subtract(const Duration(days: 60)));
+        lastDonation: DateTime.now().subtract(const Duration(days: 60)),
+      );
       expect(older.cooldownRemaining, lessThan(fresh.cooldownRemaining));
     });
 
@@ -159,8 +172,7 @@ void main() {
 
   group('request state machine', () {
     test('terminal states are exactly the four that end a request', () {
-      final terminal =
-          RequestStatus.values.where((s) => s.isTerminal).toSet();
+      final terminal = RequestStatus.values.where((s) => s.isTerminal).toSet();
       expect(terminal, {
         RequestStatus.fulfilled,
         RequestStatus.cancelled,
@@ -188,8 +200,9 @@ void main() {
     });
 
     test('fulfilled is the only terminal state inside the lifecycle', () {
-      final terminalInLifecycle =
-          RequestStatus.lifecycle.where((s) => s.isTerminal);
+      final terminalInLifecycle = RequestStatus.lifecycle.where(
+        (s) => s.isTerminal,
+      );
       expect(terminalInLifecycle, [RequestStatus.fulfilled]);
     });
   });
@@ -209,11 +222,11 @@ void main() {
 
   group('user initials', () {
     UserProfile user(String name) => UserProfile(
-          id: 'u1',
-          name: name,
-          bloodGroup: BloodGroup.oPos,
-          phone: '9876543210',
-        );
+      id: 'u1',
+      name: name,
+      bloodGroup: BloodGroup.oPos,
+      phone: '9876543210',
+    );
 
     test('uses first and last name', () {
       expect(user('Alok Sharma').initials, 'AS');
@@ -238,13 +251,13 @@ void main() {
 
   group('email verification state', () {
     UserProfile user({bool verified = false, String? email}) => UserProfile(
-          id: 'u1',
-          name: 'Alok Sharma',
-          bloodGroup: BloodGroup.oPos,
-          phone: '9876543210',
-          email: email,
-          emailVerified: verified,
-        );
+      id: 'u1',
+      name: 'Alok Sharma',
+      bloodGroup: BloodGroup.oPos,
+      phone: '9876543210',
+      email: email,
+      emailVerified: verified,
+    );
 
     test('defaults to unverified — verification is never assumed', () {
       expect(user().emailVerified, isFalse);
@@ -257,8 +270,10 @@ void main() {
 
   group('place name for the location chip', () {
     test('keeps only the first segment of a geocoded label', () {
-      expect(Fmt.placeName('Indiranagar, Bengaluru, Karnataka', null),
-          'Indiranagar');
+      expect(
+        Fmt.placeName('Indiranagar, Bengaluru, Karnataka', null),
+        'Indiranagar',
+      );
     });
 
     test('rejects raw coordinates in favour of the profile city', () {
@@ -301,18 +316,26 @@ void main() {
     });
 
     test('remaining counts down in the largest sensible unit', () {
-      expect(Fmt.remaining(DateTime.now().add(const Duration(minutes: 31))),
-          endsWith('min left'));
-      expect(Fmt.remaining(DateTime.now().add(const Duration(hours: 5))),
-          endsWith('h left'));
-      expect(Fmt.remaining(DateTime.now().add(const Duration(days: 3))),
-          endsWith('d left'));
+      expect(
+        Fmt.remaining(DateTime.now().add(const Duration(minutes: 31))),
+        endsWith('min left'),
+      );
+      expect(
+        Fmt.remaining(DateTime.now().add(const Duration(hours: 5))),
+        endsWith('h left'),
+      );
+      expect(
+        Fmt.remaining(DateTime.now().add(const Duration(days: 3))),
+        endsWith('d left'),
+      );
     });
 
     test('relative reads as just now for a fresh timestamp', () {
       expect(Fmt.relative(DateTime.now()), 'just now');
-      expect(Fmt.relative(DateTime.now().subtract(const Duration(minutes: 6))),
-          '6 min ago');
+      expect(
+        Fmt.relative(DateTime.now().subtract(const Duration(minutes: 6))),
+        '6 min ago',
+      );
     });
 
     test('clock pads to two digits', () {
@@ -328,17 +351,17 @@ void main() {
 
   group('multi-group requests', () {
     BloodRequest request(List<BloodGroup> groups) => BloodRequest(
-          id: 'r1',
-          requesterId: 'u1',
-          requesterName: 'Alok Sharma',
-          bloodGroups: groups,
-          units: 2,
-          urgency: Urgency.critical,
-          status: RequestStatus.searching,
-          createdAt: DateTime(2026, 1, 1),
-          destination: const Destination(name: 'City Hospital', address: 'MG Rd'),
-          requestLocationLabel: 'Bengaluru',
-        );
+      id: 'r1',
+      requesterId: 'u1',
+      requesterName: 'Alok Sharma',
+      bloodGroups: groups,
+      units: 2,
+      urgency: Urgency.critical,
+      status: RequestStatus.searching,
+      createdAt: DateTime(2026, 1, 1),
+      destination: const Destination(name: 'City Hospital', address: 'MG Rd'),
+      requestLocationLabel: 'Bengaluru',
+    );
 
     test('copyWith keeps identity fields and updates the rest', () {
       final original = request([BloodGroup.oPos]);
@@ -351,14 +374,19 @@ void main() {
       expect(updated.createdAt, original.createdAt);
       expect(updated.status, RequestStatus.fulfilled);
       expect(updated.acceptedDonorName, 'Aman');
-      expect(original.status, RequestStatus.searching,
-          reason: 'copyWith must not mutate the original');
+      expect(
+        original.status,
+        RequestStatus.searching,
+        reason: 'copyWith must not mutate the original',
+      );
     });
 
     test('hasAcceptedDonor tracks the donor id, not the name', () {
       expect(request([BloodGroup.oPos]).hasAcceptedDonor, isFalse);
       expect(
-        request([BloodGroup.oPos]).copyWith(acceptedDonorId: 'd1').hasAcceptedDonor,
+        request([BloodGroup.oPos])
+            .copyWith(acceptedDonorId: 'd1')
+            .hasAcceptedDonor,
         isTrue,
       );
     });
@@ -371,34 +399,42 @@ void main() {
 
   group('BloodGroupBadges', () {
     testWidgets('renders one badge per group when uncapped', (tester) async {
-      await tester.pumpWidget(_themed(
-        const BloodGroupBadges([BloodGroup.oPos, BloodGroup.oNeg]),
-      ));
+      await tester.pumpWidget(
+        _themed(const BloodGroupBadges([BloodGroup.oPos, BloodGroup.oNeg])),
+      );
       expect(find.text('O+'), findsOneWidget);
       expect(find.text('O-'), findsOneWidget);
     });
 
     testWidgets('folds the overflow into a +N chip', (tester) async {
-      await tester.pumpWidget(_themed(
-        const BloodGroupBadges(
-          [BloodGroup.oPos, BloodGroup.oNeg, BloodGroup.aPos, BloodGroup.bPos],
-          maxVisible: 2,
+      await tester.pumpWidget(
+        _themed(
+          const BloodGroupBadges([
+            BloodGroup.oPos,
+            BloodGroup.oNeg,
+            BloodGroup.aPos,
+            BloodGroup.bPos,
+          ], maxVisible: 2),
         ),
-      ));
+      );
       expect(find.text('O+'), findsOneWidget);
       expect(find.text('O-'), findsOneWidget);
       expect(find.text('A+'), findsNothing);
       expect(find.text('+2'), findsOneWidget);
     });
 
-    testWidgets('shows no +N chip when the cap is not exceeded',
-        (tester) async {
-      await tester.pumpWidget(_themed(
-        const BloodGroupBadges([BloodGroup.oPos], maxVisible: 3),
-      ));
+    testWidgets('shows no +N chip when the cap is not exceeded', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _themed(const BloodGroupBadges([BloodGroup.oPos], maxVisible: 3)),
+      );
       expect(find.text('O+'), findsOneWidget);
-      expect(find.textContaining('+'), findsOneWidget,
-          reason: 'only the O+ badge itself contains a plus');
+      expect(
+        find.textContaining('+'),
+        findsOneWidget,
+        reason: 'only the O+ badge itself contains a plus',
+      );
     });
   });
 }

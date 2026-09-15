@@ -28,8 +28,18 @@ abstract class Fmt {
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   /// Short date, e.g. "12 Aug".
@@ -48,8 +58,8 @@ abstract class Fmt {
   /// name — so a coordinate pair is rejected in favour of the profile city.
   /// Returns null when neither yields something real, so the caller can omit
   /// the label entirely rather than showing someone their own coordinates.
-  /// Only the first segment of a label like "Indiranagar, Bengaluru,
-  /// Karnataka" is kept, since the chip has room for a neighbourhood, not an
+  /// Only the first segment of a label like "Dubai Marina, Dubai,
+  /// United Arab Emirates" is kept, since the chip has room for a neighbourhood, not an
   /// address.
   static String? placeName(String? geocodedLabel, String? city) {
     final label = geocodedLabel?.trim();

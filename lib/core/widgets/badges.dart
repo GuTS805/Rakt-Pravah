@@ -24,7 +24,9 @@ class BloodGroupBadge extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: c.brandSubtle,
-        borderRadius: BorderRadius.circular(large ? AppRadius.md : AppRadius.sm),
+        borderRadius: BorderRadius.circular(
+          large ? AppRadius.md : AppRadius.sm,
+        ),
         border: Border.all(color: c.brand.withValues(alpha: 0.22)),
       ),
       child: Text(
@@ -45,7 +47,12 @@ class BloodGroupBadge extends StatelessWidget {
 /// the first couple and folds the rest into a "+N" chip rather than wrapping
 /// to a second line and breaking the card's rhythm.
 class BloodGroupBadges extends StatelessWidget {
-  const BloodGroupBadges(this.groups, {super.key, this.large = false, this.maxVisible});
+  const BloodGroupBadges(
+    this.groups, {
+    super.key,
+    this.large = false,
+    this.maxVisible,
+  });
 
   final List<BloodGroup> groups;
   final bool large;
@@ -74,8 +81,9 @@ class BloodGroupBadges extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               color: c.surfaceMuted,
-              borderRadius:
-                  BorderRadius.circular(large ? AppRadius.md : AppRadius.sm),
+              borderRadius: BorderRadius.circular(
+                large ? AppRadius.md : AppRadius.sm,
+              ),
               border: Border.all(color: c.border),
             ),
             child: Text(
@@ -95,7 +103,11 @@ class BloodGroupBadges extends StatelessWidget {
 /// A small pill conveying status via color, an icon, and a label — never color
 /// alone (accessibility).
 class _SemanticPill extends StatelessWidget {
-  const _SemanticPill({required this.style, required this.label, this.dense = false});
+  const _SemanticPill({
+    required this.style,
+    required this.label,
+    this.dense = false,
+  });
 
   final SemanticStyle style;
   final String label;
@@ -119,10 +131,8 @@ class _SemanticPill extends StatelessWidget {
           const SizedBox(width: AppSpacing.xs + 1),
           Text(
             label,
-            style: AppTypography.eyebrow(style.color).copyWith(
-              fontSize: dense ? 10 : 11,
-              letterSpacing: 0.6,
-            ),
+            style: AppTypography.eyebrow(style.color)
+                .copyWith(fontSize: dense ? 10 : 11, letterSpacing: 0.6),
           ),
         ],
       ),
@@ -137,10 +147,10 @@ class UrgencyBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _SemanticPill(
-        style: urgencyStyle(context, urgency),
-        label: urgency.label,
-        dense: dense,
-      );
+    style: urgencyStyle(context, urgency),
+    label: urgency.label,
+    dense: dense,
+  );
 }
 
 class StatusBadge extends StatelessWidget {
@@ -150,10 +160,10 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _SemanticPill(
-        style: statusStyle(context, status),
-        label: status.label,
-        dense: dense,
-      );
+    style: statusStyle(context, status),
+    label: status.label,
+    dense: dense,
+  );
 }
 
 class AvailabilityBadge extends StatelessWidget {
@@ -163,10 +173,10 @@ class AvailabilityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _SemanticPill(
-        style: availabilityStyle(context, availability),
-        label: availability.label,
-        dense: dense,
-      );
+    style: availabilityStyle(context, availability),
+    label: availability.label,
+    dense: dense,
+  );
 }
 
 /// Distance readout in mono ("3.2 km"), used on invitation/opportunity cards.
@@ -194,7 +204,12 @@ class DistanceIndicator extends StatelessWidget {
 /// A labelled data cell for review/detail grids — mono value under a small
 /// uppercase label.
 class DataField extends StatelessWidget {
-  const DataField({super.key, required this.label, required this.value, this.valueColor});
+  const DataField({
+    super.key,
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
   final String label;
   final String value;
   final Color? valueColor;

@@ -14,7 +14,14 @@ String _groupsLabel(List<BloodGroup> groups) =>
     groups.map((g) => g.label).join('/');
 
 class _Notif {
-  const _Notif(this.icon, this.color, this.title, this.body, this.time, this.route);
+  const _Notif(
+    this.icon,
+    this.color,
+    this.title,
+    this.body,
+    this.time,
+    this.route,
+  );
   final IconData icon;
   final Color color;
   final String title;
@@ -40,36 +47,42 @@ class NotificationsScreen extends ConsumerWidget {
     for (final r in requests.where((r) => r.status.isActive)) {
       if (r.status == RequestStatus.donorAccepted ||
           r.status == RequestStatus.coordinating) {
-        items.add(_Notif(
-          Icons.how_to_reg_rounded,
-          c.success,
-          'Donor accepted',
-          '${r.acceptedDonorName} accepted your ${_groupsLabel(r.bloodGroups)} request.',
-          now.subtract(const Duration(minutes: 1)),
-          Routes.requestDetail(r.id),
-        ));
+        items.add(
+          _Notif(
+            Icons.how_to_reg_rounded,
+            c.success,
+            'Donor accepted',
+            '${r.acceptedDonorName} accepted your ${_groupsLabel(r.bloodGroups)} request.',
+            now.subtract(const Duration(minutes: 1)),
+            Routes.requestDetail(r.id),
+          ),
+        );
       } else if (r.status == RequestStatus.searching) {
-        items.add(_Notif(
-          Icons.radar_rounded,
-          c.info,
-          'Searching for donors',
-          '${r.donorsContacted} donors contacted for your ${_groupsLabel(r.bloodGroups)} request.',
-          now.subtract(const Duration(minutes: 2)),
-          Routes.requestDetail(r.id),
-        ));
+        items.add(
+          _Notif(
+            Icons.radar_rounded,
+            c.info,
+            'Searching for donors',
+            '${r.donorsContacted} donors contacted for your ${_groupsLabel(r.bloodGroups)} request.',
+            now.subtract(const Duration(minutes: 2)),
+            Routes.requestDetail(r.id),
+          ),
+        );
       }
     }
 
     for (final inv in pending) {
-      items.add(_Notif(
-        Icons.favorite_rounded,
-        c.brand,
-        'New donor invitation',
-        '${_groupsLabel(inv.bloodGroups)} · ${Fmt.units(inv.units)} · '
-            '${inv.distanceKm.toStringAsFixed(1)} km away.',
-        inv.createdAt,
-        Routes.invitationDetail(inv.id),
-      ));
+      items.add(
+        _Notif(
+          Icons.favorite_rounded,
+          c.brand,
+          'New donor invitation',
+          '${_groupsLabel(inv.bloodGroups)} · ${Fmt.units(inv.units)} · '
+              '${inv.distanceKm.toStringAsFixed(1)} km away.',
+          inv.createdAt,
+          Routes.invitationDetail(inv.id),
+        ),
+      );
     }
 
     items.sort((a, b) => b.time.compareTo(a.time));
@@ -80,14 +93,14 @@ class NotificationsScreen extends ConsumerWidget {
           ? const EmptyState(
               icon: Icons.notifications_none_rounded,
               title: 'You\'re all caught up',
-              message: 'Updates about your requests and donations will appear '
+              message:
+                  'Updates about your requests and donations will appear '
                   'here.',
             )
           : ListView.separated(
               padding: const EdgeInsets.all(AppSpacing.lg),
               itemCount: items.length,
-              separatorBuilder: (_, __) =>
-                  const SizedBox(height: AppSpacing.sm),
+              separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
               itemBuilder: (context, i) => _Row(item: items[i]),
             ),
     );
@@ -131,11 +144,14 @@ class _Row extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                          child: Text(item.title,
-                              style: context.text.titleSmall)),
-                      Text(Fmt.relative(item.time),
-                          style: context.text.bodySmall
-                              ?.copyWith(color: c.textTertiary)),
+                        child: Text(item.title, style: context.text.titleSmall),
+                      ),
+                      Text(
+                        Fmt.relative(item.time),
+                        style: context.text.bodySmall?.copyWith(
+                          color: c.textTertiary,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 2),

@@ -21,8 +21,7 @@ class LiveLocationScreen extends ConsumerStatefulWidget {
   final String requestId;
 
   @override
-  ConsumerState<LiveLocationScreen> createState() =>
-      _LiveLocationScreenState();
+  ConsumerState<LiveLocationScreen> createState() => _LiveLocationScreenState();
 }
 
 class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
@@ -59,8 +58,10 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
     if (!result.isGranted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text(
-                'Location access is needed to share your live location.')),
+          content: Text(
+            'Location access is needed to share your live location.',
+          ),
+        ),
       );
       return;
     }
@@ -85,7 +86,9 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
   }
 
   Future<void> _pushLocation() async {
-    final result = await ref.read(locationServiceProvider).getLocationIfPermitted();
+    final result = await ref
+        .read(locationServiceProvider)
+        .getLocationIfPermitted();
     if (result is LocationGranted && mounted) {
       await ref
           .read(backendProvider)
@@ -134,10 +137,14 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.md),
-                _bullet(context,
-                    'Only the person you\'re coordinating with can see it.'),
-                _bullet(context,
-                    'It\'s temporary — sharing ends automatically after $_sessionMinutes minutes.'),
+                _bullet(
+                  context,
+                  'Only the person you\'re coordinating with can see it.',
+                ),
+                _bullet(
+                  context,
+                  'It\'s temporary — sharing ends automatically after $_sessionMinutes minutes.',
+                ),
                 _bullet(context, 'You can stop sharing at any time.'),
               ],
             ),
@@ -174,8 +181,10 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
             child: Container(
               height: 5,
               width: 5,
-              decoration:
-                  BoxDecoration(color: c.textTertiary, shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: c.textTertiary,
+                shape: BoxShape.circle,
+              ),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -212,9 +221,14 @@ class _ActiveBanner extends StatelessWidget {
               style: context.text.bodyMedium?.copyWith(color: c.textPrimary),
             ),
           ),
-          Text('$mm:$ss',
-              style: AppTypography.mono(
-                  size: 14, weight: FontWeight.w600, color: c.success)),
+          Text(
+            '$mm:$ss',
+            style: AppTypography.mono(
+              size: 14,
+              weight: FontWeight.w600,
+              color: c.success,
+            ),
+          ),
         ],
       ),
     );
@@ -258,14 +272,18 @@ class _PulsingDotState extends State<_PulsingDot>
                 width: 8 + _ctrl.value * 8,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: widget.color.withValues(alpha: (1 - _ctrl.value) * 0.4),
+                  color: widget.color.withValues(
+                    alpha: (1 - _ctrl.value) * 0.4,
+                  ),
                 ),
               ),
               Container(
                 height: 8,
                 width: 8,
-                decoration:
-                    BoxDecoration(shape: BoxShape.circle, color: widget.color),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.color,
+                ),
               ),
             ],
           );

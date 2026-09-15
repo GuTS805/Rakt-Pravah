@@ -14,16 +14,31 @@ class _Page {
 }
 
 const _pages = [
-  _Page(Icons.bloodtype_rounded, 'Blood when it counts',
-      'BloodLink connects you directly with nearby registered donors during an emergency — no queues, no middlemen.'),
-  _Page(Icons.radar_rounded, 'How a request works',
-      'Create a request in seconds. BloodLink notifies eligible donors nearby in waves until someone accepts.'),
-  _Page(Icons.favorite_rounded, 'Donor Mode is yours to control',
-      'Turn Donor Mode on to receive matching requests near you. Pause or turn it off anytime — you\'re always in control.'),
-  _Page(Icons.shield_moon_rounded, 'Private by design',
-      'Your phone number and exact location stay private until you choose to share. Live location is temporary and always opt-in.'),
-  _Page(Icons.forum_rounded, 'Coordinate and help',
-      'Once a donor accepts, a private chat opens so you can arrange the details and get to the hospital fast.'),
+  _Page(
+    Icons.bloodtype_rounded,
+    'Blood when it counts',
+    'BloodLink connects you directly with nearby registered donors during an emergency — no queues, no middlemen.',
+  ),
+  _Page(
+    Icons.radar_rounded,
+    'How a request works',
+    'Create a request in seconds. BloodLink notifies eligible donors nearby in waves until someone accepts.',
+  ),
+  _Page(
+    Icons.favorite_rounded,
+    'Donor Mode is yours to control',
+    'Turn Donor Mode on to receive matching requests near you. Pause or turn it off anytime — you\'re always in control.',
+  ),
+  _Page(
+    Icons.shield_moon_rounded,
+    'Private by design',
+    'Your phone number and exact location stay private until you choose to share. Live location is temporary and always opt-in.',
+  ),
+  _Page(
+    Icons.forum_rounded,
+    'Coordinate and help',
+    'Once a donor accepts, a private chat opens so you can arrange the details and get to the hospital fast.',
+  ),
 ];
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -36,6 +51,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _controller = PageController();
   int _index = 0;
+  bool _requestingLocation = false;
 
   @override
   void dispose() {
@@ -48,7 +64,27 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ref.read(authControllerProvider.notifier).completeOnboarding();
     } else {
       _controller.nextPage(
-          duration: const Duration(milliseconds: 260), curve: Curves.easeOut);
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _requestLocation() async {
+    if (_requestingLocation) return;
+    setState(() => _requestingLocation = true);
+    final result = await ref.read(deviceLocationProvider.notifier).request();
+    if (!mounted) return;
+    setState(() => _requestingLocation = false);
+
+    if (!result.isGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Location was not enabled. You can change this later in Privacy & location.',
+          ),
+        ),
+      );
     }
   }
 
@@ -68,9 +104,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   onPressed: () => ref
                       .read(authControllerProvider.notifier)
                       .completeOnboarding(),
-                  child: Text('Skip',
-                      style: context.text.labelLarge
-                          ?.copyWith(color: c.textSecondary)),
+                  child: Text(
+                    'Skip',
+                    style: context.text.labelLarge?.copyWith(
+                      color: c.textSecondary,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -83,7 +122,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   final p = _pages[i];
                   return Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.xxl),
+                      horizontal: AppSpacing.xxl,
+                    ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,17 +133,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           width: 76,
                           decoration: BoxDecoration(
                             color: c.brandSubtle,
-                            borderRadius:
-                                BorderRadius.circular(AppRadius.xl),
+                            borderRadius: BorderRadius.circular(AppRadius.xl),
                           ),
                           child: Icon(p.icon, size: 36, color: c.brand),
                         ),
                         const SizedBox(height: AppSpacing.xxl),
                         Text(p.title, style: context.text.headlineLarge),
                         const SizedBox(height: AppSpacing.md),
-                        Text(p.body,
-                            style: context.text.bodyLarge
-                                ?.copyWith(color: c.textSecondary)),
+                        Text(
+                          p.body,
+                          style: context.text.bodyLarge?.copyWith(
+                            color: c.textSecondary,
+                          ),
+                        ),
                       ],
                     ),
                   );
@@ -125,13 +167,38 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           width: i == _index ? 20 : 6,
                           decoration: BoxDecoration(
                             color: i == _index ? c.brand : c.border,
-                            borderRadius:
-                                BorderRadius.circular(AppRadius.pill),
+                            borderRadius: BorderRadius.circular(AppRadius.pill),
                           ),
                         ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.xl),
+                  if (isLast) ...[
+                    OutlinedButton.icon(
+                      onPressed: _requestingLocation ? null : _requestLocation,
+                      icon: _requestingLocation
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.my_location_rounded),
+                      label: Text(
+                        _requestingLocation
+                            ? 'Requesting location…'
+                            : 'Use my location',
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Optional. It helps find nearby requests. Your exact location is not shared automatically.',
+                      textAlign: TextAlign.center,
+                      style: context.text.bodySmall?.copyWith(
+                        color: c.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                  ],
                   PrimaryButton(
                     label: isLast ? 'Get started' : 'Next',
                     onPressed: _next,

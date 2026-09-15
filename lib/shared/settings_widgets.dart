@@ -7,7 +7,11 @@ import '../core/theme/app_typography.dart';
 /// A grouped settings section: an eyebrow label above a bordered card holding
 /// rows separated by hairlines. Keeps every settings surface consistent.
 class SettingsSection extends StatelessWidget {
-  const SettingsSection({super.key, required this.title, required this.children});
+  const SettingsSection({
+    super.key,
+    required this.title,
+    required this.children,
+  });
   final String title;
   final List<Widget> children;
 
@@ -26,9 +30,13 @@ class SettingsSection extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(
-              left: AppSpacing.xs, bottom: AppSpacing.sm),
-          child: Text(title.toUpperCase(),
-              style: AppTypography.eyebrow(c.textTertiary)),
+            left: AppSpacing.xs,
+            bottom: AppSpacing.sm,
+          ),
+          child: Text(
+            title.toUpperCase(),
+            style: AppTypography.eyebrow(c.textTertiary),
+          ),
         ),
         Container(
           decoration: BoxDecoration(
@@ -78,9 +86,13 @@ class SettingsTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: context.text.bodyLarge
-                          ?.copyWith(color: color, fontWeight: FontWeight.w500)),
+                  Text(
+                    title,
+                    style: context.text.bodyLarge?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
                     Text(subtitle!, style: context.text.bodySmall),
@@ -120,7 +132,11 @@ class SettingsSwitchTile extends StatelessWidget {
     final c = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md, AppSpacing.xs, AppSpacing.sm, AppSpacing.xs),
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.sm,
+        AppSpacing.xs,
+      ),
       child: Row(
         children: [
           Icon(icon, size: 20, color: c.textSecondary),
@@ -129,9 +145,12 @@ class SettingsSwitchTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: context.text.bodyLarge
-                        ?.copyWith(fontWeight: FontWeight.w500)),
+                Text(
+                  title,
+                  style: context.text.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
                   Text(subtitle!, style: context.text.bodySmall),
@@ -139,8 +158,7 @@ class SettingsSwitchTile extends StatelessWidget {
               ],
             ),
           ),
-          Switch(
-              value: value, activeThumbColor: c.brand, onChanged: onChanged),
+          Switch(value: value, activeThumbColor: c.brand, onChanged: onChanged),
         ],
       ),
     );

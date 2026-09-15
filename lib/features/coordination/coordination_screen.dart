@@ -42,8 +42,9 @@ class CoordinationScreen extends ConsumerWidget {
         ),
         data: (req) {
           final iAmDonor = req.acceptedDonorId == me?.id;
-          final counterpartName =
-              iAmDonor ? req.requesterName : (req.acceptedDonorName ?? 'Donor');
+          final counterpartName = iAmDonor
+              ? req.requesterName
+              : (req.acceptedDonorName ?? 'Donor');
           final counterpartRole = iAmDonor ? 'Requester' : 'Donor';
 
           return ListView(
@@ -68,7 +69,8 @@ class CoordinationScreen extends ConsumerWidget {
               _ActionTile(
                 icon: Icons.forum_rounded,
                 title: 'Open chat',
-                subtitle: 'Message ${counterpartName.split(' ').first} privately',
+                subtitle:
+                    'Message ${counterpartName.split(' ').first} privately',
                 onTap: () => context.push(Routes.chat(requestId)),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -113,7 +115,8 @@ class CoordinationScreen extends ConsumerWidget {
         ? '${loc.lat},${loc.lng}'
         : Uri.encodeComponent('${dest.name}, ${dest.address}');
     final uri = Uri.parse(
-        'https://www.google.com/maps/dir/?api=1&destination=$query&travelmode=driving');
+      'https://www.google.com/maps/dir/?api=1&destination=$query&travelmode=driving',
+    );
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -124,8 +127,11 @@ class CoordinationScreen extends ConsumerWidget {
 }
 
 class _PartnerCard extends StatelessWidget {
-  const _PartnerCard(
-      {required this.name, required this.role, required this.request});
+  const _PartnerCard({
+    required this.name,
+    required this.role,
+    required this.request,
+  });
   final String name;
   final String role;
   final BloodRequest request;

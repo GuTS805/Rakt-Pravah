@@ -80,54 +80,67 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
     },
     routes: [
+      GoRoute(path: Routes.splash, builder: (_, _) => const SplashScreen()),
+      GoRoute(path: Routes.login, builder: (_, _) => const LoginScreen()),
+      GoRoute(path: Routes.register, builder: (_, _) => const RegisterScreen()),
       GoRoute(
-          path: Routes.splash,
-          builder: (_, __) => const SplashScreen()),
-      GoRoute(path: Routes.login, builder: (_, __) => const LoginScreen()),
+        path: Routes.onboarding,
+        builder: (_, _) => const OnboardingScreen(),
+      ),
       GoRoute(
-          path: Routes.register, builder: (_, __) => const RegisterScreen()),
-      GoRoute(
-          path: Routes.onboarding,
-          builder: (_, __) => const OnboardingScreen()),
-      GoRoute(
-          path: Routes.verifyEmail,
-          builder: (_, __) => const VerifyEmailScreen()),
+        path: Routes.verifyEmail,
+        builder: (_, _) => const VerifyEmailScreen(),
+      ),
 
       // ---- Main app shell (4-tab bottom navigation) ----
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AppShell(shell: shell),
         branches: [
-          StatefulShellBranch(routes: [
-            GoRoute(
-                path: Routes.home, builder: (_, __) => const HomeScreen()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: Routes.home, builder: (_, _) => const HomeScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
                 path: Routes.requests,
-                builder: (_, __) => const RequestsScreen()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
+                builder: (_, _) => const RequestsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
                 path: Routes.donate,
-                builder: (_, __) => const DonateScreen()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
-                path: Routes.you, builder: (_, __) => const ProfileScreen()),
-          ]),
+                builder: (_, _) => const DonateScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.you,
+                builder: (_, _) => const ProfileScreen(),
+              ),
+            ],
+          ),
         ],
       ),
 
       // ---- Contextual full-screen routes (cover the bottom nav) ----
       GoRoute(
-          path: Routes.notifications,
-          builder: (_, __) => const NotificationsScreen()),
+        path: Routes.notifications,
+        builder: (_, _) => const NotificationsScreen(),
+      ),
       GoRoute(
-          path: Routes.createRequest,
-          builder: (_, __) => const CreateRequestScreen()),
+        path: Routes.createRequest,
+        builder: (_, _) => const CreateRequestScreen(),
+      ),
       GoRoute(
         path: '/requests/:id',
-        builder: (_, s) => RequestDetailScreen(requestId: s.pathParameters['id']!),
+        builder: (_, s) =>
+            RequestDetailScreen(requestId: s.pathParameters['id']!),
         routes: [
           GoRoute(
             path: 'coordination',
@@ -151,21 +164,23 @@ final routerProvider = Provider<GoRouter>((ref) {
             InvitationDetailScreen(invitationId: s.pathParameters['id']!),
       ),
       GoRoute(
-          path: Routes.donorSettings,
-          builder: (_, __) => const DonorSettingsScreen()),
+        path: Routes.donorSettings,
+        builder: (_, _) => const DonorSettingsScreen(),
+      ),
       GoRoute(
-          path: Routes.profileEdit,
-          builder: (_, __) => const ProfileEditScreen()),
+        path: Routes.profileEdit,
+        builder: (_, _) => const ProfileEditScreen(),
+      ),
       GoRoute(
-          path: Routes.requestHistory,
-          builder: (_, __) => const HistoryScreen(donations: false)),
+        path: Routes.requestHistory,
+        builder: (_, _) => const HistoryScreen(donations: false),
+      ),
       GoRoute(
-          path: Routes.donationHistory,
-          builder: (_, __) => const HistoryScreen(donations: true)),
-      GoRoute(
-          path: Routes.privacy, builder: (_, __) => const PrivacyScreen()),
-      GoRoute(
-          path: Routes.settings, builder: (_, __) => const SettingsScreen()),
+        path: Routes.donationHistory,
+        builder: (_, _) => const HistoryScreen(donations: true),
+      ),
+      GoRoute(path: Routes.privacy, builder: (_, _) => const PrivacyScreen()),
+      GoRoute(path: Routes.settings, builder: (_, _) => const SettingsScreen()),
     ],
   );
 });

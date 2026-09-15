@@ -38,8 +38,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!found && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text(
-                  'No account found for that number. Create one below.')),
+            content: Text(
+              'No account found for that number. Create one below.',
+            ),
+          ),
         );
       }
     } catch (_) {
@@ -87,12 +89,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]')),
                       ],
                       decoration: const InputDecoration(
-                        hintText: '+91 98xxxxxx00',
+                        hintText: '+971 50 123 4567',
                         prefixIcon: Icon(Icons.phone_outlined),
                       ),
                       validator: (v) {
-                        final digits =
-                            (v ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+                        final digits = (v ?? '').replaceAll(
+                          RegExp(r'[^0-9]'),
+                          '',
+                        );
                         if (digits.length < 10) {
                           return 'Enter a valid phone number';
                         }
