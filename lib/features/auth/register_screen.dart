@@ -8,9 +8,11 @@ import '../../core/widgets/blood_group_picker.dart';
 import '../../core/widgets/buttons.dart';
 import '../../data/models/enums.dart';
 import '../../data/providers.dart';
+import '../../shared/profile_fields.dart';
 
-/// Registration collects only what the product needs: name, phone, blood group,
-/// and (optional) city. No unnecessary personal data (spec §8).
+/// Registration asks for everything up front: name, phone, blood group, date
+/// of birth, gender and home location. Collecting it once here means donating
+/// or requesting later never stops to ask for more (spec §8).
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
@@ -22,8 +24,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _phone = TextEditingController();
+  final _country = TextEditingController(text: 'India');
+  final _state = TextEditingController();
   final _city = TextEditingController();
   BloodGroup? _group;
+  DateTime? _dateOfBirth;
+  Gender? _gender;
   bool _busy = false;
   bool _groupError = false;
 
@@ -31,6 +37,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   void dispose() {
     _name.dispose();
     _phone.dispose();
+    _country.dispose();
+    _state.dispose();
     _city.dispose();
     super.dispose();
   }
@@ -48,8 +56,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             name: _name.text.trim(),
             phone: _phone.text.trim(),
             bloodGroup: _group!,
-            city: _city.text.trim().isEmpty ? null : _city.text.trim(),
+            dateOfBirth: _dateOfBirth!,
+            gender: _gender!,
+            country: _country.text.trim(),
+            state: _state.text.trim(),
+            city: _city.text.trim(),
           );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Couldn\'t create your account. Try again.'),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -76,7 +96,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       style: context.text.bodyMedium,
                     ),
                     const SizedBox(height: AppSpacing.xxl),
-                    _Label('Full name'),
+                    const FieldLabel('Full name'),
                     TextFormField(
                       controller: _name,
                       textCapitalization: TextCapitalization.words,
@@ -86,7 +106,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           : null,
                     ),
                     const SizedBox(height: AppSpacing.lg),
-                    _Label('Phone number'),
+                    const FieldLabel('Phone number'),
                     TextFormField(
                       controller: _phone,
                       keyboardType: TextInputType.phone,
@@ -94,7 +114,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]')),
                       ],
                       decoration: const InputDecoration(
-                        hintText: '+971 50 123 4567',
+                        hintText: '98765 43210',
                       ),
                       validator: (v) {
                         final digits = (v ?? '').replaceAll(
@@ -107,7 +127,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       },
                     ),
                     const SizedBox(height: AppSpacing.lg),
-                    _Label('Your blood group'),
+                    const FieldLabel('Your blood group'),
                     BloodGroupPicker(
                       selected: _group,
                       onChanged: (g) => setState(() {
@@ -125,11 +145,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                     ],
                     const SizedBox(height: AppSpacing.lg),
-                    _Label('City (optional)'),
-                    TextFormField(
-                      controller: _city,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(hintText: 'e.g. Dubai'),
+                    const FieldLabel('Date of birth'),
+                    DateOfBirthField(onChanged: (d) => _dateOfBirth = d),
+                    const SizedBox(height: AppSpacing.lg),
+                    const FieldLabel('Gender'),
+                    GenderField(onChanged: (g) => _gender = g),
+                    const SizedBox(height: AppSpacing.lg),
+                    HomeLocationFields(
+                      country: _country,
+                      state: _state,
+                      city: _city,
                     ),
                     const SizedBox(height: AppSpacing.xxl),
                     PrimaryButton(
@@ -139,8 +164,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      'By continuing you agree to help coordinate responsibly. '
-                      'You control when you\'re available as a donor.',
+                      'Your date of birth and gender are only used to check '
+                      'donor eligibility. You control when you\'re available '
+                      'as a donor.',
                       style: context.text.bodySmall,
                     ),
                   ],
@@ -152,15 +178,4 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       ),
     );
   }
-}
-
-class _Label extends StatelessWidget {
-  const _Label(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-    child: Text(text, style: context.text.titleSmall),
-  );
 }

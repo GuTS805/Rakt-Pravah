@@ -77,8 +77,11 @@ class NotificationsScreen extends ConsumerWidget {
           Icons.favorite_rounded,
           c.brand,
           'New donor invitation',
-          '${_groupsLabel(inv.bloodGroups)} · ${Fmt.units(inv.units)} · '
-              '${inv.distanceKm.toStringAsFixed(1)} km away.',
+          inv.distanceKm == null
+              ? '${_groupsLabel(inv.bloodGroups)} · ${Fmt.units(inv.units)} · '
+                    '${inv.destinationName}.'
+              : '${_groupsLabel(inv.bloodGroups)} · ${Fmt.units(inv.units)} · '
+                    '${inv.distanceKm!.toStringAsFixed(1)} km away.',
           inv.createdAt,
           Routes.invitationDetail(inv.id),
         ),

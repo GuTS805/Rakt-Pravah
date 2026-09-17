@@ -57,15 +57,23 @@ class AuthController extends Notifier<AuthState> {
     required String name,
     required String phone,
     required BloodGroup bloodGroup,
-    String? city,
+    required DateTime dateOfBirth,
+    required Gender gender,
+    required String country,
+    required String state,
+    required String city,
   }) async {
     final user = await _backend.register(
       name: name,
       phone: phone,
       bloodGroup: bloodGroup,
+      dateOfBirth: dateOfBirth,
+      gender: gender,
+      country: country,
+      state: state,
       city: city,
     );
-    state = AuthState(AuthStatus.needsOnboarding, user);
+    this.state = AuthState(AuthStatus.needsOnboarding, user);
   }
 
   void completeOnboarding() {
@@ -76,28 +84,34 @@ class AuthController extends Notifier<AuthState> {
   Future<void> updateProfile({
     required String name,
     required BloodGroup bloodGroup,
-    String? city,
+    required DateTime dateOfBirth,
+    required Gender gender,
+    required String country,
+    required String state,
+    required String city,
   }) async {
-    if (state.user == null) return;
+    if (this.state.user == null) return;
     await _backend.updateProfile(
       name: name,
       bloodGroup: bloodGroup,
+      dateOfBirth: dateOfBirth,
+      gender: gender,
+      country: country,
+      state: state,
       city: city,
     );
-    state = AuthState(AuthStatus.authenticated, _backend.currentUser);
+    this.state = AuthState(AuthStatus.authenticated, _backend.currentUser);
   }
 
-  /// Sends the passwordless sign-in link — the user must already have a
-  /// session (registered or restored) before verifying an email onto it.
+  /// Sends the passwordless sign-in link the admin console uses to identify
+  /// an operator. The mobile app doesn't ask for an email at all.
   Future<void> sendEmailVerification(String email) =>
       _backend.sendVerificationEmailLink(email);
 
   bool isEmailVerificationLink(String link) => _backend.isEmailSignInLink(link);
 
-  /// Completes verification once the user taps the emailed link. Keeps
-  /// whatever onboarding/authenticated status the user was already in —
-  /// this only ever refreshes `emailVerified`, it doesn't change where they
-  /// are in the signup flow.
+  /// Completes sign-in once the operator opens the emailed link, keeping
+  /// whatever auth status they were already in.
   Future<void> completeEmailVerification({
     required String email,
     required String link,
@@ -205,6 +219,15 @@ final activeRequestProvider = Provider<BloodRequest?>((ref) {
 // ---------------------------------------------------------------------------
 final invitationsProvider = StreamProvider<List<Invitation>>((ref) {
   final backend = ref.watch(backendProvider);
+  // The backend builds its queries from Donor Mode and position at the moment
+  // of subscribing, so resubscribe whenever either changes. Without this,
+  // switching Donor Mode off kept requests coming until the app restarted.
+  ref.watch(
+    donorProfileValueProvider.select(
+      (d) => (d.availability, d.bloodGroup, d.isInCooldown),
+    ),
+  );
+  ref.watch(deviceLocationProvider.select((l) => l.point));
   return backend.invitationsStream;
 });
 
@@ -214,12 +237,15 @@ final pendingInvitationsProvider = Provider<List<Invitation>>((ref) {
   return all.where((i) => i.status == InvitationStatus.pending).toList();
 });
 
-/// The invitation the user has accepted, if any — drives the "active donation"
-/// card on Home and the donor coordination entry point.
+/// The donation the user is in the middle of, if any — drives the "active
+/// donation" card on Home and blocks accepting a second request at once.
+/// Accepted requests that have since been fulfilled or cancelled don't count.
 final acceptedInvitationProvider = Provider<Invitation?>((ref) {
   final all = ref.watch(invitationsProvider).valueOrNull ?? const [];
   for (final i in all) {
-    if (i.status == InvitationStatus.accepted) return i;
+    if (i.status == InvitationStatus.accepted && i.requestStatus.isActive) {
+      return i;
+    }
   }
   return null;
 });

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
-import '../../core/services/verification_gate.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/invitation_card.dart';
@@ -90,11 +89,7 @@ class _MyRequests extends ConsumerWidget {
             title: 'No requests yet',
             message: 'When you request blood, you\'ll track it here.',
             actionLabel: 'Request blood',
-            onAction: () {
-              if (requireVerifiedEmail(context, ref)) {
-                context.push(Routes.createRequest);
-              }
-            },
+            onAction: () => context.push(Routes.createRequest),
           );
         }
         final active = requests.where((r) => r.status.isActive).toList();

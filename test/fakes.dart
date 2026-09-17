@@ -72,6 +72,8 @@ class FakeBackend implements Backend {
   final List<DonorProfile> setDonorProfileCalls = [];
   final List<String> cancelledRequestIds = [];
   final List<String> fulfilledRequestIds = [];
+  final List<String> withdrawnRequestIds = [];
+  final List<String> extendedRequestIds = [];
   final List<(String, InvitationStatus)> invitationResponses = [];
   final List<String> sentVerificationEmails = [];
   final List<(String, GeoPoint)> liveLocationUpdates = [];
@@ -122,6 +124,8 @@ class FakeBackend implements Backend {
 
   @override
   Future<BloodRequest> createRequest({
+    required String patientName,
+    required BloodGroup patientBloodGroup,
     required List<BloodGroup> bloodGroups,
     required int units,
     required Urgency urgency,
@@ -134,6 +138,8 @@ class FakeBackend implements Backend {
       id: 'req-$createRequestCalls',
       requesterId: uid,
       requesterName: currentUser?.name ?? 'Tester',
+      patientName: patientName,
+      patientBloodGroup: patientBloodGroup,
       bloodGroups: bloodGroups,
       units: units,
       urgency: urgency,
@@ -152,6 +158,13 @@ class FakeBackend implements Backend {
 
   @override
   Future<void> markFulfilled(String id) async => fulfilledRequestIds.add(id);
+
+  @override
+  Future<void> withdrawFromRequest(String id) async =>
+      withdrawnRequestIds.add(id);
+
+  @override
+  Future<void> extendRequest(String id) async => extendedRequestIds.add(id);
 
   @override
   Future<void> respondToInvitation(String id, InvitationStatus status) async {
@@ -204,19 +217,22 @@ class FakeBackend implements Backend {
     required String link,
   }) async {
     final user = currentUser!;
-    final verified = UserProfile(
+    final signedIn = UserProfile(
       id: user.id,
       name: user.name,
       bloodGroup: user.bloodGroup,
       phone: user.phone,
       email: email,
-      emailVerified: true,
+      dateOfBirth: user.dateOfBirth,
+      gender: user.gender,
+      country: user.country,
+      state: user.state,
       city: user.city,
       lastDonation: user.lastDonation,
       isAdmin: user.isAdmin,
     );
-    currentUser = verified;
-    return verified;
+    currentUser = signedIn;
+    return signedIn;
   }
 
   @override
@@ -231,13 +247,21 @@ class FakeBackend implements Backend {
     required String name,
     required String phone,
     required BloodGroup bloodGroup,
-    String? city,
+    required DateTime dateOfBirth,
+    required Gender gender,
+    required String country,
+    required String state,
+    required String city,
   }) async {
     final user = UserProfile(
       id: 'fake-uid',
       name: name,
       bloodGroup: bloodGroup,
       phone: phone,
+      dateOfBirth: dateOfBirth,
+      gender: gender,
+      country: country,
+      state: state,
       city: city,
     );
     currentUser = user;
@@ -248,7 +272,11 @@ class FakeBackend implements Backend {
   Future<void> updateProfile({
     required String name,
     required BloodGroup bloodGroup,
-    String? city,
+    required DateTime dateOfBirth,
+    required Gender gender,
+    required String country,
+    required String state,
+    required String city,
   }) async {
     final user = currentUser!;
     currentUser = UserProfile(
@@ -257,7 +285,10 @@ class FakeBackend implements Backend {
       bloodGroup: bloodGroup,
       phone: user.phone,
       email: user.email,
-      emailVerified: user.emailVerified,
+      dateOfBirth: dateOfBirth,
+      gender: gender,
+      country: country,
+      state: state,
       city: city,
       lastDonation: user.lastDonation,
       isAdmin: user.isAdmin,

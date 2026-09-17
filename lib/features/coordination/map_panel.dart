@@ -22,10 +22,11 @@ class MapPanel extends StatefulWidget {
     super.key,
     required this.destination,
     this.myLocation,
-    this.trackedLocation,
+    this.trackedLocations = const [],
     this.height = 260,
     this.interactive = true,
     this.enlargeable = true,
+    this.onLocateMe,
   });
 
   final Destination destination;
@@ -34,11 +35,11 @@ class MapPanel extends StatefulWidget {
   /// what you're about to share).
   final GeoPoint? myLocation;
 
-  /// A position to actively follow with the camera as it updates — the
-  /// donor's live location while they're heading to the destination (spec:
-  /// "zoom into the donor location who is heading to the requester
-  /// location"). Rendered as a pulsing marker to read as "in motion."
-  final GeoPoint? trackedLocation;
+  /// Positions to actively follow as they update — the live locations of
+  /// donors heading to the destination (spec: "zoom into the donor location
+  /// who is heading to the requester location"). Rendered as pulsing markers
+  /// to read as "in motion"; the camera follows the first.
+  final List<GeoPoint> trackedLocations;
 
   final double height;
   final bool interactive;
@@ -46,18 +47,65 @@ class MapPanel extends StatefulWidget {
   /// Shows a corner button that opens the same map full-screen.
   final bool enlargeable;
 
+  /// Fetches a fresh device position (asking for permission if needed) for
+  /// the "my location" button. Without it the button isn't shown.
+  final Future<GeoPoint?> Function()? onLocateMe;
+
   @override
   State<MapPanel> createState() => _MapPanelState();
+}
+
+/// Centre of India, used only when there's no point at all to show.
+const _fallbackCenter = ll.LatLng(22.9734, 78.6569);
+
+ll.LatLng? _toLatLng(GeoPoint? p) => p == null ? null : ll.LatLng(p.lat, p.lng);
+
+/// Moves [controller] to the device position from [onLocateMe], or explains
+/// why it can't.
+Future<GeoPoint?> _locate(
+  BuildContext context,
+  MapController controller,
+  Future<GeoPoint?> Function() onLocateMe,
+) async {
+  final point = await onLocateMe();
+  if (!context.mounted) return point;
+  if (point == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Turn on location access to see where you are.'),
+      ),
+    );
+    return null;
+  }
+  try {
+    controller.move(ll.LatLng(point.lat, point.lng), 16);
+  } catch (_) {
+    // Map not laid out yet; the marker still appears on the next build.
+  }
+  return point;
 }
 
 class _MapPanelState extends State<MapPanel> {
   final _controller = MapController();
   GeoPoint? _lastTracked;
+  GeoPoint? _located;
+  bool _locating = false;
+
+  Future<void> _locateMe() async {
+    setState(() => _locating = true);
+    final point = await _locate(context, _controller, widget.onLocateMe!);
+    if (mounted) {
+      setState(() {
+        _locating = false;
+        _located = point ?? _located;
+      });
+    }
+  }
 
   @override
   void didUpdateWidget(covariant MapPanel old) {
     super.didUpdateWidget(old);
-    final tracked = widget.trackedLocation;
+    final tracked = widget.trackedLocations.firstOrNull;
     if (tracked != null &&
         (tracked.lat != _lastTracked?.lat ||
             tracked.lng != _lastTracked?.lng)) {
@@ -77,15 +125,11 @@ class _MapPanelState extends State<MapPanel> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final destPoint =
-        widget.destination.location ?? const GeoPoint(25.2048, 55.2708);
-    final destLatLng = ll.LatLng(destPoint.lat, destPoint.lng);
-    final myLatLng = widget.myLocation == null
-        ? null
-        : ll.LatLng(widget.myLocation!.lat, widget.myLocation!.lng);
-    final trackedLatLng = widget.trackedLocation == null
-        ? null
-        : ll.LatLng(widget.trackedLocation!.lat, widget.trackedLocation!.lng);
+    final destLatLng = _toLatLng(widget.destination.location);
+    final myLatLng = _toLatLng(_located ?? widget.myLocation);
+    final trackedLatLngs = [
+      for (final p in widget.trackedLocations) ll.LatLng(p.lat, p.lng),
+    ];
 
     return ClipRRect(
       borderRadius: AppRadius.cardLg,
@@ -101,7 +145,7 @@ class _MapPanelState extends State<MapPanel> {
               controller: _controller,
               destLatLng: destLatLng,
               myLatLng: myLatLng,
-              trackedLatLng: trackedLatLng,
+              trackedLatLngs: trackedLatLngs,
               interactive: widget.interactive,
               destination: widget.destination,
               tileUrl: _defaultTileUrl,
@@ -114,24 +158,39 @@ class _MapPanelState extends State<MapPanel> {
                 child: _DestinationChip(destination: widget.destination),
               ),
             ),
-            if (widget.enlargeable)
-              Positioned(
-                top: AppSpacing.sm,
-                right: AppSpacing.sm,
-                child: _RoundIconButton(
-                  icon: Icons.open_in_full_rounded,
-                  tooltip: 'Enlarge map',
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => _FullscreenMap(
-                        destination: widget.destination,
-                        myLocation: widget.myLocation,
-                        trackedLocation: widget.trackedLocation,
+            Positioned(
+              top: AppSpacing.sm,
+              right: AppSpacing.sm,
+              child: Column(
+                children: [
+                  if (widget.enlargeable)
+                    _RoundIconButton(
+                      icon: Icons.open_in_full_rounded,
+                      tooltip: 'Enlarge map',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => _FullscreenMap(
+                            destination: widget.destination,
+                            myLocation: _located ?? widget.myLocation,
+                            trackedLocations: widget.trackedLocations,
+                            onLocateMe: widget.onLocateMe,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
+                  if (widget.onLocateMe != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    _RoundIconButton(
+                      icon: _locating
+                          ? Icons.hourglass_top_rounded
+                          : Icons.my_location_rounded,
+                      tooltip: 'My location',
+                      onTap: _locating ? () {} : _locateMe,
+                    ),
+                  ],
+                ],
               ),
+            ),
           ],
         ),
       ),
@@ -144,16 +203,19 @@ class _MapView extends StatelessWidget {
     required this.controller,
     required this.destLatLng,
     required this.myLatLng,
-    required this.trackedLatLng,
+    required this.trackedLatLngs,
     required this.interactive,
     required this.destination,
     required this.tileUrl,
   }) : initialZoom = 14;
 
   final MapController controller;
-  final ll.LatLng destLatLng;
+
+  /// Null when the hospital address couldn't be placed on the map. No pin is
+  /// drawn then, rather than one in a made-up spot.
+  final ll.LatLng? destLatLng;
   final ll.LatLng? myLatLng;
-  final ll.LatLng? trackedLatLng;
+  final List<ll.LatLng> trackedLatLngs;
   final bool interactive;
   final Destination destination;
   final String tileUrl;
@@ -167,21 +229,30 @@ class _MapView extends StatelessWidget {
     // the destination and the viewer's own point if they're actually close
     // together (a bad geocode landing far away shouldn't zoom the map out to
     // a whole-region view — better to just show the destination clearly).
-    final anchor = trackedLatLng ?? destLatLng;
+    final dest = destLatLng;
+    final tracked = trackedLatLngs.firstOrNull;
+    final anchor = tracked ?? dest ?? myLatLng ?? _fallbackCenter;
+    final hasAnyPoint = tracked != null || dest != null || myLatLng != null;
     final farApart =
+        dest != null &&
         myLatLng != null &&
-        trackedLatLng == null &&
-        ((destLatLng.latitude - myLatLng!.latitude).abs() > 1.5 ||
-            (destLatLng.longitude - myLatLng!.longitude).abs() > 1.5);
-    final bounds = (myLatLng == null || farApart || trackedLatLng != null)
+        tracked == null &&
+        ((dest.latitude - myLatLng!.latitude).abs() > 1.5 ||
+            (dest.longitude - myLatLng!.longitude).abs() > 1.5);
+    final bounds =
+        (dest == null || myLatLng == null || farApart || tracked != null)
         ? null
-        : LatLngBounds.fromPoints([destLatLng, myLatLng!]);
+        : LatLngBounds.fromPoints([dest, myLatLng!]);
 
     return FlutterMap(
       mapController: controller,
       options: MapOptions(
         initialCenter: anchor,
-        initialZoom: trackedLatLng != null ? 16 : initialZoom,
+        initialZoom: !hasAnyPoint
+            ? 4
+            : tracked != null
+            ? 16
+            : initialZoom,
         initialCameraFit: bounds == null
             ? null
             : CameraFit.bounds(
@@ -200,13 +271,18 @@ class _MapView extends StatelessWidget {
         ),
         MarkerLayer(
           markers: [
-            Marker(
-              point: destLatLng,
-              width: 40,
-              height: 40,
-              alignment: Alignment.topCenter,
-              child: Icon(Icons.location_on_rounded, color: c.brand, size: 36),
-            ),
+            if (dest != null)
+              Marker(
+                point: dest,
+                width: 40,
+                height: 40,
+                alignment: Alignment.topCenter,
+                child: Icon(
+                  Icons.location_on_rounded,
+                  color: c.brand,
+                  size: 36,
+                ),
+              ),
             if (myLatLng != null)
               Marker(
                 point: myLatLng!,
@@ -214,9 +290,9 @@ class _MapView extends StatelessWidget {
                 height: 22,
                 child: _Dot(color: c.info),
               ),
-            if (trackedLatLng != null)
+            for (final point in trackedLatLngs)
               Marker(
-                point: trackedLatLng!,
+                point: point,
                 width: 26,
                 height: 26,
                 child: _PulsingDot(color: c.success),
@@ -394,12 +470,14 @@ class _FullscreenMap extends StatefulWidget {
   const _FullscreenMap({
     required this.destination,
     this.myLocation,
-    this.trackedLocation,
+    this.trackedLocations = const [],
+    this.onLocateMe,
   });
 
   final Destination destination;
   final GeoPoint? myLocation;
-  final GeoPoint? trackedLocation;
+  final List<GeoPoint> trackedLocations;
+  final Future<GeoPoint?> Function()? onLocateMe;
 
   @override
   State<_FullscreenMap> createState() => _FullscreenMapState();
@@ -407,25 +485,38 @@ class _FullscreenMap extends StatefulWidget {
 
 class _FullscreenMapState extends State<_FullscreenMap> {
   final _controller = MapController();
+  GeoPoint? _located;
 
   @override
   Widget build(BuildContext context) {
-    final destPoint =
-        widget.destination.location ?? const GeoPoint(25.2048, 55.2708);
-    final myLatLng = widget.myLocation == null
-        ? null
-        : ll.LatLng(widget.myLocation!.lat, widget.myLocation!.lng);
-    final trackedLatLng = widget.trackedLocation == null
-        ? null
-        : ll.LatLng(widget.trackedLocation!.lat, widget.trackedLocation!.lng);
+    final myLatLng = _toLatLng(_located ?? widget.myLocation);
+    final trackedLatLngs = [
+      for (final p in widget.trackedLocations) ll.LatLng(p.lat, p.lng),
+    ];
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.destination.name)),
+      floatingActionButton: widget.onLocateMe == null
+          ? null
+          : FloatingActionButton.small(
+              tooltip: 'My location',
+              onPressed: () async {
+                final point = await _locate(
+                  context,
+                  _controller,
+                  widget.onLocateMe!,
+                );
+                if (point != null && mounted) {
+                  setState(() => _located = point);
+                }
+              },
+              child: const Icon(Icons.my_location_rounded),
+            ),
       body: _MapView(
         controller: _controller,
-        destLatLng: ll.LatLng(destPoint.lat, destPoint.lng),
+        destLatLng: _toLatLng(widget.destination.location),
         myLatLng: myLatLng,
-        trackedLatLng: trackedLatLng,
+        trackedLatLngs: trackedLatLngs,
         interactive: true,
         destination: widget.destination,
         tileUrl: _defaultTileUrl,
