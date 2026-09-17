@@ -45,6 +45,9 @@ abstract class Fmt {
   /// Short date, e.g. "12 Aug".
   static String shortDate(DateTime t) => '${t.day} ${_months[t.month - 1]}';
 
+  static String date(DateTime t) =>
+      '${t.day} ${_months[t.month - 1]} ${t.year}';
+
   /// Units label, e.g. "2 units" / "1 unit".
   static String units(int n) => n == 1 ? '1 unit' : '$n units';
 

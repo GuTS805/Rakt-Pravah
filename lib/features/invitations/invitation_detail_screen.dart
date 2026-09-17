@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
-import '../../core/services/verification_gate.dart';
+import '../../core/services/donor_gate.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/semantics.dart';
@@ -14,6 +14,7 @@ import '../../core/widgets/buttons.dart';
 import '../../core/widgets/states.dart';
 import '../../data/models/models.dart';
 import '../../data/providers.dart';
+import 'health_check_sheet.dart';
 
 /// Donor opportunity detail. Before acceptance it exposes only what's needed to
 /// decide — no private requester data (spec §16, §26). Accepting opens the
@@ -49,11 +50,9 @@ class _InvitationDetailScreenState
     );
   }
 
-  Widget _content(BuildContext context, inv) {
+  Widget _content(BuildContext context, Invitation inv) {
     final c = context.colors;
-    final expired =
-        inv.status == InvitationStatus.expired ||
-        (inv.expiresAt != null && inv.expiresAt!.isBefore(DateTime.now()));
+    final expired = inv.isExpired;
     final acted = inv.status != InvitationStatus.pending;
 
     return Column(
@@ -76,14 +75,33 @@ class _InvitationDetailScreenState
                         ),
                         const SizedBox(width: AppSpacing.md),
                         Expanded(
-                          child: Text(
-                            Fmt.units(inv.units),
-                            style: context.text.headlineSmall,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                Fmt.units(inv.units),
+                                style: context.text.headlineSmall,
+                              ),
+                              if ((inv.unitsRemaining ?? 0) > 0 &&
+                                  inv.units > 1)
+                                Text(
+                                  '${inv.unitsRemaining} still without a donor',
+                                  style: context.text.bodySmall,
+                                ),
+                            ],
                           ),
                         ),
                         UrgencyBadge(inv.urgency),
                       ],
                     ),
+                    if (inv.patientBloodGroup != null) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        'Patient is ${inv.patientBloodGroup!.label}. Your '
+                        'blood group can be given to them.',
+                        style: context.text.bodySmall,
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.lg),
                     const Divider(),
                     const SizedBox(height: AppSpacing.md),
@@ -91,8 +109,10 @@ class _InvitationDetailScreenState
                       children: [
                         Expanded(
                           child: DataField(
-                            label: 'Distance',
-                            value: '${inv.distanceKm.toStringAsFixed(1)} km',
+                            label: 'Distance to hospital',
+                            value: inv.distanceKm == null
+                                ? 'Unknown'
+                                : '${inv.distanceKm!.toStringAsFixed(1)} km',
                           ),
                         ),
                         Expanded(
@@ -150,7 +170,7 @@ class _InvitationDetailScreenState
     );
   }
 
-  Widget _actions(BuildContext context, inv) {
+  Widget _actions(BuildContext context, Invitation inv) {
     final c = context.colors;
     return Container(
       decoration: BoxDecoration(
@@ -219,7 +239,29 @@ class _InvitationDetailScreenState
   }
 
   Future<void> _accept(Invitation inv) async {
-    if (!requireVerifiedEmail(context, ref)) return;
+    if (!requireDonorProfile(context, ref)) return;
+
+    // One donation at a time: a donor can't be at two hospitals at once, and
+    // a second accept would leave another patient waiting on them.
+    final ongoing = ref.read(acceptedInvitationProvider);
+    if (ongoing != null && ongoing.requestId != inv.requestId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'You\'re already donating for another request. Finish that one '
+            'first.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final healthy = await showHealthCheck(
+      context,
+      gender: ref.read(currentUserProvider)?.gender,
+    );
+    if (!healthy || !mounted) return;
+
     setState(() => _busy = true);
     try {
       await ref

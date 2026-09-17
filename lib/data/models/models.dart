@@ -1,6 +1,8 @@
+import 'donor_eligibility.dart';
 import 'enums.dart';
 
 export 'blood_compatibility.dart';
+export 'donor_eligibility.dart';
 export 'enums.dart';
 
 /// Immutable domain entities for BloodLink. These are plain value objects; the
@@ -21,7 +23,10 @@ class UserProfile {
     required this.bloodGroup,
     required this.phone,
     this.email,
-    this.emailVerified = false,
+    this.dateOfBirth,
+    this.gender,
+    this.country,
+    this.state,
     this.city,
     this.lastDonation,
     this.isAdmin = false,
@@ -33,14 +38,32 @@ class UserProfile {
   final String phone;
   final String? email;
 
-  /// True only once the user has proved ownership of [email] via the
-  /// sign-in-link flow (spec: only verified users may request or donate).
-  /// Sourced from Firebase Auth's own `emailVerified` claim, not a value we
-  /// set ourselves, so it can't be spoofed by writing to the profile doc.
-  final bool emailVerified;
+  /// Collected at registration. Nullable only because accounts created before
+  /// these fields existed don't have them — donor actions send those users to
+  /// their profile to fill them in first.
+  final DateTime? dateOfBirth;
+  final Gender? gender;
+
+  /// The user's saved home location. Deliberately separate from the device's
+  /// live GPS position, which is only read at the moment it's needed.
+  final String? country;
+  final String? state;
   final String? city;
   final DateTime? lastDonation;
   final bool isAdmin;
+
+  /// Whole years old on [on] (today by default), or null without a birth date.
+  int? ageOn([DateTime? on]) =>
+      dateOfBirth == null ? null : ageFrom(dateOfBirth!, on);
+
+  /// "City, State" from whatever parts of the saved location are filled in.
+  String? get placeLabel {
+    final parts = [
+      city,
+      state,
+    ].whereType<String>().where((p) => p.trim().isNotEmpty).toList();
+    return parts.isEmpty ? null : parts.join(', ');
+  }
 
   String get initials {
     final parts = name
@@ -61,7 +84,7 @@ class DonorProfile {
     required this.availability,
     required this.bloodGroup,
     this.notifyPush = true,
-    this.notifyCritical = true,
+    this.notifyCritical = false,
     this.locationGranted = false,
     this.maxDistanceKm = 15,
     this.pausedUntil,
@@ -149,6 +172,27 @@ class StatusEvent {
   final String? note;
 }
 
+/// A donor who has committed to one unit of a request. A request needing
+/// three units needs three of these — one donor can only give one unit.
+class AcceptedDonor {
+  const AcceptedDonor({
+    required this.id,
+    required this.name,
+    required this.acceptedAt,
+  });
+
+  final String id;
+  final String name;
+  final DateTime acceptedAt;
+}
+
+/// The last position a donor shared while heading to the hospital.
+class DonorPing {
+  const DonorPing({required this.point, required this.at});
+  final GeoPoint point;
+  final DateTime at;
+}
+
 class BloodRequest {
   const BloodRequest({
     required this.id,
@@ -161,16 +205,16 @@ class BloodRequest {
     required this.createdAt,
     required this.destination,
     required this.requestLocationLabel,
+    this.patientName,
+    this.patientBloodGroup,
     this.requestLocation,
     this.donorsContacted = 0,
     this.currentWave = 0,
     this.searchRadiusKm = 5,
-    this.acceptedDonorName,
-    this.acceptedDonorId,
+    this.acceptedDonors = const [],
     this.expiresAt,
     this.timeline = const [],
-    this.donorLiveLocation,
-    this.donorLiveLocationAt,
+    this.donorLiveLocations = const {},
   });
 
   final String id;
@@ -186,6 +230,13 @@ class BloodRequest {
   final DateTime createdAt;
   final Destination destination;
   final String requestLocationLabel;
+
+  /// Who the blood is for. The requester is often a relative, so the
+  /// patient's name and blood group are asked for separately rather than
+  /// assumed from the requester's own profile. Null on requests created
+  /// before these fields existed.
+  final String? patientName;
+  final BloodGroup? patientBloodGroup;
   final GeoPoint? requestLocation;
 
   // Matching progress (surfaced to the requester without leaking internals).
@@ -193,18 +244,39 @@ class BloodRequest {
   final int currentWave;
   final double searchRadiusKm;
 
-  final String? acceptedDonorName;
-  final String? acceptedDonorId;
+  /// Everyone who has committed a unit so far, oldest first.
+  final List<AcceptedDonor> acceptedDonors;
   final DateTime? expiresAt;
   final List<StatusEvent> timeline;
 
-  /// The donor's current position while they've chosen to share live
-  /// location (spec §19) — null whenever sharing isn't active. Lets the
-  /// requester's coordination map track the donor heading their way.
-  final GeoPoint? donorLiveLocation;
-  final DateTime? donorLiveLocationAt;
+  /// Positions of donors who have chosen to share live location (spec §19),
+  /// keyed by donor id — empty whenever nobody is sharing. Lets the
+  /// requester's coordination map track donors heading their way.
+  final Map<String, DonorPing> donorLiveLocations;
 
-  bool get hasAcceptedDonor => acceptedDonorId != null;
+  List<String> get acceptedDonorIds => [for (final d in acceptedDonors) d.id];
+
+  bool get hasAcceptedDonor => acceptedDonors.isNotEmpty;
+
+  /// The first donor's name, for the many places that only have room for one.
+  String? get acceptedDonorName =>
+      acceptedDonors.isEmpty ? null : acceptedDonors.first.name;
+
+  int get unitsPledged => acceptedDonors.length;
+
+  int get unitsRemaining => units - unitsPledged < 0 ? 0 : units - unitsPledged;
+
+  /// True once every unit has a donor. Until then the request keeps looking,
+  /// however many donors have already said yes.
+  bool get isFullyMatched => unitsRemaining == 0;
+
+  /// Past its deadline with nobody committed. A request that already has a
+  /// donor is never expired out from under them.
+  bool hasExpiredBy([DateTime? now]) =>
+      status.isActive &&
+      !hasAcceptedDonor &&
+      expiresAt != null &&
+      expiresAt!.isBefore(now ?? DateTime.now());
 
   BloodRequest copyWith({
     List<BloodGroup>? bloodGroups,
@@ -217,8 +289,7 @@ class BloodRequest {
     int? donorsContacted,
     int? currentWave,
     double? searchRadiusKm,
-    String? acceptedDonorName,
-    String? acceptedDonorId,
+    List<AcceptedDonor>? acceptedDonors,
     DateTime? expiresAt,
     List<StatusEvent>? timeline,
   }) {
@@ -233,14 +304,16 @@ class BloodRequest {
       status: status ?? this.status,
       destination: destination ?? this.destination,
       requestLocationLabel: requestLocationLabel ?? this.requestLocationLabel,
+      patientName: patientName,
+      patientBloodGroup: patientBloodGroup,
       requestLocation: requestLocation ?? this.requestLocation,
       donorsContacted: donorsContacted ?? this.donorsContacted,
       currentWave: currentWave ?? this.currentWave,
       searchRadiusKm: searchRadiusKm ?? this.searchRadiusKm,
-      acceptedDonorName: acceptedDonorName ?? this.acceptedDonorName,
-      acceptedDonorId: acceptedDonorId ?? this.acceptedDonorId,
+      acceptedDonors: acceptedDonors ?? this.acceptedDonors,
       expiresAt: expiresAt ?? this.expiresAt,
       timeline: timeline ?? this.timeline,
+      donorLiveLocations: donorLiveLocations,
     );
   }
 }
@@ -260,6 +333,9 @@ class Invitation {
     required this.destinationArea,
     required this.createdAt,
     this.expiresAt,
+    this.patientBloodGroup,
+    this.requestStatus = RequestStatus.searching,
+    this.unitsRemaining,
   });
 
   final String id;
@@ -267,12 +343,29 @@ class Invitation {
   final List<BloodGroup> bloodGroups;
   final int units;
   final Urgency urgency;
-  final double distanceKm;
+
+  /// Null when either side's position is unknown — shown as unknown rather
+  /// than as a misleading 0 km.
+  final double? distanceKm;
   final InvitationStatus status;
   final String destinationName;
   final String destinationArea;
   final DateTime createdAt;
   final DateTime? expiresAt;
+  final BloodGroup? patientBloodGroup;
+
+  /// Where the underlying request is now. An accepted invitation stays
+  /// accepted forever, but only counts as an ongoing donation while the
+  /// request itself is still active.
+  final RequestStatus requestStatus;
+
+  /// Units still without a donor. A request for three units keeps looking
+  /// after the first donor accepts.
+  final int? unitsRemaining;
+
+  bool get isExpired =>
+      status == InvitationStatus.expired ||
+      (expiresAt != null && expiresAt!.isBefore(DateTime.now()));
 
   Invitation copyWith({InvitationStatus? status}) => Invitation(
     id: id,
@@ -286,6 +379,9 @@ class Invitation {
     destinationArea: destinationArea,
     createdAt: createdAt,
     expiresAt: expiresAt,
+    patientBloodGroup: patientBloodGroup,
+    requestStatus: requestStatus,
+    unitsRemaining: unitsRemaining,
   );
 }
 

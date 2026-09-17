@@ -56,12 +56,14 @@ class DonateScreen extends ConsumerWidget {
                       .where((i) => i.status == InvitationStatus.pending)
                       .toList();
                   if (pending.isEmpty) {
-                    return const EmptyState(
+                    return EmptyState(
                       icon: Icons.inbox_outlined,
                       title: 'No matching requests right now',
                       message:
-                          'You\'re available. We\'ll notify you the moment '
-                          'someone nearby needs your blood type.',
+                          'You\'re available. You\'ll see requests within '
+                          '${donor.maxDistanceKm.toStringAsFixed(0)} km, or '
+                          'anywhere in your state when nobody\'s location is '
+                          'known. Change the range in Donor settings.',
                     );
                   }
                   return Column(

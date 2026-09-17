@@ -6,7 +6,6 @@ import '../../data/providers.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/onboarding_screen.dart';
 import '../../features/auth/register_screen.dart';
-import '../../features/auth/verify_email_screen.dart';
 import '../../features/coordination/chat_screen.dart';
 import '../../features/coordination/coordination_screen.dart';
 import '../../features/coordination/live_location_screen.dart';
@@ -25,7 +24,6 @@ import '../../features/requests/request_detail_screen.dart';
 import '../../features/requests/requests_screen.dart';
 import '../../features/shell/app_shell.dart';
 import '../../features/splash/splash_screen.dart';
-import '../services/email_link_store.dart';
 import 'routes.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -53,28 +51,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         case AuthStatus.needsOnboarding:
           return loc == Routes.onboarding ? null : Routes.onboarding;
         case AuthStatus.authenticated:
-          // A verification link that arrived before auth finished resolving
-          // would otherwise be stranded: the watcher's own go() fires while
-          // the status is still `unknown`, gets bounced to splash, and the
-          // user lands on Home with no idea why. Re-checking here means the
-          // moment auth resolves, the link gets its screen.
-          if (ref.read(pendingEmailLinkProvider) != null &&
-              loc != Routes.verifyEmail &&
-              !(auth.user?.emailVerified ?? false)) {
-            return Routes.verifyEmail;
-          }
           if (loc == Routes.splash ||
               authPages.contains(loc) ||
               loc == Routes.onboarding) {
             return Routes.home;
-          }
-          // Server-side-equivalent guard for the spec's "only a verified
-          // user may request or donate" rule — catches this route
-          // regardless of how it was reached, not just the button taps
-          // that also short-circuit with a friendlier message.
-          if (loc == Routes.createRequest &&
-              !(auth.user?.emailVerified ?? false)) {
-            return Routes.verifyEmail;
           }
           return null;
       }
@@ -86,10 +66,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.onboarding,
         builder: (_, _) => const OnboardingScreen(),
-      ),
-      GoRoute(
-        path: Routes.verifyEmail,
-        builder: (_, _) => const VerifyEmailScreen(),
       ),
 
       // ---- Main app shell (4-tab bottom navigation) ----

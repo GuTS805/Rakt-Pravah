@@ -41,36 +41,44 @@ class CoordinationScreen extends ConsumerWidget {
           onRetry: () => ref.invalidate(requestProvider(requestId)),
         ),
         data: (req) {
-          final iAmDonor = req.acceptedDonorId == me?.id;
-          final counterpartName = iAmDonor
-              ? req.requesterName
-              : (req.acceptedDonorName ?? 'Donor');
-          final counterpartRole = iAmDonor ? 'Requester' : 'Donor';
+          final iAmDonor = req.acceptedDonorIds.contains(me?.id);
+          // A donor coordinates with the requester; the requester coordinates
+          // with every donor who has committed a unit.
+          final partners = iAmDonor
+              ? [(req.requesterName, 'Requester')]
+              : [for (final d in req.acceptedDonors) (d.name, 'Donor')];
 
           return ListView(
             padding: const EdgeInsets.all(AppSpacing.lg),
             children: [
               _PartnerCard(
-                name: counterpartName,
-                role: counterpartRole,
+                partners: partners,
                 request: req,
+                showProgress: !iAmDonor,
               ),
               const SizedBox(height: AppSpacing.lg),
               MapPanel(
                 destination: req.destination,
                 myLocation: myLocation,
-                // Once the donor is sharing their live position, that's what
+                onLocateMe: () async =>
+                    (await ref.read(deviceLocationProvider.notifier).request())
+                        .point,
+                // Once a donor is sharing their live position, that's what
                 // this map follows — seeing them get closer matters more
-                // than the static destination pin at this point.
-                trackedLocation: req.donorLiveLocation,
+                // than the static destination pin at this point. A donor
+                // watches nobody; they're the one being watched.
+                trackedLocations: iAmDonor
+                    ? const []
+                    : [for (final p in req.donorLiveLocations.values) p.point],
               ),
               const SizedBox(height: AppSpacing.lg),
               const SectionHeader('Coordinate'),
               _ActionTile(
                 icon: Icons.forum_rounded,
                 title: 'Open chat',
-                subtitle:
-                    'Message ${counterpartName.split(' ').first} privately',
+                subtitle: partners.length == 1
+                    ? 'Message ${partners.first.$1.split(' ').first} privately'
+                    : 'Message everyone helping with this request',
                 onTap: () => context.push(Routes.chat(requestId)),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -88,12 +96,36 @@ class CoordinationScreen extends ConsumerWidget {
                 onTap: () => _openDirections(context, req.destination),
               ),
               const SizedBox(height: AppSpacing.xl),
-              if (!iAmDonor && req.status == RequestStatus.coordinating)
+              if (req.status.isTerminal)
+                Text(
+                  req.status == RequestStatus.fulfilled
+                      ? 'This request is fulfilled. Thank you.'
+                      : 'This request was ${req.status.label.toLowerCase()}. '
+                            'No need to go to the hospital.',
+                  textAlign: TextAlign.center,
+                  style: context.text.bodyMedium,
+                )
+              else if (iAmDonor)
+                SecondaryButton(
+                  label: 'I can\'t make it',
+                  icon: Icons.close_rounded,
+                  destructive: true,
+                  onPressed: () => _withdraw(context, ref),
+                )
+              else ...[
                 PrimaryButton(
                   label: 'Mark request fulfilled',
                   icon: Icons.check_rounded,
                   onPressed: () => _fulfill(context, ref),
                 ),
+                const SizedBox(height: AppSpacing.sm),
+                SecondaryButton(
+                  label: 'Cancel request',
+                  icon: Icons.close_rounded,
+                  destructive: true,
+                  onPressed: () => _cancel(context, ref, req),
+                ),
+              ],
             ],
           );
         },
@@ -104,6 +136,79 @@ class CoordinationScreen extends ConsumerWidget {
   Future<void> _fulfill(BuildContext context, WidgetRef ref) async {
     await ref.read(backendProvider).markFulfilled(requestId);
     if (context.mounted) context.pop();
+  }
+
+  Future<void> _cancel(
+    BuildContext context,
+    WidgetRef ref,
+    BloodRequest req,
+  ) async {
+    final ok = await _confirm(
+      context,
+      title: 'Cancel this request?',
+      body:
+          '${req.acceptedDonorName ?? 'Your donor'} will be told not to come.',
+      confirmLabel: 'Cancel request',
+    );
+    if (ok != true) return;
+    await ref.read(backendProvider).cancelRequest(requestId);
+    if (context.mounted) context.pop();
+  }
+
+  /// The donor backs out. The request isn't cancelled: it goes back to
+  /// searching so the patient can still get another donor.
+  Future<void> _withdraw(BuildContext context, WidgetRef ref) async {
+    final ok = await _confirm(
+      context,
+      title: 'Can\'t make it?',
+      body:
+          'The requester will be told, and we\'ll look for another donor '
+          'straight away.',
+      confirmLabel: 'I can\'t make it',
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(backendProvider).withdrawFromRequest(requestId);
+      if (context.mounted) context.go(Routes.donate);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Couldn\'t update. Try again.')),
+        );
+      }
+    }
+  }
+
+  Future<bool?> _confirm(
+    BuildContext context, {
+    required String title,
+    required String body,
+    required String confirmLabel,
+  }) {
+    final c = context.colors;
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title, style: context.text.titleLarge),
+        content: Text(body, style: context.text.bodyMedium),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Keep',
+              style: context.text.labelLarge?.copyWith(color: c.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              confirmLabel,
+              style: context.text.labelLarge?.copyWith(color: c.danger),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Opens turn-by-turn navigation in the device's maps app — real
@@ -128,13 +233,15 @@ class CoordinationScreen extends ConsumerWidget {
 
 class _PartnerCard extends StatelessWidget {
   const _PartnerCard({
-    required this.name,
-    required this.role,
+    required this.partners,
     required this.request,
+    required this.showProgress,
   });
-  final String name;
-  final String role;
+
+  /// Name and role of everyone on the other side of this coordination.
+  final List<(String, String)> partners;
   final BloodRequest request;
+  final bool showProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -143,23 +250,36 @@ class _PartnerCard extends StatelessWidget {
       accent: c.success,
       child: Column(
         children: [
-          Row(
-            children: [
-              Avatar(initials: _initials(name), size: 46),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(name, style: context.text.titleMedium),
-                    const SizedBox(height: 2),
-                    Text(role, style: context.text.bodySmall),
-                  ],
+          for (final (index, partner) in partners.indexed) ...[
+            if (index > 0) const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Avatar(initials: _initials(partner.$1), size: 46),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(partner.$1, style: context.text.titleMedium),
+                      const SizedBox(height: 2),
+                      Text(partner.$2, style: context.text.bodySmall),
+                    ],
+                  ),
                 ),
-              ),
-              StatusBadge(request.status, dense: true),
-            ],
-          ),
+                if (index == 0) StatusBadge(request.status, dense: true),
+              ],
+            ),
+          ],
+          if (showProgress && request.units > 1) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              request.isFullyMatched
+                  ? 'All ${Fmt.units(request.units)} covered.'
+                  : '${request.unitsPledged} of ${request.units} units '
+                        'covered. Still searching for the rest.',
+              style: context.text.bodySmall,
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
           const Divider(),
           const SizedBox(height: AppSpacing.md),
@@ -172,6 +292,28 @@ class _PartnerCard extends StatelessWidget {
               UrgencyBadge(request.urgency, dense: true),
             ],
           ),
+          // The donor needs this at the blood bank to donate against the
+          // right patient.
+          if (request.patientName != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Icon(
+                  Icons.person_outline_rounded,
+                  size: 18,
+                  color: c.textTertiary,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Patient: ${request.patientName}'
+                    '${request.patientBloodGroup == null ? '' : ' · ${request.patientBloodGroup!.label}'}',
+                    style: context.text.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

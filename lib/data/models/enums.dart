@@ -22,6 +22,17 @@ enum BloodGroup {
       BloodGroup.values.firstWhere((g) => g.label == value);
 }
 
+/// Asked at registration. Only used to decide which donor health questions
+/// apply (nobody should be asked a male donor about pregnancy).
+enum Gender {
+  male('Male'),
+  female('Female'),
+  other('Other');
+
+  const Gender(this.label);
+  final String label;
+}
+
 /// Urgency ladder. Doubles as the semantic color ladder:
 /// routine -> info, urgent -> warning, critical -> danger.
 enum Urgency {

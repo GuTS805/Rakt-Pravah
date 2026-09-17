@@ -5,7 +5,6 @@ abstract class Routes {
   static const login = '/login';
   static const register = '/register';
   static const onboarding = '/onboarding';
-  static const verifyEmail = '/verify-email';
 
   static const home = '/home';
   static const notifications = '/notifications';

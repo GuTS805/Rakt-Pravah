@@ -69,10 +69,10 @@ class _Body extends ConsumerWidget {
             children: [
               _SummaryCard(request: request),
               const SizedBox(height: AppSpacing.lg),
-              if (request.status == RequestStatus.searching)
+              if (request.status == RequestStatus.searching) ...[
                 _SearchingCard(request: request),
-              if (request.status == RequestStatus.searching)
                 const SizedBox(height: AppSpacing.lg),
+              ],
               const SectionHeader('Progress'),
               AppCard(child: StatusTimeline(request: request)),
               const SizedBox(height: AppSpacing.lg),
@@ -118,7 +118,11 @@ class _SummaryCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Created ${Fmt.relative(request.createdAt)}',
+                      request.patientName == null
+                          ? 'Created ${Fmt.relative(request.createdAt)}'
+                          : 'For ${request.patientName}'
+                                '${request.patientBloodGroup == null ? '' : ' (${request.patientBloodGroup!.label})'}'
+                                ' · ${Fmt.relative(request.createdAt)}',
                       style: context.text.bodySmall,
                     ),
                   ],
@@ -176,7 +180,9 @@ class _SearchingCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
-                  'Searching for nearby donors…',
+                  request.hasAcceptedDonor
+                      ? 'Searching for the remaining donors…'
+                      : 'Searching for nearby donors…',
                   style: context.text.titleSmall,
                 ),
               ),
@@ -187,22 +193,24 @@ class _SearchingCard extends StatelessWidget {
             children: [
               Expanded(
                 child: DataField(
-                  label: 'Donors contacted',
-                  value: '${request.donorsContacted}',
+                  label: 'Units covered',
+                  value: '${request.unitsPledged} of ${request.units}',
                 ),
               ),
               Expanded(
                 child: DataField(
-                  label: 'Search radius',
-                  value: '${request.searchRadiusKm.toStringAsFixed(0)} km',
+                  label: 'Time left',
+                  value: Fmt.remaining(request.expiresAt),
                 ),
               ),
             ],
           ),
-          if (request.currentWave > 1) ...[
+          if (request.hasAcceptedDonor) ...[
             const SizedBox(height: AppSpacing.md),
             Text(
-              'Expanding search area to reach more donors…',
+              '${request.acceptedDonors.map((d) => d.name).join(', ')} '
+              'already said yes. Still looking for '
+              '${Fmt.units(request.unitsRemaining)}.',
               style: context.text.bodySmall,
             ),
           ],
@@ -328,17 +336,39 @@ class _ActionBar extends ConsumerWidget {
     Widget? primary;
     Widget? secondary;
 
-    if (status == RequestStatus.coordinating ||
-        status == RequestStatus.donorAccepted) {
+    if (status == RequestStatus.expired) {
+      // Expired requests aren't a dead end: the patient usually still needs
+      // the blood, so the requester can put it back in front of donors.
+      primary = PrimaryButton(
+        label: 'Search again for 6 more hours',
+        icon: Icons.refresh_rounded,
+        onPressed: () => ref.read(backendProvider).extendRequest(request.id),
+      );
+    } else if (request.hasAcceptedDonor && status.isActive) {
       primary = PrimaryButton(
         label: 'Open coordination',
         icon: Icons.forum_rounded,
         onPressed: () => context.push(Routes.coordination(request.id)),
       );
-      secondary = SecondaryButton(
-        label: 'Mark fulfilled',
-        icon: Icons.check_rounded,
-        onPressed: () => _confirmFulfill(context, ref),
+      secondary = Row(
+        children: [
+          Expanded(
+            child: SecondaryButton(
+              label: 'Cancel',
+              icon: Icons.close_rounded,
+              destructive: true,
+              onPressed: () => _confirmCancel(context, ref),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: SecondaryButton(
+              label: 'Mark fulfilled',
+              icon: Icons.check_rounded,
+              onPressed: () => _confirmFulfill(context, ref),
+            ),
+          ),
+        ],
       );
     } else if (status == RequestStatus.searching ||
         status == RequestStatus.created) {
@@ -380,9 +410,11 @@ class _ActionBar extends ConsumerWidget {
     final ok = await _confirm(
       context,
       title: 'Cancel this request?',
-      body:
-          'Donors will stop being contacted. You can create a new request '
-          'anytime.',
+      body: request.hasAcceptedDonor
+          ? '${request.acceptedDonorName ?? 'Your donor'} will be told not '
+                'to come. You can create a new request anytime.'
+          : 'Donors will stop being contacted. You can create a new request '
+                'anytime.',
       confirmLabel: 'Cancel request',
       destructive: true,
     );
