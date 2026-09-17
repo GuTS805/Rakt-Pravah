@@ -135,7 +135,7 @@ class AdminRequest {
     required this.createdAt,
     required this.destinationName,
     required this.locationLabel,
-    this.acceptedDonorId,
+    this.acceptedDonorIds = const [],
     this.acceptedDonorName,
     this.expiresAt,
     this.declinedCount = 0,
@@ -151,7 +151,7 @@ class AdminRequest {
   final DateTime createdAt;
   final String destinationName;
   final String locationLabel;
-  final String? acceptedDonorId;
+  final List<String> acceptedDonorIds;
   final String? acceptedDonorName;
   final DateTime? expiresAt;
   final int declinedCount;
@@ -167,7 +167,7 @@ class AdminRequest {
 
   /// Searching for a donor with nobody accepted yet.
   bool get isUnmatched =>
-      acceptedDonorId == null &&
+      acceptedDonorIds.isEmpty &&
       (status == RequestStatus.searching || status == RequestStatus.created);
 
   Duration get age => DateTime.now().difference(createdAt);
@@ -198,11 +198,33 @@ class AdminRequest {
       destinationName:
           ((m['destination'] as Map?)?['name'] as String?) ?? 'Unknown',
       locationLabel: m['requestLocationLabel'] as String? ?? '',
-      acceptedDonorId: m['acceptedDonorId'] as String?,
-      acceptedDonorName: m['acceptedDonorName'] as String?,
+      acceptedDonorIds: _donorIds(m),
+      acceptedDonorName: _firstDonorName(m),
       expiresAt: (m['expiresAt'] as fs.Timestamp?)?.toDate(),
       declinedCount: ((m['declinedByDonorIds'] as List?) ?? const []).length,
     );
+  }
+
+  /// Requests created before multi-donor matching carry a single
+  /// `acceptedDonorId` instead of a list.
+  static List<String> _donorIds(Map<String, dynamic> m) {
+    final donors = (m['acceptedDonors'] as List?)?.cast<Map>();
+    if (donors != null && donors.isNotEmpty) {
+      return [for (final d in donors) d['id'] as String];
+    }
+    final legacy = m['acceptedDonorId'] as String?;
+    return legacy == null ? const [] : [legacy];
+  }
+
+  static String? _firstDonorName(Map<String, dynamic> m) {
+    final donors = (m['acceptedDonors'] as List?)?.cast<Map>();
+    if (donors != null && donors.isNotEmpty) {
+      final names = [for (final d in donors) d['name'] as String? ?? 'Donor'];
+      return names.length == 1
+          ? names.first
+          : '${names.first} +${names.length - 1}';
+    }
+    return m['acceptedDonorName'] as String?;
   }
 }
 

@@ -87,13 +87,21 @@ class FirebaseBackend implements Backend {
     required String name,
     required String phone,
     required BloodGroup bloodGroup,
-    String? city,
+    required DateTime dateOfBirth,
+    required Gender gender,
+    required String country,
+    required String state,
+    required String city,
   }) async {
     await _ensureSignedIn();
     final data = <String, dynamic>{
       'name': name,
       'phone': phone,
       'bloodGroup': bloodGroup.label,
+      'dateOfBirth': fs.Timestamp.fromDate(dateOfBirth),
+      'gender': gender.name,
+      'country': country,
+      'state': state,
       'city': city,
       'email': null,
       'isAdmin': false,
@@ -113,13 +121,23 @@ class FirebaseBackend implements Backend {
   Future<void> updateProfile({
     required String name,
     required BloodGroup bloodGroup,
-    String? city,
+    required DateTime dateOfBirth,
+    required Gender gender,
+    required String country,
+    required String state,
+    required String city,
   }) async {
     await _users.doc(uid).set({
       'name': name,
       'bloodGroup': bloodGroup.label,
+      'dateOfBirth': fs.Timestamp.fromDate(dateOfBirth),
+      'gender': gender.name,
+      'country': country,
+      'state': state,
       'city': city,
-      'donor.bloodGroup': bloodGroup.label,
+      // A nested map, not a 'donor.bloodGroup' key: set() treats dotted keys
+      // as literal field names, so matching used to keep the old group.
+      'donor': {'bloodGroup': bloodGroup.label},
     }, fs.SetOptions(merge: true));
     currentUser = UserProfile(
       id: uid,
@@ -127,6 +145,10 @@ class FirebaseBackend implements Backend {
       bloodGroup: bloodGroup,
       phone: currentUser!.phone,
       email: currentUser!.email,
+      dateOfBirth: dateOfBirth,
+      gender: gender,
+      country: country,
+      state: state,
       city: city,
       lastDonation: currentUser!.lastDonation,
       isAdmin: currentUser!.isAdmin,
@@ -135,13 +157,8 @@ class FirebaseBackend implements Backend {
   }
 
   // ---------------------------------------------------------------------
-  // Email verification (spec: only a verified user may request or donate).
-  // Firebase's client SDK has no numeric email-OTP provider, so this uses
-  // its built-in passwordless Email Link sign-in instead: tapping the link
-  // proves ownership exactly like an OTP would, without needing a paid plan
-  // or a server-side code sender. The link opens straight back into the app
-  // via Android App Links (see hosting_public/.well-known/assetlinks.json —
-  // Firebase Dynamic Links, which used to handle this, has been shut down).
+  // Email sign-in link. Only the admin console uses this now, to identify
+  // operators; the mobile app no longer asks users to verify an email.
   // ---------------------------------------------------------------------
   static const _emailContinueUrl =
       'https://nobloodlink.firebaseapp.com/finishSignIn.html';
@@ -204,9 +221,10 @@ class FirebaseBackend implements Backend {
       bloodGroup: BloodGroup.fromLabel(data['bloodGroup'] as String),
       phone: data['phone'] as String,
       email: data['email'] as String?,
-      // Sourced from Firebase Auth's own claim, never from the profile doc —
-      // a client can't write its way into being "verified".
-      emailVerified: _auth.currentUser?.emailVerified ?? false,
+      dateOfBirth: (data['dateOfBirth'] as fs.Timestamp?)?.toDate(),
+      gender: Gender.values.asNameMap()[data['gender']],
+      country: data['country'] as String?,
+      state: data['state'] as String?,
       city: data['city'] as String?,
       lastDonation: (data['lastDonation'] as fs.Timestamp?)?.toDate(),
       isAdmin: data['isAdmin'] as bool? ?? false,
@@ -233,15 +251,16 @@ class FirebaseBackend implements Backend {
   // Donor Mode
   // ---------------------------------------------------------------------
   @override
-  Stream<DonorProfile> get donorStream => _users
-      .doc(uid)
-      .snapshots()
-      .map(
-        (doc) => _donorFromMap(
+  Stream<DonorProfile> get donorStream =>
+      _users.doc(uid).snapshots().map((doc) {
+        // Keep the cache current too: invitationsStream and the location
+        // controller both read it, and a stale copy would be written back.
+        donorProfile = _donorFromMap(
           (doc.data()?['donor'] as Map?)?.cast<String, dynamic>(),
           currentUser?.bloodGroup ?? BloodGroup.oPos,
-        ),
-      );
+        );
+        return donorProfile;
+      });
 
   @override
   Future<DonorProfile> setDonorProfile(DonorProfile next) async {
@@ -287,7 +306,7 @@ class FirebaseBackend implements Backend {
           ? fallbackGroup
           : BloodGroup.fromLabel(m['bloodGroup'] as String),
       notifyPush: m['notifyPush'] as bool? ?? true,
-      notifyCritical: m['notifyCritical'] as bool? ?? true,
+      notifyCritical: m['notifyCritical'] as bool? ?? false,
       locationGranted: m['locationGranted'] as bool? ?? false,
       maxDistanceKm: (m['maxDistanceKm'] as num?)?.toDouble() ?? 15,
       pausedUntil: (m['pausedUntil'] as fs.Timestamp?)?.toDate(),
@@ -304,7 +323,41 @@ class FirebaseBackend implements Backend {
       .where('requesterId', isEqualTo: uid)
       .orderBy('createdAt', descending: true)
       .snapshots()
-      .map((snap) => snap.docs.map(_requestFromDoc).toList());
+      .map((snap) {
+        final requests = snap.docs.map(_requestFromDoc).toList();
+        // Nothing runs server-side to close requests that ran out of time,
+        // so the requester's own app does it: they're the only one whose
+        // security rules allow the write, and the only one who needs to see
+        // the result. Fire-and-forget, the stream reports the new status.
+        for (final request in requests) {
+          if (request.hasExpiredBy()) unawaited(_expire(request.id));
+        }
+        return requests;
+      });
+
+  Future<void> _expire(String id) =>
+      _transitionIfActive(id, RequestStatus.expired, 'No donor found in time');
+
+  @override
+  Future<void> extendRequest(String id) async {
+    final ref = _requests.doc(id);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      if (!snap.exists || snap.data()!['requesterId'] != uid) return;
+      final now = DateTime.now();
+      final timeline = List<Map<String, dynamic>>.from(
+        (snap.data()!['timeline'] as List?) ?? const [],
+      );
+      timeline.add(
+        _eventToMap(RequestStatus.searching, now, 'Searching again'),
+      );
+      tx.update(ref, {
+        'status': RequestStatus.searching.name,
+        'expiresAt': fs.Timestamp.fromDate(now.add(const Duration(hours: 6))),
+        'timeline': timeline,
+      });
+    });
+  }
 
   @override
   Stream<BloodRequest> requestStream(String id) => _requests
@@ -315,6 +368,8 @@ class FirebaseBackend implements Backend {
 
   @override
   Future<BloodRequest> createRequest({
+    required String patientName,
+    required BloodGroup patientBloodGroup,
     required List<BloodGroup> bloodGroups,
     required int units,
     required Urgency urgency,
@@ -327,6 +382,8 @@ class FirebaseBackend implements Backend {
     final data = <String, dynamic>{
       'requesterId': uid,
       'requesterName': currentUser!.name,
+      'patientName': patientName,
+      'patientBloodGroup': patientBloodGroup.label,
       'bloodGroups': bloodGroups.map((g) => g.label).toList(),
       'units': units,
       'urgency': urgency.name,
@@ -335,11 +392,15 @@ class FirebaseBackend implements Backend {
       'destination': _destinationToMap(destination),
       'requestLocationLabel': requestLocationLabel,
       'requestLocation': _pointToMap(requestLocation),
+      // The requester's saved home area, used to match donors when neither
+      // side has usable coordinates.
+      'city': currentUser?.city,
+      'state': currentUser?.state,
       'donorsContacted': 0,
       'currentWave': 0,
       'searchRadiusKm': 0.0,
-      'acceptedDonorName': null,
-      'acceptedDonorId': null,
+      'acceptedDonors': <Map<String, dynamic>>[],
+      'acceptedDonorIds': <String>[],
       'expiresAt': fs.Timestamp.fromDate(now.add(const Duration(hours: 6))),
       'timeline': [
         _eventToMap(RequestStatus.created, now, null),
@@ -363,6 +424,43 @@ class FirebaseBackend implements Backend {
   @override
   Future<void> markFulfilled(String id) async {
     await _transitionIfActive(id, RequestStatus.fulfilled, 'Marked fulfilled');
+  }
+
+  @override
+  Future<void> withdrawFromRequest(String id) async {
+    final ref = _requests.doc(id);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      if (!snap.exists) return;
+      final data = snap.data()!;
+      final current = RequestStatus.values.byNameOr(
+        data['status'] as String?,
+        RequestStatus.created,
+      );
+      final donors = _acceptedDonorsFromData(data);
+      if (!donors.any((d) => d.id == uid) || current.isTerminal) return;
+      final remaining = donors.where((d) => d.id != uid).toList();
+      final timeline = List<Map<String, dynamic>>.from(
+        (data['timeline'] as List?) ?? const [],
+      );
+      timeline.add(
+        _eventToMap(
+          RequestStatus.searching,
+          DateTime.now(),
+          '${currentUser?.name ?? 'A donor'} can\'t make it. Searching again',
+        ),
+      );
+      tx.update(ref, {
+        // Back to searching: the patient still needs this unit, and another
+        // donor can take it.
+        'status': RequestStatus.searching.name,
+        'acceptedDonors': remaining.map(_acceptedDonorToMap).toList(),
+        'acceptedDonorIds': remaining.map((d) => d.id).toList(),
+        'timeline': timeline,
+        'declinedByDonorIds': fs.FieldValue.arrayUnion([uid]),
+        'donorLiveLocations.$uid': fs.FieldValue.delete(),
+      });
+    });
   }
 
   Future<void> _transitionIfActive(
@@ -405,15 +503,24 @@ class FirebaseBackend implements Backend {
         ..addAll(openMap)
         ..addAll(acceptedMap);
       final list = combined.values.toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        ..sort((a, b) {
+          // Closest first when distances are known; a donor can only help
+          // someone they can actually reach in time.
+          final da = a.distanceKm, db = b.distanceKm;
+          if (da != null && db != null && da != db) return da.compareTo(db);
+          if (da == null && db != null) return 1;
+          if (da != null && db == null) return -1;
+          return b.createdAt.compareTo(a.createdAt);
+        });
       if (!controller.isClosed) controller.add(list);
     }
 
-    // A donor within the 90-day cooldown of their last donation is never
-    // shown new opportunities — enforced here, not just as a disabled
-    // switch in the UI, so it can't be bypassed by a stale client.
+    // New opportunities only reach a donor who has Donor Mode on and isn't
+    // within the 90-day cooldown of their last donation. Enforced here, not
+    // just in the UI, so Donor Mode off really means no requests. Requests
+    // they already accepted (below) keep showing either way.
     StreamSubscription<fs.QuerySnapshot<Map<String, dynamic>>>? openSub;
-    if (donorProfile.isInCooldown) {
+    if (!donorProfile.isOn || donorProfile.isInCooldown) {
       openMap = {};
       openReady = true;
     } else {
@@ -440,11 +547,18 @@ class FirebaseBackend implements Backend {
                   (data['declinedByDonorIds'] as List?)?.cast<String>() ??
                   const [];
               if (declined.contains(uid)) continue;
-              map[doc.id] = _invitationFromRequestData(
+              final invitation = _invitationFromRequestData(
                 doc.id,
                 data,
                 myLocation,
               );
+              // Nobody sweeps expired requests server-side, so an old one
+              // would otherwise sit in every donor's list indefinitely.
+              if (invitation.isExpired) continue;
+              // Every unit already has a donor.
+              if ((invitation.unitsRemaining ?? 1) <= 0) continue;
+              if (!_isNearby(invitation, data)) continue;
+              map[doc.id] = invitation;
             }
             openMap = map;
             openReady = true;
@@ -453,7 +567,7 @@ class FirebaseBackend implements Backend {
     }
 
     final acceptedSub = _requests
-        .where('acceptedDonorId', isEqualTo: uid)
+        .where('acceptedDonorIds', arrayContains: uid)
         .snapshots()
         .listen((snap) {
           acceptedMap = {
@@ -533,10 +647,22 @@ class FirebaseBackend implements Backend {
         data['status'] as String?,
         RequestStatus.created,
       );
-      if (data['acceptedDonorId'] != null || current.isTerminal) {
+      final units = data['units'] as int? ?? 1;
+      final donors = _acceptedDonorsFromData(data);
+      if (current.isTerminal || donors.length >= units) {
         throw StateError('This request is no longer available.');
       }
+      if (donors.any((d) => d.id == uid)) return;
+
       final now = DateTime.now();
+      final next = [
+        ...donors,
+        AcceptedDonor(id: uid, name: currentUser!.name, acceptedAt: now),
+      ];
+      // One donor gives one unit, so a request for several units keeps
+      // searching until every unit has someone. Only the last acceptance
+      // moves it into coordination.
+      final full = next.length >= units;
       final timeline = List<Map<String, dynamic>>.from(
         (data['timeline'] as List?) ?? const [],
       );
@@ -544,19 +670,45 @@ class FirebaseBackend implements Backend {
         _eventToMap(
           RequestStatus.donorAccepted,
           now,
-          '${currentUser!.name} accepted your request',
+          units == 1
+              ? '${currentUser!.name} accepted your request'
+              : '${currentUser!.name} accepted — ${next.length} of $units units',
         ),
       );
-      timeline.add(
-        _eventToMap(RequestStatus.coordinating, now, 'Coordination started'),
-      );
+      if (full) {
+        timeline.add(
+          _eventToMap(RequestStatus.coordinating, now, 'Coordination started'),
+        );
+      }
       tx.update(ref, {
-        'status': RequestStatus.coordinating.name,
-        'acceptedDonorId': uid,
-        'acceptedDonorName': currentUser!.name,
+        'status': full
+            ? RequestStatus.coordinating.name
+            : RequestStatus.searching.name,
+        'acceptedDonors': next.map(_acceptedDonorToMap).toList(),
+        'acceptedDonorIds': next.map((d) => d.id).toList(),
         'timeline': timeline,
       });
     });
+  }
+
+  /// Whether a request is close enough to show this donor. Distance decides
+  /// it when both positions are known; otherwise it falls back to the saved
+  /// home state, so a donor in Kerala isn't shown a request from Lucknow
+  /// just because nobody's GPS was on.
+  bool _isNearby(Invitation invitation, Map<String, dynamic> data) {
+    final km = invitation.distanceKm;
+    if (km != null) return km <= donorProfile.maxDistanceKm;
+    final requestState = (data['state'] as String?)?.trim().toLowerCase();
+    final myState = currentUser?.state?.trim().toLowerCase();
+    if (requestState == null ||
+        requestState.isEmpty ||
+        myState == null ||
+        myState.isEmpty) {
+      // Not enough information to rule it out — better a donor sees it and
+      // decides than a patient goes unseen.
+      return true;
+    }
+    return requestState == myState;
   }
 
   Invitation _invitationFromRequestData(
@@ -566,10 +718,17 @@ class FirebaseBackend implements Backend {
     InvitationStatus? forceStatus,
   }) {
     final dest = (data['destination'] as Map).cast<String, dynamic>();
-    final reqPoint = _pointFromMap(data['requestLocation'] as Map?);
-    final distance = (myLocation != null && reqPoint != null)
-        ? _haversineKm(myLocation, reqPoint)
-        : 0.0;
+    // The donor travels to the hospital, not to wherever the requester
+    // happened to be, so that's the distance that matters to them.
+    final target =
+        _pointFromMap(dest['location'] as Map?) ??
+        _pointFromMap(data['requestLocation'] as Map?);
+    final distance = (myLocation != null && target != null)
+        ? _haversineKm(myLocation, target)
+        : null;
+    final patientGroup = data['patientBloodGroup'] as String?;
+    final units = data['units'] as int? ?? 1;
+    final pledged = _acceptedDonorsFromData(data).length;
     return Invitation(
       id: id,
       requestId: id,
@@ -585,6 +744,14 @@ class FirebaseBackend implements Backend {
       destinationArea: dest['address'] as String? ?? '',
       createdAt: (data['createdAt'] as fs.Timestamp).toDate(),
       expiresAt: (data['expiresAt'] as fs.Timestamp?)?.toDate(),
+      patientBloodGroup: patientGroup == null
+          ? null
+          : BloodGroup.fromLabel(patientGroup),
+      requestStatus: RequestStatus.values.byNameOr(
+        data['status'] as String?,
+        RequestStatus.created,
+      ),
+      unitsRemaining: units - pledged < 0 ? 0 : units - pledged,
     );
   }
 
@@ -642,16 +809,17 @@ class FirebaseBackend implements Backend {
   @override
   Future<void> updateLiveLocation(String requestId, GeoPoint point) =>
       _requests.doc(requestId).update({
-        'donorLiveLocation': _pointToMap(point),
-        'donorLiveLocationAt': fs.Timestamp.fromDate(DateTime.now()),
+        'donorLiveLocations.$uid': {
+          'lat': point.lat,
+          'lng': point.lng,
+          'at': fs.Timestamp.fromDate(DateTime.now()),
+        },
       });
 
   @override
-  Future<void> stopLiveLocation(String requestId) =>
-      _requests.doc(requestId).update({
-        'donorLiveLocation': fs.FieldValue.delete(),
-        'donorLiveLocationAt': fs.FieldValue.delete(),
-      });
+  Future<void> stopLiveLocation(String requestId) => _requests
+      .doc(requestId)
+      .update({'donorLiveLocations.$uid': fs.FieldValue.delete()});
 
   // ---------------------------------------------------------------------
   // Serialization helpers
@@ -664,10 +832,15 @@ class FirebaseBackend implements Backend {
   BloodRequest _requestFromDoc(fs.DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
     final destMap = (data['destination'] as Map).cast<String, dynamic>();
+    final patientGroup = data['patientBloodGroup'] as String?;
     return BloodRequest(
       id: doc.id,
       requesterId: data['requesterId'] as String,
       requesterName: data['requesterName'] as String,
+      patientName: data['patientName'] as String?,
+      patientBloodGroup: patientGroup == null
+          ? null
+          : BloodGroup.fromLabel(patientGroup),
       bloodGroups: _parseBloodGroups(data['bloodGroups']),
       units: data['units'] as int,
       urgency: Urgency.values.byNameOr(
@@ -690,17 +863,74 @@ class FirebaseBackend implements Backend {
       donorsContacted: data['donorsContacted'] as int? ?? 0,
       currentWave: data['currentWave'] as int? ?? 0,
       searchRadiusKm: (data['searchRadiusKm'] as num?)?.toDouble() ?? 0,
-      acceptedDonorName: data['acceptedDonorName'] as String?,
-      acceptedDonorId: data['acceptedDonorId'] as String?,
+      acceptedDonors: _acceptedDonorsFromData(data),
       expiresAt: (data['expiresAt'] as fs.Timestamp?)?.toDate(),
       timeline: ((data['timeline'] as List?) ?? const [])
           .cast<Map<String, dynamic>>()
           .map(_eventFromMap)
           .toList(),
-      donorLiveLocation: _pointFromMap(data['donorLiveLocation'] as Map?),
-      donorLiveLocationAt: (data['donorLiveLocationAt'] as fs.Timestamp?)
-          ?.toDate(),
+      donorLiveLocations: _liveLocationsFromData(data),
     );
+  }
+
+  Map<String, dynamic> _acceptedDonorToMap(AcceptedDonor d) => {
+    'id': d.id,
+    'name': d.name,
+    'at': fs.Timestamp.fromDate(d.acceptedAt),
+  };
+
+  /// Reads the donor list, falling back to the single `acceptedDonorId` that
+  /// requests created before multi-donor matching still carry.
+  List<AcceptedDonor> _acceptedDonorsFromData(Map<String, dynamic> data) {
+    final raw = (data['acceptedDonors'] as List?)?.cast<Map>();
+    if (raw != null && raw.isNotEmpty) {
+      return [
+        for (final m in raw)
+          AcceptedDonor(
+            id: m['id'] as String,
+            name: m['name'] as String? ?? 'Donor',
+            acceptedAt: (m['at'] as fs.Timestamp?)?.toDate() ?? DateTime.now(),
+          ),
+      ];
+    }
+    final legacyId = data['acceptedDonorId'] as String?;
+    if (legacyId == null) return const [];
+    return [
+      AcceptedDonor(
+        id: legacyId,
+        name: data['acceptedDonorName'] as String? ?? 'Donor',
+        acceptedAt:
+            (data['createdAt'] as fs.Timestamp?)?.toDate() ?? DateTime.now(),
+      ),
+    ];
+  }
+
+  Map<String, DonorPing> _liveLocationsFromData(Map<String, dynamic> data) {
+    final raw = (data['donorLiveLocations'] as Map?)?.cast<String, dynamic>();
+    if (raw != null) {
+      return {
+        for (final entry in raw.entries)
+          if (_pointFromMap(entry.value as Map?) case final point?)
+            entry.key: DonorPing(
+              point: point,
+              at:
+                  ((entry.value as Map)['at'] as fs.Timestamp?)?.toDate() ??
+                  DateTime.now(),
+            ),
+      };
+    }
+    // Legacy single-donor shape.
+    final point = _pointFromMap(data['donorLiveLocation'] as Map?);
+    final donorId = data['acceptedDonorId'] as String?;
+    if (point == null || donorId == null) return const {};
+    return {
+      donorId: DonorPing(
+        point: point,
+        at:
+            (data['donorLiveLocationAt'] as fs.Timestamp?)?.toDate() ??
+            DateTime.now(),
+      ),
+    };
   }
 
   Map<String, dynamic> _destinationToMap(Destination d) => {

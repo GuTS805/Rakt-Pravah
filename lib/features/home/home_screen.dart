@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
-import '../../core/services/verification_gate.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
@@ -122,11 +121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 _EmergencyCard(
                   compact: activeRequest != null,
-                  onTap: () {
-                    if (requireVerifiedEmail(context, ref)) {
-                      context.push(Routes.createRequest);
-                    }
-                  },
+                  onTap: () => context.push(Routes.createRequest),
                 ),
                 const SizedBox(height: AppSpacing.lg),
 

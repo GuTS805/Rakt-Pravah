@@ -40,24 +40,32 @@ abstract class Backend {
     required String name,
     required String phone,
     required BloodGroup bloodGroup,
-    String? city,
+    required DateTime dateOfBirth,
+    required Gender gender,
+    required String country,
+    required String state,
+    required String city,
   });
 
   Future<void> updateProfile({
     required String name,
     required BloodGroup bloodGroup,
-    String? city,
+    required DateTime dateOfBirth,
+    required Gender gender,
+    required String country,
+    required String state,
+    required String city,
   });
 
   Future<void> signOut();
 
-  // --- Email verification ------------------------------------------------
+  // --- Email sign-in link (admin console only) ---------------------------
 
   Future<void> sendVerificationEmailLink(String email);
 
   bool isEmailSignInLink(String link);
 
-  /// Completes verification for a link the user opened, attaching the proven
+  /// Completes sign-in for a link the operator opened, attaching the proven
   /// email to their account.
   Future<UserProfile> completeEmailLinkVerification({
     required String email,
@@ -77,6 +85,8 @@ abstract class Backend {
   Stream<BloodRequest> requestStream(String id);
 
   Future<BloodRequest> createRequest({
+    required String patientName,
+    required BloodGroup patientBloodGroup,
     required List<BloodGroup> bloodGroups,
     required int units,
     required Urgency urgency,
@@ -88,6 +98,13 @@ abstract class Backend {
   Future<void> cancelRequest(String id);
 
   Future<void> markFulfilled(String id);
+
+  /// Gives a request that ran out of time another six hours.
+  Future<void> extendRequest(String id);
+
+  /// An accepted donor backs out. The request goes back to searching so
+  /// another donor can pick it up, and this donor won't be offered it again.
+  Future<void> withdrawFromRequest(String id);
 
   // --- Invitations (the donor side of a request) -------------------------
 

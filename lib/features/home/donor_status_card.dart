@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/services/verification_gate.dart';
+import '../../core/services/donor_gate.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_card.dart';
@@ -27,7 +27,7 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
   bool _busy = false;
 
   Future<void> _toggle(bool on) async {
-    if (on && !requireVerifiedEmail(context, ref)) return;
+    if (on && !requireDonorProfile(context, ref)) return;
     final backend = ref.read(backendProvider);
     final current = ref.read(donorProfileValueProvider);
     setState(() => _busy = true);

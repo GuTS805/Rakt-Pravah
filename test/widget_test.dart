@@ -249,22 +249,85 @@ void main() {
     });
   });
 
-  group('email verification state', () {
-    UserProfile user({bool verified = false, String? email}) => UserProfile(
+  group('donor age', () {
+    test('age only ticks over on the birthday itself', () {
+      final dob = DateTime(2000, 6, 15);
+      expect(ageFrom(dob, DateTime(2026, 6, 14)), 25);
+      expect(ageFrom(dob, DateTime(2026, 6, 15)), 26);
+    });
+
+    test('a later birth month is not a birthday yet', () {
+      expect(ageFrom(DateTime(2000, 12, 1), DateTime(2026, 6, 30)), 25);
+    });
+
+    test('donors must be 18 to 65 inclusive', () {
+      expect(DonorEligibility.ageAllowed(17), isFalse);
+      expect(DonorEligibility.ageAllowed(18), isTrue);
+      expect(DonorEligibility.ageAllowed(65), isTrue);
+      expect(DonorEligibility.ageAllowed(66), isFalse);
+    });
+
+    test('a profile without a birth date has no age', () {
+      const user = UserProfile(
+        id: 'u1',
+        name: 'Alok Sharma',
+        bloodGroup: BloodGroup.oPos,
+        phone: '9876543210',
+      );
+      expect(user.ageOn(), isNull);
+    });
+  });
+
+  group('health questions', () {
+    test('men are never asked about pregnancy', () {
+      expect(
+        HealthQuestion.forGender(Gender.male),
+        isNot(contains(HealthQuestion.pregnancy)),
+      );
+    });
+
+    test('women are asked about pregnancy', () {
+      expect(
+        HealthQuestion.forGender(Gender.female),
+        contains(HealthQuestion.pregnancy),
+      );
+    });
+
+    test('everyone is asked about HIV, hepatitis, insulin and rabies', () {
+      for (final gender in Gender.values) {
+        expect(
+          HealthQuestion.forGender(gender),
+          containsAll([
+            HealthQuestion.seriousInfection,
+            HealthQuestion.insulin,
+            HealthQuestion.rabies,
+            HealthQuestion.recentDonation,
+          ]),
+        );
+      }
+    });
+  });
+
+  group('saved home location', () {
+    UserProfile user({String? city, String? state}) => UserProfile(
       id: 'u1',
       name: 'Alok Sharma',
       bloodGroup: BloodGroup.oPos,
       phone: '9876543210',
-      email: email,
-      emailVerified: verified,
+      city: city,
+      state: state,
     );
 
-    test('defaults to unverified — verification is never assumed', () {
-      expect(user().emailVerified, isFalse);
+    test('joins city and state', () {
+      expect(
+        user(city: 'Lucknow', state: 'Uttar Pradesh').placeLabel,
+        'Lucknow, Uttar Pradesh',
+      );
     });
 
-    test('an email on file does not by itself mean verified', () {
-      expect(user(email: 'a@b.com').emailVerified, isFalse);
+    test('skips missing or blank parts', () {
+      expect(user(city: 'Lucknow', state: ' ').placeLabel, 'Lucknow');
+      expect(user().placeLabel, isNull);
     });
   });
 
@@ -363,11 +426,14 @@ void main() {
       requestLocationLabel: 'Bengaluru',
     );
 
+    AcceptedDonor donor(String name) =>
+        AcceptedDonor(id: name, name: name, acceptedAt: DateTime(2026, 1, 1));
+
     test('copyWith keeps identity fields and updates the rest', () {
       final original = request([BloodGroup.oPos]);
       final updated = original.copyWith(
         status: RequestStatus.fulfilled,
-        acceptedDonorName: 'Aman',
+        acceptedDonors: [donor('Aman')],
       );
       expect(updated.id, original.id);
       expect(updated.requesterId, original.requesterId);
@@ -381,19 +447,101 @@ void main() {
       );
     });
 
-    test('hasAcceptedDonor tracks the donor id, not the name', () {
+    test('hasAcceptedDonor tracks the donor list', () {
       expect(request([BloodGroup.oPos]).hasAcceptedDonor, isFalse);
       expect(
         request([BloodGroup.oPos])
-            .copyWith(acceptedDonorId: 'd1')
+            .copyWith(acceptedDonors: [donor('Aman')])
             .hasAcceptedDonor,
         isTrue,
       );
     });
 
+    test('one donor covers one unit of a two-unit request', () {
+      final partly = request([BloodGroup.oPos])
+          .copyWith(acceptedDonors: [donor('Aman')]);
+      expect(partly.unitsPledged, 1);
+      expect(partly.unitsRemaining, 1);
+      expect(
+        partly.isFullyMatched,
+        isFalse,
+        reason: 'a second unit still needs a donor',
+      );
+    });
+
+    test('a request is fully matched only when every unit has a donor', () {
+      final full = request([BloodGroup.oPos])
+          .copyWith(acceptedDonors: [donor('Aman'), donor('Ravi')]);
+      expect(full.isFullyMatched, isTrue);
+      expect(full.unitsRemaining, 0);
+    });
+
     test('a request can accept every group a patient is compatible with', () {
       final groups = donorsCompatibleWith(BloodGroup.abPos);
       expect(request(groups).bloodGroups.length, BloodGroup.values.length);
+    });
+
+    test('extra donors never push units remaining below zero', () {
+      final over = request([BloodGroup.oPos])
+          .copyWith(acceptedDonors: [donor('A'), donor('B'), donor('C')]);
+      expect(over.unitsRemaining, 0);
+    });
+  });
+
+  group('request expiry', () {
+    final past = DateTime(2026, 1, 1, 10);
+    final now = DateTime(2026, 1, 1, 12);
+
+    BloodRequest request({
+      DateTime? expiresAt,
+      RequestStatus status = RequestStatus.searching,
+      List<AcceptedDonor> donors = const [],
+    }) => BloodRequest(
+      id: 'r1',
+      requesterId: 'u1',
+      requesterName: 'Alok',
+      bloodGroups: const [BloodGroup.oPos],
+      units: 2,
+      urgency: Urgency.critical,
+      status: status,
+      createdAt: DateTime(2026, 1, 1, 6),
+      destination: const Destination(name: 'City Hospital', address: 'MG Rd'),
+      requestLocationLabel: 'Bengaluru',
+      expiresAt: expiresAt,
+      acceptedDonors: donors,
+    );
+
+    test('a searching request past its deadline has expired', () {
+      expect(request(expiresAt: past).hasExpiredBy(now), isTrue);
+    });
+
+    test('a request still inside its window has not', () {
+      expect(
+        request(expiresAt: DateTime(2026, 1, 1, 18)).hasExpiredBy(now),
+        isFalse,
+      );
+    });
+
+    test('a request with a donor is never expired out from under them', () {
+      final withDonor = request(
+        expiresAt: past,
+        donors: [AcceptedDonor(id: 'd1', name: 'Aman', acceptedAt: past)],
+      );
+      expect(withDonor.hasExpiredBy(now), isFalse);
+    });
+
+    test('a finished request does not expire again', () {
+      expect(
+        request(
+          expiresAt: past,
+          status: RequestStatus.fulfilled,
+        ).hasExpiredBy(now),
+        isFalse,
+      );
+    });
+
+    test('no deadline means no expiry', () {
+      expect(request().hasExpiredBy(now), isFalse);
     });
   });
 
