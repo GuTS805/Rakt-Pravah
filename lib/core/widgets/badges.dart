@@ -182,7 +182,9 @@ class AvailabilityBadge extends StatelessWidget {
 /// Distance readout in mono ("3.2 km"), used on invitation/opportunity cards.
 class DistanceIndicator extends StatelessWidget {
   const DistanceIndicator(this.km, {super.key});
-  final double km;
+
+  /// Null when a position is missing. Said plainly instead of showing 0 km.
+  final double? km;
 
   @override
   Widget build(BuildContext context) {
@@ -193,7 +195,7 @@ class DistanceIndicator extends StatelessWidget {
         Icon(Icons.near_me_rounded, size: 13, color: c.textTertiary),
         const SizedBox(width: AppSpacing.xs),
         Text(
-          '${km.toStringAsFixed(1)} km',
+          km == null ? 'Distance unknown' : '${km!.toStringAsFixed(1)} km',
           style: AppTypography.mono(size: 12.5, color: c.textSecondary),
         ),
       ],

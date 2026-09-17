@@ -9,15 +9,19 @@ import 'package:bloodlink/data/models/models.dart';
 import 'package:bloodlink/data/providers.dart';
 import 'package:bloodlink/features/home/donor_status_card.dart';
 import 'package:bloodlink/features/home/home_screen.dart';
+import 'package:bloodlink/features/invitations/invitation_detail_screen.dart';
 
 import 'fakes.dart';
 
 // Real screens, driven against an in-memory backend. These are the tests that
-// replace poking at a physical device for everything: the verification gate,
-// the donation cooldown, and what Home actually shows in each state.
+// replace poking at a physical device for everything: the donor checks, the
+// donation cooldown, and what Home actually shows in each state.
 
+/// A complete adult profile unless told otherwise. [age] of null leaves the
+/// birth date out, like an account created before registration asked for it.
 UserProfile _user({
-  bool verified = false,
+  int? age = 30,
+  Gender? gender = Gender.male,
   String name = 'Alok Sharma',
   BloodGroup group = BloodGroup.oPos,
   String? city,
@@ -26,9 +30,26 @@ UserProfile _user({
   name: name,
   bloodGroup: group,
   phone: '9876543210',
-  email: verified ? 'alok@example.com' : null,
-  emailVerified: verified,
+  dateOfBirth: age == null
+      ? null
+      : DateTime.now().subtract(Duration(days: age * 366)),
+  gender: gender,
   city: city,
+);
+
+Invitation _invitation({String id = 'r9'}) => Invitation(
+  id: id,
+  requestId: id,
+  bloodGroups: const [BloodGroup.oPos],
+  units: 1,
+  urgency: Urgency.critical,
+  distanceKm: 2.4,
+  status: InvitationStatus.pending,
+  destinationName: 'City Hospital',
+  destinationArea: 'MG Road',
+  createdAt: DateTime.now(),
+  expiresAt: DateTime.now().add(const Duration(hours: 5)),
+  patientBloodGroup: BloodGroup.oPos,
 );
 
 BloodRequest _request({
@@ -60,8 +81,12 @@ Widget _app({
     routes: [
       GoRoute(path: '/', builder: (_, _) => screen),
       GoRoute(
-        path: Routes.verifyEmail,
-        builder: (_, _) => const Scaffold(body: Text('VERIFY EMAIL SCREEN')),
+        path: Routes.profileEdit,
+        builder: (_, _) => const Scaffold(body: Text('PROFILE EDIT SCREEN')),
+      ),
+      GoRoute(
+        path: '/requests/:id/coordination',
+        builder: (_, _) => const Scaffold(body: Text('COORDINATION SCREEN')),
       ),
       GoRoute(
         path: Routes.createRequest,
@@ -101,37 +126,11 @@ void _useTallPhone(WidgetTester tester) {
 }
 
 void main() {
-  group('verification gate', () {
-    testWidgets('an unverified user cannot switch Donor Mode on', (
+  group('donor checks', () {
+    testWidgets('an account without a birth date is sent to its profile', (
       tester,
     ) async {
-      final backend = FakeBackend(user: _user());
-      await tester.pumpWidget(
-        _app(
-          backend: backend,
-          user: _user(),
-          screen: const Scaffold(body: DonorStatusCard()),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byType(Switch));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.text('VERIFY EMAIL SCREEN'),
-        findsOneWidget,
-        reason: 'the gate should route to verification',
-      );
-      expect(
-        backend.setDonorProfileCalls,
-        isEmpty,
-        reason: 'Donor Mode must not be enabled before verification',
-      );
-    });
-
-    testWidgets('a verified user can switch Donor Mode on', (tester) async {
-      final user = _user(verified: true);
+      final user = _user(age: null);
       final backend = FakeBackend(user: user);
       await tester.pumpWidget(
         _app(
@@ -145,7 +144,47 @@ void main() {
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
 
-      expect(find.text('VERIFY EMAIL SCREEN'), findsNothing);
+      expect(find.text('PROFILE EDIT SCREEN'), findsOneWidget);
+      expect(backend.setDonorProfileCalls, isEmpty);
+    });
+
+    testWidgets('someone under 18 cannot switch Donor Mode on', (tester) async {
+      final user = _user(age: 16);
+      final backend = FakeBackend(user: user);
+      await tester.pumpWidget(
+        _app(
+          backend: backend,
+          user: user,
+          screen: const Scaffold(body: DonorStatusCard()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(Switch));
+      await tester.pump();
+
+      expect(find.textContaining('must be 18 to 65'), findsOneWidget);
+      expect(backend.setDonorProfileCalls, isEmpty);
+    });
+
+    testWidgets('an adult with a complete profile can switch Donor Mode on', (
+      tester,
+    ) async {
+      final user = _user();
+      final backend = FakeBackend(user: user);
+      await tester.pumpWidget(
+        _app(
+          backend: backend,
+          user: user,
+          screen: const Scaffold(body: DonorStatusCard()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+
+      expect(find.text('PROFILE EDIT SCREEN'), findsNothing);
       expect(backend.setDonorProfileCalls, hasLength(1));
       expect(
         backend.setDonorProfileCalls.single.availability,
@@ -153,8 +192,8 @@ void main() {
       );
     });
 
-    testWidgets('switching Donor Mode off is never gated', (tester) async {
-      final user = _user();
+    testWidgets('switching Donor Mode off is never blocked', (tester) async {
+      final user = _user(age: null, gender: null);
       final backend = FakeBackend(
         user: user,
         donor: const DonorProfile(
@@ -175,7 +214,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text('VERIFY EMAIL SCREEN'),
+        find.text('PROFILE EDIT SCREEN'),
         findsNothing,
         reason: 'turning off is a safety action, never blocked',
       );
@@ -186,11 +225,90 @@ void main() {
     });
   });
 
+  group('accepting a request', () {
+    Future<FakeBackend> openInvitation(
+      WidgetTester tester, {
+      Gender gender = Gender.male,
+    }) async {
+      _useTallPhone(tester);
+      final user = _user(gender: gender);
+      final backend = FakeBackend(user: user, invitations: [_invitation()]);
+      await tester.pumpWidget(
+        _app(
+          backend: backend,
+          user: user,
+          screen: const InvitationDetailScreen(invitationId: 'r9'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Accept & help'));
+      await tester.pumpAndSettle();
+      return backend;
+    }
+
+    testWidgets('asks the health questions before accepting', (tester) async {
+      final backend = await openInvitation(tester);
+
+      expect(find.text('Before you accept'), findsOneWidget);
+      expect(find.textContaining('HIV'), findsOneWidget);
+      expect(
+        backend.invitationResponses,
+        isEmpty,
+        reason: 'nothing is accepted until the questions are answered',
+      );
+    });
+
+    testWidgets('men are not asked about pregnancy', (tester) async {
+      await openInvitation(tester);
+      expect(find.textContaining('pregnant'), findsNothing);
+    });
+
+    testWidgets('women are asked about pregnancy', (tester) async {
+      await openInvitation(tester, gender: Gender.female);
+      expect(find.textContaining('pregnant'), findsOneWidget);
+    });
+
+    testWidgets('any yes answer stops the acceptance', (tester) async {
+      final backend = await openInvitation(tester);
+
+      final noChips = find.text('No');
+      final count = noChips.evaluate().length;
+      for (var i = 1; i < count; i++) {
+        await tester.tap(noChips.at(i));
+      }
+      await tester.tap(find.text('Yes').first);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('3 months between donations'), findsOneWidget);
+      await tester.tap(find.text('I can\'t donate this time'));
+      await tester.pumpAndSettle();
+
+      expect(backend.invitationResponses, isEmpty);
+    });
+
+    testWidgets('all no answers accept and open coordination', (tester) async {
+      final backend = await openInvitation(tester);
+
+      final noChips = find.text('No');
+      final count = noChips.evaluate().length;
+      for (var i = 0; i < count; i++) {
+        await tester.tap(noChips.at(i));
+      }
+      await tester.pumpAndSettle();
+      // The sheet's own button, not the screen's one underneath it.
+      await tester.tap(find.text('Accept & help').last);
+      await tester.pumpAndSettle();
+
+      expect(backend.invitationResponses, [('r9', InvitationStatus.accepted)]);
+      expect(find.text('COORDINATION SCREEN'), findsOneWidget);
+    });
+  });
+
   group('donation cooldown in the UI', () {
     testWidgets('a donor inside the 90-day window cannot re-enable', (
       tester,
     ) async {
-      final user = _user(verified: true);
+      final user = _user();
       final backend = FakeBackend(
         user: user,
         donor: DonorProfile(
@@ -222,7 +340,7 @@ void main() {
     });
 
     testWidgets('a donor past the cooldown can enable again', (tester) async {
-      final user = _user(verified: true);
+      final user = _user();
       final backend = FakeBackend(
         user: user,
         donor: DonorProfile(
@@ -248,7 +366,7 @@ void main() {
 
   group('home screen', () {
     testWidgets('idle state leads with the emergency card', (tester) async {
-      final user = _user(verified: true);
+      final user = _user();
       _useTallPhone(tester);
       final backend = FakeBackend(user: user);
       await tester.pumpWidget(
@@ -262,7 +380,7 @@ void main() {
     });
 
     testWidgets('an active request takes over the headline', (tester) async {
-      final user = _user(verified: true);
+      final user = _user();
       _useTallPhone(tester);
       final backend = FakeBackend(user: user, requests: [_request()]);
       await tester.pumpWidget(
@@ -280,7 +398,7 @@ void main() {
     });
 
     testWidgets('a fulfilled request is not treated as active', (tester) async {
-      final user = _user(verified: true);
+      final user = _user();
       final backend = FakeBackend(
         user: user,
         requests: [_request(status: RequestStatus.fulfilled)],
@@ -302,7 +420,7 @@ void main() {
     testWidgets('the stats strip reports real counts and blood group', (
       tester,
     ) async {
-      final user = _user(verified: true, group: BloodGroup.bNeg);
+      final user = _user(group: BloodGroup.bNeg);
       final backend = FakeBackend(
         user: user,
         requests: [
@@ -330,7 +448,7 @@ void main() {
     });
 
     testWidgets('Home reacts live when a request arrives', (tester) async {
-      final user = _user(verified: true);
+      final user = _user();
       _useTallPhone(tester);
       final backend = FakeBackend(user: user);
       await tester.pumpWidget(
@@ -349,28 +467,10 @@ void main() {
       );
     });
 
-    testWidgets('an unverified user is gated out of creating a request', (
+    testWidgets('anyone can start a request, even without donor details', (
       tester,
     ) async {
-      final user = _user();
-      _useTallPhone(tester);
-      final backend = FakeBackend(user: user);
-      await tester.pumpWidget(
-        _app(backend: backend, user: user, screen: const HomeScreen()),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Create blood request'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('VERIFY EMAIL SCREEN'), findsOneWidget);
-      expect(find.text('CREATE REQUEST SCREEN'), findsNothing);
-    });
-
-    testWidgets('a verified user reaches the create request screen', (
-      tester,
-    ) async {
-      final user = _user(verified: true);
+      final user = _user(age: null, gender: null);
       _useTallPhone(tester);
       final backend = FakeBackend(user: user);
       await tester.pumpWidget(

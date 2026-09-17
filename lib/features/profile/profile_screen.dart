@@ -56,6 +56,10 @@ class ProfileScreen extends ConsumerWidget {
                         Text(user.name, style: context.text.titleLarge),
                         const SizedBox(height: 2),
                         Text(user.phone, style: context.text.bodyMedium),
+                        if (user.placeLabel != null) ...[
+                          const SizedBox(height: 2),
+                          Text(user.placeLabel!, style: context.text.bodySmall),
+                        ],
                       ],
                     ),
                   ),

@@ -25,19 +25,27 @@ class CreateRequestScreen extends ConsumerStatefulWidget {
       _CreateRequestScreenState();
 }
 
+enum _LocationSource { current, home, other }
+
 class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
-  static const _steps = ['Blood', 'Location', 'Destination', 'Review'];
+  static const _steps = ['Patient', 'Location', 'Hospital', 'Review'];
   int _step = 0;
   bool _submitting = false;
 
-  // Step 1 — open to any of these groups, not just one exact match.
+  // Step 1. The patient is often not the person filling this in, so their
+  // blood group is asked for directly instead of borrowing the requester's.
+  final _patientName = TextEditingController();
+  BloodGroup? _patientGroup;
+  // Donor groups the request is open to: every group that can safely give to
+  // the patient, narrowed by the requester if the hospital asks for fewer.
   Set<BloodGroup> _groups = {};
   int _units = 1;
   Urgency _urgency = Urgency.urgent;
 
-  // Step 2 — backed by real device location, not a hardcoded place name.
+  // Step 2. Live GPS and the saved home address are different things; the
+  // requester picks which one describes where they are.
   final _location = TextEditingController();
-  bool _useCurrent = true;
+  _LocationSource _source = _LocationSource.current;
   bool _locating = false;
   GeoPoint? _requestPoint;
 
@@ -46,14 +54,25 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   final _destAddress = TextEditingController();
   final _destWard = TextEditingController();
 
+  // Step 4. Wrong details send donors to the wrong place, so they're
+  // confirmed explicitly rather than assumed.
+  bool _confirmed = false;
+
   @override
   void initState() {
     super.initState();
-    final myGroup = ref.read(currentUserProvider)?.bloodGroup;
-    if (myGroup != null) _groups = {myGroup};
     // If location was already granted (e.g. prompted on Home), use it
     // immediately without asking again; otherwise prompt now.
     WidgetsBinding.instance.addPostFrameCallback((_) => _useDeviceLocation());
+  }
+
+  void _useHomeAddress() {
+    final home = ref.read(currentUserProvider)?.placeLabel;
+    setState(() {
+      _source = _LocationSource.home;
+      _requestPoint = null;
+      _location.text = home ?? '';
+    });
   }
 
   Future<void> _useDeviceLocation() async {
@@ -67,19 +86,26 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
     setState(() {
       _locating = false;
       if (state.isGranted) {
+        _source = _LocationSource.current;
         _requestPoint = state.point;
         _location.text = state.label ?? 'Current location';
-      } else {
-        // Be honest when we don't have a real fix — never fall back to a
-        // fabricated place name.
+      } else if (_source == _LocationSource.current) {
+        // Be honest when we don't have a real fix. Fall back to the saved
+        // home address rather than a made-up place name.
+        _requestPoint = null;
         _location.text = '';
-        _useCurrent = false;
       }
     });
+    if (!state.isGranted &&
+        _location.text.isEmpty &&
+        ref.read(currentUserProvider)?.placeLabel != null) {
+      _useHomeAddress();
+    }
   }
 
   @override
   void dispose() {
+    _patientName.dispose();
     _location.dispose();
     _destName.dispose();
     _destAddress.dispose();
@@ -90,14 +116,17 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   bool get _canAdvance {
     switch (_step) {
       case 0:
-        return _groups.isNotEmpty && _units >= 1;
+        return _patientName.text.trim().length >= 2 &&
+            _patientGroup != null &&
+            _groups.isNotEmpty &&
+            _units >= 1;
       case 1:
         return _location.text.trim().isNotEmpty;
       case 2:
         return _destName.text.trim().isNotEmpty &&
             _destAddress.text.trim().isNotEmpty;
       default:
-        return true;
+        return _confirmed;
     }
   }
 
@@ -125,18 +154,26 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
       // real coordinate, so the coordination map shows an actual pin instead
       // of a fabricated position. If it fails, the map falls back honestly to
       // a city-center default rather than faking precision.
-      final destPoint = await ref
-          .read(locationServiceProvider)
-          .forwardGeocode(_destAddress.text.trim());
+      final locationService = ref.read(locationServiceProvider);
+      final destPoint = await locationService.forwardGeocode(
+        '${_destName.text.trim()}, ${_destAddress.text.trim()}',
+      );
+      // A typed or home location has no coordinates yet; look them up the
+      // same way so donors can still be sorted by distance.
+      final requestPoint =
+          _requestPoint ??
+          await locationService.forwardGeocode(_location.text.trim());
 
       final req = await ref
           .read(backendProvider)
           .createRequest(
+            patientName: _patientName.text.trim(),
+            patientBloodGroup: _patientGroup!,
             bloodGroups: _groups.toList(),
             units: _units,
             urgency: _urgency,
             requestLocationLabel: _location.text.trim(),
-            requestLocation: _requestPoint,
+            requestLocation: requestPoint,
             destination: Destination(
               name: _destName.text.trim(),
               address: _destAddress.text.trim(),
@@ -217,15 +254,39 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _StepTitle(
-          'What blood is needed?',
-          'Choose the groups that can help, how many units, and how urgent it is.',
+          'Who needs blood?',
+          'Details of the patient, as the hospital has them.',
         ),
-        Text('Blood group', style: context.text.titleSmall),
+        Text('Patient name', style: context.text.titleSmall),
+        const SizedBox(height: AppSpacing.sm),
+        TextField(
+          controller: _patientName,
+          textCapitalization: TextCapitalization.words,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            hintText: 'Full name as registered at the hospital',
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        Text('Patient\'s blood group', style: context.text.titleSmall),
         const SizedBox(height: AppSpacing.md),
-        BloodGroupMultiPicker(
-          selected: _groups,
-          onChanged: (g) => setState(() => _groups = g),
+        BloodGroupPicker(
+          selected: _patientGroup,
+          onChanged: (g) => setState(() {
+            _patientGroup = g;
+            _groups = donorsCompatibleWith(g).toSet();
+          }),
         ),
+        if (_patientGroup != null) ...[
+          const SizedBox(height: AppSpacing.xl),
+          Text('Donors who can give', style: context.text.titleSmall),
+          const SizedBox(height: AppSpacing.md),
+          BloodGroupMultiPicker(
+            selected: _groups,
+            patient: _patientGroup,
+            onChanged: (g) => setState(() => _groups = g),
+          ),
+        ],
         const SizedBox(height: AppSpacing.xl),
         Text('Units required', style: context.text.titleSmall),
         const SizedBox(height: AppSpacing.md),
@@ -261,9 +322,10 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
         Consumer(
           builder: (context, ref, _) {
             final deviceLoc = ref.watch(deviceLocationProvider);
+            final usingCurrent = _source == _LocationSource.current;
             final subtitle = _locating
                 ? 'Getting your location…'
-                : _useCurrent && _requestPoint != null
+                : usingCurrent && _requestPoint != null
                 ? '${_location.text} · detected automatically'
                 : deviceLoc.status == DeviceLocationStatus.denied ||
                       deviceLoc.status == DeviceLocationStatus.deniedForever
@@ -277,36 +339,46 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
                   : Icons.my_location_rounded,
               title: 'Use current location',
               subtitle: subtitle,
-              selected: _useCurrent && _requestPoint != null,
+              selected: usingCurrent && _requestPoint != null,
               onTap: _locating
                   ? () {}
                   : () {
-                      setState(() => _useCurrent = true);
+                      setState(() => _source = _LocationSource.current);
                       _useDeviceLocation();
                     },
             );
           },
         ),
+        if (ref.watch(currentUserProvider)?.placeLabel case final home?) ...[
+          const SizedBox(height: AppSpacing.sm),
+          _SelectableTile(
+            icon: Icons.home_outlined,
+            title: 'Use my home address',
+            subtitle: home,
+            selected: _source == _LocationSource.home,
+            onTap: _useHomeAddress,
+          ),
+        ],
         const SizedBox(height: AppSpacing.sm),
         _SelectableTile(
           icon: Icons.edit_location_alt_rounded,
           title: 'Enter a different location',
           subtitle: 'Search an address or area',
-          selected: !_useCurrent,
+          selected: _source == _LocationSource.other,
           onTap: () => setState(() {
-            _useCurrent = false;
+            _source = _LocationSource.other;
             _requestPoint = null;
             _location.clear();
           }),
         ),
-        if (!_useCurrent) ...[
+        if (_source == _LocationSource.other) ...[
           const SizedBox(height: AppSpacing.lg),
           TextField(
             controller: _location,
             autofocus: true,
             onChanged: (_) => setState(() {}),
             decoration: const InputDecoration(
-              hintText: 'e.g. Dubai Marina',
+              hintText: 'e.g. Hazratganj, Lucknow',
               prefixIcon: Icon(Icons.search_rounded),
             ),
           ),
@@ -325,7 +397,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
           'Where should donors go?',
           'The hospital or blood bank where the donation is needed.',
         ),
-        Text('Hospital / destination', style: context.text.titleSmall),
+        Text('Hospital name', style: context.text.titleSmall),
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _destName,
@@ -336,7 +408,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        Text('Address', style: context.text.titleSmall),
+        Text('Hospital address', style: context.text.titleSmall),
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _destAddress,
@@ -362,14 +434,25 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _StepTitle(
-          'Review your request',
-          'Check the details. Donors nearby will be notified right away.',
+          'Check the details',
+          'Donors will go to this hospital for this patient, so make sure '
+              'everything is right.',
         ),
         AppCard(
           child: Column(
             children: [
+              _reviewRow('Patient', _patientName.text.trim()),
+              _divider(),
               _reviewRowWidget(
-                'Blood group',
+                'Patient\'s group',
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: BloodGroupBadge(_patientGroup!),
+                ),
+              ),
+              _divider(),
+              _reviewRowWidget(
+                'Donors who can give',
                 BloodGroupBadges(_groups.toList(), large: false),
               ),
               _divider(),
@@ -377,11 +460,11 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
               _divider(),
               _reviewRowWidget('Urgency', UrgencyBadge(_urgency, dense: true)),
               _divider(),
-              _reviewRow('Request location', _location.text.trim()),
+              _reviewRow('Your location', _location.text.trim()),
               _divider(),
-              _reviewRow('Destination', _destName.text.trim()),
+              _reviewRow('Hospital', _destName.text.trim()),
               _divider(),
-              _reviewRow('Address', _destAddress.text.trim()),
+              _reviewRow('Hospital address', _destAddress.text.trim()),
               if (_destWard.text.trim().isNotEmpty) ...[
                 _divider(),
                 _reviewRow('Ward / contact', _destWard.text.trim()),
@@ -389,7 +472,24 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
+        CheckboxListTile(
+          value: _confirmed,
+          onChanged: (v) => setState(() => _confirmed = v ?? false),
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
+          activeColor: c.brand,
+          title: Text(
+            'These details are correct',
+            style: context.text.titleSmall,
+          ),
+          subtitle: Text(
+            'Patient name, blood group and hospital match what the hospital '
+            'has on record.',
+            style: context.text.bodySmall,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
         Container(
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(

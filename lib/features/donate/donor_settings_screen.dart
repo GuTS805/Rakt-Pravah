@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/services/verification_gate.dart';
+import '../../core/services/donor_gate.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
@@ -75,8 +75,8 @@ class DonorSettingsScreen extends ConsumerWidget {
                   locked:
                       donor.isInCooldown && a == DonorAvailability.available,
                   onTap: () {
-                    if (a == DonorAvailability.available &&
-                        !requireVerifiedEmail(context, ref)) {
+                    if (a != DonorAvailability.off &&
+                        !requireDonorProfile(context, ref)) {
                       return;
                     }
                     _update(ref, donor.copyWith(availability: a));
