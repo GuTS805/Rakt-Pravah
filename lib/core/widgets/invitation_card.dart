@@ -69,6 +69,12 @@ class InvitationCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: AppSpacing.xs),
+                    if ((inv.unitsRemaining ?? 0) > 0 && inv.units > 1)
+                      Text(
+                        '${inv.unitsRemaining} of ${inv.units} units still '
+                        'need a donor',
+                        style: context.text.bodySmall,
+                      ),
                     Text(
                       '${inv.destinationName} · ${inv.destinationArea}',
                       maxLines: 1,

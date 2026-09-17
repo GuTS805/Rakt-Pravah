@@ -91,10 +91,16 @@ class BloodGroupMultiPicker extends StatelessWidget {
     super.key,
     required this.selected,
     required this.onChanged,
+    this.patient,
   });
 
   final Set<BloodGroup> selected;
   final ValueChanged<Set<BloodGroup>> onChanged;
+
+  /// When the patient's group is known, only groups that can safely give to
+  /// them can be picked. Asking an incompatible donor to travel in helps
+  /// nobody.
+  final BloodGroup? patient;
 
   void _toggle(BloodGroup g) {
     final next = Set<BloodGroup>.of(selected);
@@ -116,6 +122,7 @@ class BloodGroupMultiPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final allowed = patient == null ? null : donorsCompatibleWith(patient!);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -124,11 +131,12 @@ class BloodGroupMultiPicker extends StatelessWidget {
           runSpacing: AppSpacing.sm,
           children: [
             for (final g in BloodGroup.values)
-              _MultiChip(
-                group: g,
-                selected: selected.contains(g),
-                onTap: () => _toggle(g),
-              ),
+              if (allowed == null || allowed.contains(g))
+                _MultiChip(
+                  group: g,
+                  selected: selected.contains(g),
+                  onTap: () => _toggle(g),
+                ),
           ],
         ),
         const SizedBox(height: AppSpacing.md),
@@ -138,25 +146,36 @@ class BloodGroupMultiPicker extends StatelessWidget {
               child: Text(
                 selected.isEmpty
                     ? 'Choose at least one group.'
+                    : allowed != null
+                    ? 'Only groups that can safely give to a ${patient!.label} '
+                          'patient are shown. Untick any the hospital '
+                          'doesn\'t want.'
                     : selected.length == 1
                     ? 'Donors with this exact type will see it.'
                     : 'Donors with any of these ${selected.length} types will see it.',
                 style: context.text.bodySmall,
               ),
             ),
-            TextButton.icon(
-              onPressed: () => _openSuggestSheet(context),
-              icon: Icon(Icons.auto_awesome_rounded, size: 16, color: c.brand),
-              label: Text(
-                'Suggest for a patient',
-                style: context.text.labelMedium?.copyWith(color: c.brand),
+            if (allowed == null)
+              TextButton.icon(
+                onPressed: () => _openSuggestSheet(context),
+                icon: Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 16,
+                  color: c.brand,
+                ),
+                label: Text(
+                  'Suggest for a patient',
+                  style: context.text.labelMedium?.copyWith(color: c.brand),
+                ),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
               ),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ),
           ],
         ),
       ],

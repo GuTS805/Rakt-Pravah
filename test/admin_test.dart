@@ -32,7 +32,7 @@ AdminRequest _req({
   createdAt: createdAt ?? DateTime.now(),
   destinationName: 'City Hospital',
   locationLabel: 'Bengaluru',
-  acceptedDonorId: donor == null ? null : 'd1',
+  acceptedDonorIds: donor == null ? const [] : const ['d1'],
   acceptedDonorName: donor,
   expiresAt: expiresAt,
 );
