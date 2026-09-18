@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,9 +6,13 @@ import '../../core/router/routes.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/buttons.dart';
+import '../../data/backend.dart';
 import '../../data/providers.dart';
 import '../../shared/brand_mark.dart';
 
+/// Sign-in with an email and a password. This used to accept a phone number
+/// alone, which meant anyone who knew someone's number could walk into their
+/// account.
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -18,42 +21,66 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _phone = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _busy = false;
+  bool _showPassword = false;
+  String? _error;
 
   @override
   void dispose() {
-    _phone.dispose();
+    _email.dispose();
+    _password.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
-      final found = await ref
+      await ref
           .read(authControllerProvider.notifier)
-          .login(phone: _phone.text.trim());
-      if (!found && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'No account found for that number. Create one below.',
-            ),
-          ),
-        );
-      }
+          .signInWithPassword(
+            email: _email.text.trim(),
+            password: _password.text,
+          );
+    } on SignInFailure catch (e) {
+      if (mounted) setState(() => _error = e.message);
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Couldn\'t sign in. Try again.')),
-        );
+        setState(() => _error = 'Couldn\'t sign in. Check your connection.');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  /// Sends a reset link without saying whether that address has an account —
+  /// the same message either way, so this can't be used to find out who is
+  /// registered.
+  Future<void> _resetPassword() async {
+    final email = _email.text.trim();
+    if (!_looksLikeEmail(email)) {
+      setState(() => _error = 'Enter your email address first.');
+      return;
+    }
+    await ref.read(authControllerProvider.notifier).sendPasswordReset(email);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'If $email has an account, a reset link is on its way to it.',
+        ),
+      ),
+    );
+  }
+
+  static bool _looksLikeEmail(String value) =>
+      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value);
 
   @override
   Widget build(BuildContext context) {
@@ -79,34 +106,72 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: context.text.bodyMedium,
                     ),
                     const SizedBox(height: AppSpacing.xxxl),
-                    Text('Phone number', style: context.text.titleSmall),
+                    Text('Email', style: context.text.titleSmall),
                     const SizedBox(height: AppSpacing.sm),
                     TextFormField(
-                      controller: _phone,
-                      keyboardType: TextInputType.phone,
-                      autofillHints: const [AutofillHints.telephoneNumber],
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]')),
-                      ],
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.username],
                       decoration: const InputDecoration(
-                        hintText: '+971 50 123 4567',
-                        prefixIcon: Icon(Icons.phone_outlined),
+                        hintText: 'you@example.com',
+                        prefixIcon: Icon(Icons.email_outlined),
                       ),
-                      validator: (v) {
-                        final digits = (v ?? '').replaceAll(
-                          RegExp(r'[^0-9]'),
-                          '',
-                        );
-                        if (digits.length < 10) {
-                          return 'Enter a valid phone number';
-                        }
-                        return null;
-                      },
+                      validator: (v) => _looksLikeEmail((v ?? '').trim())
+                          ? null
+                          : 'Enter a valid email address',
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Text('Password', style: context.text.titleSmall),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextFormField(
+                      controller: _password,
+                      obscureText: !_showPassword,
+                      autofillHints: const [AutofillHints.password],
+                      decoration: InputDecoration(
+                        hintText: 'Your password',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          tooltip: _showPassword
+                              ? 'Hide password'
+                              : 'Show password',
+                          icon: Icon(
+                            _showPassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            size: 20,
+                          ),
+                          onPressed: () =>
+                              setState(() => _showPassword = !_showPassword),
+                        ),
+                      ),
+                      validator: (v) =>
+                          (v ?? '').isEmpty ? 'Enter your password' : null,
                       onFieldSubmitted: (_) => _submit(),
                     ),
-                    const SizedBox(height: AppSpacing.xl),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _busy ? null : _resetPassword,
+                        child: Text(
+                          'Forgot password?',
+                          style: context.text.labelLarge?.copyWith(
+                            color: c.brand,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        _error!,
+                        style: context.text.bodySmall?.copyWith(
+                          color: c.danger,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.lg),
                     PrimaryButton(
-                      label: 'Continue',
+                      label: 'Sign in',
                       busy: _busy,
                       onPressed: _submit,
                     ),
@@ -120,9 +185,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             onTap: () => context.push(Routes.register),
                             child: Text(
                               'Create an account',
-                              style: context.text.bodyMedium?.copyWith(
+                              style: context.text.labelLarge?.copyWith(
                                 color: c.brand,
-                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),

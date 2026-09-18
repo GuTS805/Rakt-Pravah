@@ -18,6 +18,7 @@ import '../../features/profile/history_screen.dart';
 import '../../features/profile/privacy_screen.dart';
 import '../../features/profile/profile_edit_screen.dart';
 import '../../features/profile/profile_screen.dart';
+import '../../features/profile/secure_account_screen.dart';
 import '../../features/profile/settings_screen.dart';
 import '../../features/requests/create_request_screen.dart';
 import '../../features/requests/request_detail_screen.dart';
@@ -146,6 +147,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.profileEdit,
         builder: (_, _) => const ProfileEditScreen(),
+      ),
+      GoRoute(
+        path: Routes.secureAccount,
+        builder: (_, _) => const SecureAccountScreen(),
       ),
       GoRoute(
         path: Routes.requestHistory,

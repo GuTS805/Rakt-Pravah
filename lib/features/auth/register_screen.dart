@@ -6,6 +6,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/blood_group_picker.dart';
 import '../../core/widgets/buttons.dart';
+import '../../data/backend.dart';
 import '../../data/models/enums.dart';
 import '../../data/providers.dart';
 import '../../shared/profile_fields.dart';
@@ -22,6 +23,8 @@ class RegisterScreen extends ConsumerStatefulWidget {
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
   final _name = TextEditingController();
   final _phone = TextEditingController();
   final _country = TextEditingController(text: 'India');
@@ -31,10 +34,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   DateTime? _dateOfBirth;
   Gender? _gender;
   bool _busy = false;
+  bool _showPassword = false;
   bool _groupError = false;
+  String? _error;
 
   @override
   void dispose() {
+    _email.dispose();
+    _password.dispose();
     _name.dispose();
     _phone.dispose();
     _country.dispose();
@@ -48,11 +55,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     setState(() => _groupError = _group == null);
     if (!validForm || _group == null) return;
 
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
       await ref
           .read(authControllerProvider.notifier)
           .register(
+            email: _email.text.trim(),
+            password: _password.text,
             name: _name.text.trim(),
             phone: _phone.text.trim(),
             bloodGroup: _group!,
@@ -62,13 +74,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             state: _state.text.trim(),
             city: _city.text.trim(),
           );
+    } on SignInFailure catch (e) {
+      if (mounted) setState(() => _error = e.message);
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Couldn\'t create your account. Try again.'),
-          ),
-        );
+        setState(() => _error = 'Couldn\'t create your account. Try again.');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -96,6 +106,47 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       style: context.text.bodyMedium,
                     ),
                     const SizedBox(height: AppSpacing.xxl),
+                    const FieldLabel('Email'),
+                    TextFormField(
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.username],
+                      decoration: const InputDecoration(
+                        hintText: 'you@example.com',
+                      ),
+                      validator: (v) =>
+                          RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                              .hasMatch((v ?? '').trim())
+                          ? null
+                          : 'Enter a valid email address',
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    const FieldLabel('Password'),
+                    TextFormField(
+                      controller: _password,
+                      obscureText: !_showPassword,
+                      autofillHints: const [AutofillHints.newPassword],
+                      decoration: InputDecoration(
+                        hintText: 'At least 6 characters',
+                        suffixIcon: IconButton(
+                          tooltip: _showPassword
+                              ? 'Hide password'
+                              : 'Show password',
+                          icon: Icon(
+                            _showPassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            size: 20,
+                          ),
+                          onPressed: () =>
+                              setState(() => _showPassword = !_showPassword),
+                        ),
+                      ),
+                      validator: (v) => (v ?? '').length < 6
+                          ? 'Use at least 6 characters'
+                          : null,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
                     const FieldLabel('Full name'),
                     TextFormField(
                       controller: _name,
@@ -156,6 +207,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       state: _state,
                       city: _city,
                     ),
+                    if (_error != null) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      Text(
+                        _error!,
+                        style: context.text.bodySmall?.copyWith(
+                          color: c.danger,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.xxl),
                     PrimaryButton(
                       label: 'Create account',

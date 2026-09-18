@@ -21,13 +21,13 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
-    // Profile documents. Read is broader than write on purpose: logging in
-    // by phone number needs to find an existing profile via a query, and
-    // anonymous auth carries no verified phone claim to check against —
-    // this is a known, documented tradeoff for a phone-number-only login
-    // with no OTP step. Writes are always locked to the owner.
+    // Profile documents. A profile is readable by the person it belongs to
+    // and by operators, and by nobody else: it holds a name and a phone
+    // number, and the app has no feature that needs to read a stranger's.
+    // Names that other people legitimately see (a requester's, an accepted
+    // donor's) are copied onto the request itself.
     match /users/{uid} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
 
       // Owners write their own profile, but the admin flag is not theirs to
       // set — without this split, any user could promote themselves to
@@ -121,6 +121,18 @@ service cloud.firestore {
       );
 
       allow delete: if false;
+
+      // The patient's name. Requests themselves are readable by every signed
+      // -in user, because that is how donors find them; this is the part that
+      // isn't anyone else's business. Only the requester and the donors who
+      // accepted can read it, and only the requester writes it.
+      match /private/{docId} {
+        allow read: if isSignedIn() && isParticipant(requestId);
+        allow create, update: if isSignedIn()
+          && get(/databases/$(database)/documents/blood_requests/$(requestId))
+               .data.requesterId == request.auth.uid;
+        allow delete: if false;
+      }
 
       // Request-scoped private chat — only the requester and the accepted
       // donor can read or send messages (spec §18, §26).

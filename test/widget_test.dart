@@ -7,6 +7,8 @@ import 'package:rakt_pravah/core/widgets/badges.dart';
 import 'package:rakt_pravah/data/models/models.dart';
 import 'package:rakt_pravah/shared/brand_mark.dart';
 
+import 'fakes.dart';
+
 // A full app boot now needs a live Firebase project (Auth + Firestore) via
 // main()'s Firebase.initializeApp() call, which isn't available in a plain
 // widget test without emulator setup — that belongs in an integration test,
@@ -31,6 +33,13 @@ DonorProfile _donor({
   availability: availability ?? DonorAvailability.available,
   bloodGroup: BloodGroup.oPos,
   lastDonation: lastDonation,
+);
+
+UserProfile _profile() => const UserProfile(
+  id: 'u1',
+  name: 'Alok Sharma',
+  bloodGroup: BloodGroup.oPos,
+  phone: '9876543210',
 );
 
 void main() {
@@ -305,6 +314,60 @@ void main() {
           ]),
         );
       }
+    });
+  });
+
+  group('account identity', () {
+    test('an account with no email exists only on this device', () async {
+      final backend = FakeBackend(user: _profile());
+      expect(backend.isDeviceOnlyAccount, isTrue);
+
+      backend.passwords['alok@example.com'] = 'hunter22';
+      await backend.addPasswordSignIn(
+        email: 'alok@example.com',
+        password: 'hunter22',
+      );
+      expect(
+        backend.isDeviceOnlyAccount,
+        isFalse,
+        reason: 'attaching an email is what makes it recoverable',
+      );
+    });
+
+    test('the same account keeps its id when an email is attached', () async {
+      final backend = FakeBackend(user: _profile());
+      backend.passwords['alok@example.com'] = 'hunter22';
+      final after = await backend.addPasswordSignIn(
+        email: 'alok@example.com',
+        password: 'hunter22',
+      );
+      expect(after.id, 'u1');
+    });
+  });
+
+  group('patient names', () {
+    test('a created request files the name away from the request', () async {
+      final backend = FakeBackend(user: _profile());
+      final request = await backend.createRequest(
+        patientName: 'Sita Devi',
+        patientBloodGroup: BloodGroup.aPos,
+        bloodGroups: const [BloodGroup.aPos],
+        units: 1,
+        urgency: Urgency.critical,
+        requestLocationLabel: 'Lucknow',
+        destination: const Destination(name: 'KGMU', address: 'Chowk'),
+      );
+
+      expect(
+        await backend.patientNameStream(request.id).first,
+        'Sita Devi',
+        reason: 'participants can still read it',
+      );
+      expect(
+        await backend.patientNameStream('some-other-request').first,
+        isNull,
+        reason: 'and nobody else gets a name at all',
+      );
     });
   });
 

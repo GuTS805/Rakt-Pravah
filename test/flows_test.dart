@@ -8,6 +8,7 @@ import 'package:rakt_pravah/core/theme/app_theme.dart';
 import 'package:rakt_pravah/data/models/models.dart';
 import 'package:rakt_pravah/data/providers.dart';
 import 'package:rakt_pravah/features/home/donor_status_card.dart';
+import 'package:rakt_pravah/features/auth/login_screen.dart';
 import 'package:rakt_pravah/features/home/home_screen.dart';
 import 'package:rakt_pravah/features/invitations/invitation_detail_screen.dart';
 
@@ -126,6 +127,69 @@ void _useTallPhone(WidgetTester tester) {
 }
 
 void main() {
+  group('signing in', () {
+    Future<FakeBackend> signIn(
+      WidgetTester tester, {
+      required String password,
+    }) async {
+      final backend = FakeBackend()..passwords['alok@example.com'] = 'hunter22';
+      await tester.pumpWidget(
+        _app(backend: backend, screen: const LoginScreen()),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byType(TextFormField).first,
+        'alok@example.com',
+      );
+      await tester.enterText(find.byType(TextFormField).last, password);
+      await tester.tap(find.text('Sign in'));
+      await tester.pumpAndSettle();
+      return backend;
+    }
+
+    testWidgets('a wrong password is refused', (tester) async {
+      final backend = await signIn(tester, password: 'not-it');
+
+      expect(find.text('Wrong email or password.'), findsOneWidget);
+      expect(
+        backend.currentUser,
+        isNull,
+        reason: 'nobody is signed in after a failed attempt',
+      );
+    });
+
+    testWidgets('the right password signs in', (tester) async {
+      final backend = await signIn(tester, password: 'hunter22');
+
+      expect(find.text('Wrong email or password.'), findsNothing);
+      expect(backend.currentUser?.email, 'alok@example.com');
+    });
+
+    testWidgets('a reset link never says whether the account exists', (
+      tester,
+    ) async {
+      final backend = FakeBackend();
+      await tester.pumpWidget(
+        _app(backend: backend, screen: const LoginScreen()),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byType(TextFormField).first,
+        'stranger@example.com',
+      );
+      await tester.tap(find.text('Forgot password?'));
+      await tester.pumpAndSettle();
+
+      expect(backend.passwordResetEmails, ['stranger@example.com']);
+      expect(
+        find.textContaining('If stranger@example.com has an account'),
+        findsOneWidget,
+      );
+    });
+  });
+
   group('donor checks', () {
     testWidgets('an account without a birth date is sent to its profile', (
       tester,

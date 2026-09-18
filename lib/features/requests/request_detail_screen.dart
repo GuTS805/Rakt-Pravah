@@ -91,12 +91,17 @@ class _Body extends ConsumerWidget {
   }
 }
 
-class _SummaryCard extends StatelessWidget {
+class _SummaryCard extends ConsumerWidget {
   const _SummaryCard({required this.request});
   final BloodRequest request;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // The name lives in the request's private subcollection now, readable
+    // only by this requester and the donors who accepted.
+    final patientName =
+        ref.watch(patientNameProvider(request.id)).valueOrNull ??
+        request.patientName;
     return AppCard(
       accent: request.status.isActive
           ? urgencyStyle(context, request.urgency).color
@@ -118,9 +123,9 @@ class _SummaryCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      request.patientName == null
+                      patientName == null
                           ? 'Created ${Fmt.relative(request.createdAt)}'
-                          : 'For ${request.patientName}'
+                          : 'For $patientName'
                                 '${request.patientBloodGroup == null ? '' : ' (${request.patientBloodGroup!.label})'}'
                                 ' · ${Fmt.relative(request.createdAt)}',
                       style: context.text.bodySmall,

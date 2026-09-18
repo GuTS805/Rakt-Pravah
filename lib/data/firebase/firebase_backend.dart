@@ -53,12 +53,6 @@ class FirebaseBackend implements Backend {
   @override
   GeoPoint? myLocation;
 
-  Future<void> _ensureSignedIn() async {
-    if (_auth.currentUser == null) {
-      await _auth.signInAnonymously();
-    }
-  }
-
   /// Restores a session already active on this device (survives restarts).
   /// Returns null if there's no local session or its profile is missing.
   @override
@@ -70,20 +64,10 @@ class FirebaseBackend implements Backend {
     return _applyProfileDoc(doc.data()!);
   }
 
-  /// Looks up an existing profile by phone number and, if found, adopts it
-  /// onto this device's session. Returns null if no account has that phone.
-  @override
-  Future<UserProfile?> loginByPhone(String phone) async {
-    await _ensureSignedIn();
-    final query = await _users.where('phone', isEqualTo: phone).limit(1).get();
-    if (query.docs.isEmpty) return null;
-    final data = query.docs.first.data();
-    await _users.doc(uid).set(data, fs.SetOptions(merge: true));
-    return _applyProfileDoc(data);
-  }
-
   @override
   Future<UserProfile> register({
+    required String email,
+    required String password,
     required String name,
     required String phone,
     required BloodGroup bloodGroup,
@@ -93,7 +77,7 @@ class FirebaseBackend implements Backend {
     required String state,
     required String city,
   }) async {
-    await _ensureSignedIn();
+    await _createOrLinkAccount(email: email, password: password);
     final data = <String, dynamic>{
       'name': name,
       'phone': phone,
@@ -103,7 +87,7 @@ class FirebaseBackend implements Backend {
       'country': country,
       'state': state,
       'city': city,
-      'email': null,
+      'email': email,
       'isAdmin': false,
       'lastDonation': null,
       'donor': _donorToMap(
@@ -157,11 +141,74 @@ class FirebaseBackend implements Backend {
   }
 
   // ---------------------------------------------------------------------
-  // Operator sign-in. Only the admin console uses this: the mobile app runs
-  // on anonymous auth and never asks for an email or a password. Operator
-  // accounts are created in the Firebase console, and an existing admin
-  // grants access from the Users page.
+  // Sign-in. Everyone signs in with an email and a password: it is the only
+  // proof of identity the app has, and without it anyone who knew a phone
+  // number could have walked into that account. Operator accounts are made
+  // in the Firebase console, and an existing admin grants console access
+  // from the Users page.
   // ---------------------------------------------------------------------
+
+  /// Creates the account, or attaches these credentials to the anonymous
+  /// session this device already has so nothing it created is orphaned.
+  Future<void> _createOrLinkAccount({
+    required String email,
+    required String password,
+  }) async {
+    final credential = fb_auth.EmailAuthProvider.credential(
+      email: email,
+      password: password,
+    );
+    try {
+      final current = _auth.currentUser;
+      if (current != null && current.isAnonymous) {
+        await current.linkWithCredential(credential);
+      } else {
+        await _auth.createUserWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+      }
+    } on fb_auth.FirebaseAuthException catch (e) {
+      throw SignInFailure(_registrationMessage(e.code));
+    }
+  }
+
+  String _registrationMessage(String code) => switch (code) {
+    'email-already-in-use' || 'credential-already-in-use' =>
+      'That email already has an account. Sign in instead.',
+    'invalid-email' => 'That doesn\'t look like an email address.',
+    'weak-password' => 'Use a password of at least 6 characters.',
+    'operation-not-allowed' =>
+      'Email and password sign-in is switched off for this project.',
+    _ => 'Couldn\'t create your account. Try again.',
+  };
+
+  @override
+  bool get isDeviceOnlyAccount => _auth.currentUser?.isAnonymous ?? false;
+
+  @override
+  Future<void> sendPasswordReset(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on fb_auth.FirebaseAuthException catch (e) {
+      // A wrong address is not worth an error: saying "no account here"
+      // would tell anyone who asks which emails are registered.
+      if (e.code == 'user-not-found' || e.code == 'invalid-email') return;
+      rethrow;
+    }
+  }
+
+  @override
+  Future<UserProfile> addPasswordSignIn({
+    required String email,
+    required String password,
+  }) async {
+    await _createOrLinkAccount(email: email, password: password);
+    await _users.doc(uid).set({'email': email}, fs.SetOptions(merge: true));
+    final doc = await _users.doc(uid).get();
+    return _applyProfileDoc(doc.data()!);
+  }
+
   @override
   Future<UserProfile> signInWithPassword({
     required String email,
@@ -373,7 +420,9 @@ class FirebaseBackend implements Backend {
     final data = <String, dynamic>{
       'requesterId': uid,
       'requesterName': currentUser!.name,
-      'patientName': patientName,
+      // The patient's name is not in here: every signed-in user can read
+      // these documents, because that's how donors find requests at all. It
+      // lives in the private subcollection written below instead.
       'patientBloodGroup': patientBloodGroup.label,
       'bloodGroups': bloodGroups.map((g) => g.label).toList(),
       'units': units,
@@ -400,8 +449,17 @@ class FirebaseBackend implements Backend {
       'declinedByDonorIds': <String>[],
     };
     await ref.set(data);
+    await ref.collection('private').doc('patient').set({'name': patientName});
     return _requestFromDoc(await ref.get());
   }
+
+  @override
+  Stream<String?> patientNameStream(String requestId) => _requests
+      .doc(requestId)
+      .collection('private')
+      .doc('patient')
+      .snapshots()
+      .map((doc) => doc.data()?['name'] as String?);
 
   @override
   Future<void> cancelRequest(String id) async {
@@ -828,6 +886,7 @@ class FirebaseBackend implements Backend {
       id: doc.id,
       requesterId: data['requesterId'] as String,
       requesterName: data['requesterName'] as String,
+      // Only requests created before the name moved still carry it here.
       patientName: data['patientName'] as String?,
       patientBloodGroup: patientGroup == null
           ? null

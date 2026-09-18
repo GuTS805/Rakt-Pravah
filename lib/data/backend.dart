@@ -42,11 +42,9 @@ abstract class Backend {
   /// local session or its profile is missing.
   Future<UserProfile?> restoreSession();
 
-  /// Adopts an existing profile found by phone number. Null when no account
-  /// has that number — there is no account-creation fallback here.
-  Future<UserProfile?> loginByPhone(String phone);
-
   Future<UserProfile> register({
+    required String email,
+    required String password,
     required String name,
     required String phone,
     required BloodGroup bloodGroup,
@@ -69,16 +67,30 @@ abstract class Backend {
 
   Future<void> signOut();
 
-  // --- Operator sign-in (admin console only) -----------------------------
-
-  /// Signs an operator in with the email and password their account was
-  /// created with. Throws [SignInFailure] when those don't match an account.
-  /// Being signed in is not the same as having access: that's still decided
-  /// by the `isAdmin` flag on the returned profile.
+  /// Signs in with an email and password. Throws [SignInFailure] when those
+  /// don't match an account. Used by the app and by the operations console:
+  /// one identity system, and the `isAdmin` flag on the returned profile is
+  /// what decides whether the console lets someone in.
   Future<UserProfile> signInWithPassword({
     required String email,
     required String password,
   });
+
+  /// Emails a password reset link. Silent about whether the address has an
+  /// account, so this can't be used to find out who is registered.
+  Future<void> sendPasswordReset(String email);
+
+  /// Attaches an email and password to an account that doesn't have one, so
+  /// it can be signed into again from anywhere. Keeps the same uid, and with
+  /// it every request, donation and message the account already has.
+  Future<UserProfile> addPasswordSignIn({
+    required String email,
+    required String password,
+  });
+
+  /// True while the signed-in account has no way back in: it exists only on
+  /// this device until an email and password are attached.
+  bool get isDeviceOnlyAccount;
 
   // --- Donor Mode --------------------------------------------------------
 
@@ -106,6 +118,11 @@ abstract class Backend {
   Future<void> cancelRequest(String id);
 
   Future<void> markFulfilled(String id);
+
+  /// The patient's name, kept apart from the request itself so that only the
+  /// requester and the donors who accepted can read it. Null when it isn't
+  /// recorded, and an error when the caller isn't allowed to see it.
+  Stream<String?> patientNameStream(String requestId);
 
   /// Gives a request that ran out of time another six hours.
   Future<void> extendRequest(String id);

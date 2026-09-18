@@ -231,7 +231,7 @@ class CoordinationScreen extends ConsumerWidget {
   }
 }
 
-class _PartnerCard extends StatelessWidget {
+class _PartnerCard extends ConsumerWidget {
   const _PartnerCard({
     required this.partners,
     required this.request,
@@ -244,8 +244,13 @@ class _PartnerCard extends StatelessWidget {
   final bool showProgress;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    // Read from the request's private subcollection, which only the
+    // requester and the donors who accepted are allowed to open.
+    final patientName =
+        ref.watch(patientNameProvider(request.id)).valueOrNull ??
+        request.patientName;
     return AppCard(
       accent: c.success,
       child: Column(
@@ -294,7 +299,7 @@ class _PartnerCard extends StatelessWidget {
           ),
           // The donor needs this at the blood bank to donate against the
           // right patient.
-          if (request.patientName != null) ...[
+          if (patientName != null) ...[
             const SizedBox(height: AppSpacing.md),
             Row(
               children: [
@@ -306,7 +311,7 @@ class _PartnerCard extends StatelessWidget {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    'Patient: ${request.patientName}'
+                    'Patient: $patientName'
                     '${request.patientBloodGroup == null ? '' : ' · ${request.patientBloodGroup!.label}'}',
                     style: context.text.bodyMedium,
                   ),

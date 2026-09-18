@@ -76,6 +76,8 @@ class FakeBackend implements Backend {
   final List<String> extendedRequestIds = [];
   final List<(String, InvitationStatus)> invitationResponses = [];
   final Map<String, String> passwords = {};
+  final List<String> passwordResetEmails = [];
+  final Map<String, String> patientNames = {};
   final List<(String, GeoPoint)> liveLocationUpdates = [];
   final List<String> stoppedLiveLocationIds = [];
   final List<String> sentMessages = [];
@@ -119,6 +121,10 @@ class FakeBackend implements Backend {
   Stream<List<Invitation>> get invitationsStream => _invitations.stream;
 
   @override
+  Stream<String?> patientNameStream(String id) =>
+      Stream.value(patientNames[id]);
+
+  @override
   Stream<BloodRequest> requestStream(String id) =>
       _requests.stream.map((all) => all.firstWhere((r) => r.id == id));
 
@@ -134,6 +140,7 @@ class FakeBackend implements Backend {
     GeoPoint? requestLocation,
   }) async {
     createRequestCalls++;
+    patientNames['req-$createRequestCalls'] = patientName;
     final created = BloodRequest(
       id: 'req-$createRequestCalls',
       requesterId: uid,
@@ -212,7 +219,14 @@ class FakeBackend implements Backend {
     if (passwords[email] != password) {
       throw const SignInFailure('Wrong email or password.');
     }
-    final user = currentUser!;
+    final user =
+        currentUser ??
+        UserProfile(
+          id: 'fake-uid',
+          name: email.split('@').first,
+          bloodGroup: BloodGroup.oPos,
+          phone: '',
+        );
     final signedIn = UserProfile(
       id: user.id,
       name: user.name,
@@ -235,11 +249,25 @@ class FakeBackend implements Backend {
   Future<UserProfile?> restoreSession() async => currentUser;
 
   @override
-  Future<UserProfile?> loginByPhone(String phone) async =>
-      currentUser?.phone == phone ? currentUser : null;
+  Future<void> sendPasswordReset(String email) async =>
+      passwordResetEmails.add(email);
+
+  @override
+  bool get isDeviceOnlyAccount => currentUser?.email == null;
+
+  @override
+  Future<UserProfile> addPasswordSignIn({
+    required String email,
+    required String password,
+  }) async {
+    passwords[email] = password;
+    return signInWithPassword(email: email, password: password);
+  }
 
   @override
   Future<UserProfile> register({
+    required String email,
+    required String password,
     required String name,
     required String phone,
     required BloodGroup bloodGroup,
@@ -249,11 +277,13 @@ class FakeBackend implements Backend {
     required String state,
     required String city,
   }) async {
+    passwords[email] = password;
     final user = UserProfile(
       id: 'fake-uid',
       name: name,
       bloodGroup: bloodGroup,
       phone: phone,
+      email: email,
       dateOfBirth: dateOfBirth,
       gender: gender,
       country: country,

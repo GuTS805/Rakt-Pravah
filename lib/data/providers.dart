@@ -43,17 +43,9 @@ class AuthController extends Notifier<AuthState> {
         : AuthState(AuthStatus.authenticated, user);
   }
 
-  /// Returns false if no account exists for that phone number — there is no
-  /// account-recovery flow here (login only ever finds an existing profile
-  /// by phone; it never fabricates one), so the caller must handle that.
-  Future<bool> login({required String phone}) async {
-    final user = await _backend.loginByPhone(phone);
-    if (user == null) return false;
-    state = AuthState(AuthStatus.authenticated, user);
-    return true;
-  }
-
   Future<void> register({
+    required String email,
+    required String password,
     required String name,
     required String phone,
     required BloodGroup bloodGroup,
@@ -64,6 +56,8 @@ class AuthController extends Notifier<AuthState> {
     required String city,
   }) async {
     final user = await _backend.register(
+      email: email,
+      password: password,
       name: name,
       phone: phone,
       bloodGroup: bloodGroup,
@@ -103,8 +97,9 @@ class AuthController extends Notifier<AuthState> {
     this.state = AuthState(AuthStatus.authenticated, _backend.currentUser);
   }
 
-  /// Signs an operator into the admin console. Throws [SignInFailure] with
-  /// something worth showing when the credentials don't match.
+  /// Signs in with an email and password, in the app and in the console
+  /// alike. Throws [SignInFailure] with something worth showing when the
+  /// credentials don't match.
   Future<void> signInWithPassword({
     required String email,
     required String password,
@@ -114,6 +109,25 @@ class AuthController extends Notifier<AuthState> {
       password: password,
     );
     state = AuthState(AuthStatus.authenticated, user);
+  }
+
+  Future<void> sendPasswordReset(String email) =>
+      _backend.sendPasswordReset(email);
+
+  /// True for an account that exists only on this device — made before the
+  /// app asked for an email, so there is no way to sign back into it.
+  bool get isDeviceOnlyAccount => _backend.isDeviceOnlyAccount;
+
+  /// Gives a device-only account a way back in, keeping everything it has.
+  Future<void> addPasswordSignIn({
+    required String email,
+    required String password,
+  }) async {
+    final user = await _backend.addPasswordSignIn(
+      email: email,
+      password: password,
+    );
+    state = AuthState(state.status, user);
   }
 
   Future<void> logout() async {
@@ -189,6 +203,14 @@ final donorProfileValueProvider = Provider<DonorProfile>((ref) {
 final myRequestsProvider = StreamProvider<List<BloodRequest>>((ref) {
   final backend = ref.watch(backendProvider);
   return backend.myRequestsStream;
+});
+
+/// The patient's name on a request, which only its requester and accepted
+/// donors are allowed to read. Null for anyone else, and for requests made
+/// before the name was moved out of the public document.
+final patientNameProvider = StreamProvider.family<String?, String>((ref, id) {
+  final backend = ref.watch(backendProvider);
+  return backend.patientNameStream(id).handleError((_) => null);
 });
 
 /// Live stream of a single request (auto-updating tracking screen).

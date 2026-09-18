@@ -72,6 +72,15 @@ class ProfileScreen extends ConsumerWidget {
             SettingsSection(
               title: 'Donor',
               children: [
+                if (ref
+                    .read(authControllerProvider.notifier)
+                    .isDeviceOnlyAccount)
+                  SettingsTile(
+                    icon: Icons.lock_outline_rounded,
+                    title: 'Secure your account',
+                    subtitle: 'Add an email so you can sign in anywhere',
+                    onTap: () => context.push(Routes.secureAccount),
+                  ),
                 SettingsTile(
                   icon: Icons.favorite_outline_rounded,
                   title: 'Donor Mode',
