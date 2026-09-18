@@ -83,12 +83,12 @@ flutter analyze              # static analysis (0 errors, 0 warnings)
 ## Operations console
 
 The console is a second entrypoint into the same codebase, deployed on its own
-URL: **https://nobloodlink.web.app/admin/**. Operators sign in with an email
-and password; the mobile app never asks for either.
+site: **https://raktpravah-admin.web.app**. Operators sign in with an email and
+password; the mobile app never asks for either.
 
 ```bash
-flutter build web -t lib/main_admin.dart --base-href /admin/ --pwa-strategy=none
-rm -rf hosting_public/admin && cp -r build/web hosting_public/admin
+flutter build web -t lib/main_admin.dart --pwa-strategy=none
+rm -rf hosting_admin && cp -r build/web hosting_admin
 firebase deploy --only hosting
 ```
 
