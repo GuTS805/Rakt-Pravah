@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:bloodlink/admin/admin_backend.dart';
-import 'package:bloodlink/admin/admin_providers.dart';
-import 'package:bloodlink/admin/admin_screens.dart';
-import 'package:bloodlink/core/theme/app_theme.dart';
-import 'package:bloodlink/data/models/models.dart';
-import 'package:bloodlink/data/providers.dart';
+import 'package:rakt_pravah/admin/admin_backend.dart';
+import 'package:rakt_pravah/admin/admin_providers.dart';
+import 'package:rakt_pravah/admin/admin_screens.dart';
+import 'package:rakt_pravah/core/theme/app_theme.dart';
+import 'package:rakt_pravah/data/models/models.dart';
+import 'package:rakt_pravah/data/providers.dart';
 
 // The console is desktop-only and table-driven, so these run on a wide
 // surface. AdminBackend itself talks to Firestore; the screens read through

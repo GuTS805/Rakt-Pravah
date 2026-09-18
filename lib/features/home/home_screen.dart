@@ -163,7 +163,7 @@ class _BrandRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('BloodLink', style: context.text.titleLarge),
+              Text('Rakt Pravah', style: context.text.titleLarge),
               Text(
                 'Life, connected.',
                 style: context.text.bodySmall?.copyWith(color: c.textTertiary),
@@ -485,7 +485,7 @@ class _Stat extends StatelessWidget {
   }
 }
 
-/// BloodLink coordinates people; it does not clear anyone to donate. Saying so
+/// Rakt Pravah coordinates people; it does not clear anyone to donate. Saying so
 /// plainly, once, near the bottom is the honest placement — not buried in a
 /// terms page, not shouted at the top.
 class _MedicalNotice extends StatelessWidget {
@@ -507,7 +507,7 @@ class _MedicalNotice extends StatelessWidget {
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(
-              'BloodLink connects people. Medical professionals decide '
+              'Rakt Pravah connects people. Medical professionals decide '
               'donation suitability.',
               style: context.text.bodySmall?.copyWith(color: c.textSecondary),
             ),
@@ -553,7 +553,7 @@ class _LocationBannerState extends ConsumerState<_LocationBanner> {
     final c = context.colors;
     final (title, action) = switch (widget.status) {
       DeviceLocationStatus.deniedForever => (
-        'Location is blocked for BloodLink',
+        'Location is blocked for Rakt Pravah',
         'Open settings',
       ),
       DeviceLocationStatus.serviceDisabled => (

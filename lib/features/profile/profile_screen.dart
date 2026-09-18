@@ -208,7 +208,9 @@ class ProfileScreen extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Log out?'),
-        content: const Text('You\'ll need to sign in again to use BloodLink.'),
+        content: const Text(
+          'You\'ll need to sign in again to use Rakt Pravah.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),

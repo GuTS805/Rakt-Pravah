@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:bloodlink/core/theme/app_theme.dart';
-import 'package:bloodlink/core/utils/formatters.dart';
-import 'package:bloodlink/core/widgets/badges.dart';
-import 'package:bloodlink/data/models/models.dart';
-import 'package:bloodlink/shared/brand_mark.dart';
+import 'package:rakt_pravah/core/theme/app_theme.dart';
+import 'package:rakt_pravah/core/utils/formatters.dart';
+import 'package:rakt_pravah/core/widgets/badges.dart';
+import 'package:rakt_pravah/data/models/models.dart';
+import 'package:rakt_pravah/shared/brand_mark.dart';
 
 // A full app boot now needs a live Firebase project (Auth + Firestore) via
 // main()'s Firebase.initializeApp() call, which isn't available in a plain

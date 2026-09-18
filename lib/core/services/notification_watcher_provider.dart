@@ -10,7 +10,7 @@ import 'notification_service.dart';
 /// Watches the same live streams the UI does and fires a local notification
 /// the moment something new shows up — a compatible request appearing for a
 /// donor, or a donor accepting the user's own request. Kept alive for the
-/// app's lifetime by being watched once from [BloodLinkApp], so it keeps
+/// app's lifetime by being watched once from [RaktPravahApp], so it keeps
 /// working even while the user is looking at an unrelated tab.
 final notificationWatcherProvider = Provider<void>((ref) {
   // The underlying Firestore streams require a signed-in uid; bail out

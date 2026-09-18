@@ -35,7 +35,7 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
         SnackBar(
           content: Text(
             deniedForever
-                ? 'Location is blocked for BloodLink. Enable it in system settings.'
+                ? 'Location is blocked for Rakt Pravah. Enable it in system settings.'
                 : 'Location access is needed to match you with nearby requests.',
           ),
           action: deniedForever

@@ -70,7 +70,10 @@ class AdminShell extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('BloodLink', style: context.text.titleMedium),
+                            Text(
+                              'Rakt Pravah',
+                              style: context.text.titleMedium,
+                            ),
                             Text(
                               'Operations',
                               style: context.text.bodySmall?.copyWith(

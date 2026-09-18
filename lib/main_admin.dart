@@ -22,31 +22,72 @@ void main() async {
   runApp(const ProviderScope(child: AdminApp()));
 }
 
-final _adminRouter = GoRouter(
-  routes: [
-    ShellRoute(
-      builder: (context, state, child) => AdminShell(child: child),
-      routes: [
-        GoRoute(path: '/', builder: (_, _) => const AdminDashboardScreen()),
-        GoRoute(
-          path: '/requests',
-          builder: (_, _) => const AdminRequestsScreen(),
-        ),
-        GoRoute(path: '/users', builder: (_, _) => const AdminUsersScreen()),
-        GoRoute(
-          path: '/reports',
-          builder: (_, _) => const AdminReportsScreen(),
-        ),
-        GoRoute(
-          path: '/moderation',
-          builder: (_, _) => const AdminModerationScreen(),
-        ),
-        GoRoute(path: '/audit', builder: (_, _) => const AdminAuditScreen()),
-        GoRoute(path: '/health', builder: (_, _) => const AdminHealthScreen()),
-      ],
-    ),
-  ],
-);
+/// Sign-in and the console are routes, not a wrapper around them: a screen
+/// built by MaterialApp's builder sits above the Navigator, where there is no
+/// Overlay — and a text field without an Overlay crashes the page the moment
+/// it takes focus.
+final adminRouterProvider = Provider<GoRouter>((ref) {
+  final authListenable = ValueNotifier(ref.read(authControllerProvider));
+  ref.onDispose(authListenable.dispose);
+  ref.listen(authControllerProvider, (_, next) => authListenable.value = next);
+
+  return GoRouter(
+    initialLocation: _booting,
+    refreshListenable: authListenable,
+    redirect: (context, state) {
+      final auth = authListenable.value;
+      final loc = state.matchedLocation;
+      const gates = {_booting, _signIn, _noAccess};
+
+      switch (auth.status) {
+        case AuthStatus.unknown:
+          return loc == _booting ? null : _booting;
+        case AuthStatus.unauthenticated:
+          return loc == _signIn ? null : _signIn;
+        case AuthStatus.needsOnboarding:
+        case AuthStatus.authenticated:
+          // Signed in is not the same as being an operator.
+          if (!(auth.user?.isAdmin ?? false)) {
+            return loc == _noAccess ? null : _noAccess;
+          }
+          return gates.contains(loc) ? '/' : null;
+      }
+    },
+    routes: [
+      GoRoute(path: _booting, builder: (_, _) => const _Booting()),
+      GoRoute(path: _signIn, builder: (_, _) => const AdminSignInScreen()),
+      GoRoute(path: _noAccess, builder: (_, _) => const AdminNoAccessScreen()),
+      ShellRoute(
+        builder: (context, state, child) => AdminShell(child: child),
+        routes: [
+          GoRoute(path: '/', builder: (_, _) => const AdminDashboardScreen()),
+          GoRoute(
+            path: '/requests',
+            builder: (_, _) => const AdminRequestsScreen(),
+          ),
+          GoRoute(path: '/users', builder: (_, _) => const AdminUsersScreen()),
+          GoRoute(
+            path: '/reports',
+            builder: (_, _) => const AdminReportsScreen(),
+          ),
+          GoRoute(
+            path: '/moderation',
+            builder: (_, _) => const AdminModerationScreen(),
+          ),
+          GoRoute(path: '/audit', builder: (_, _) => const AdminAuditScreen()),
+          GoRoute(
+            path: '/health',
+            builder: (_, _) => const AdminHealthScreen(),
+          ),
+        ],
+      ),
+    ],
+  );
+});
+
+const _booting = '/booting';
+const _signIn = '/sign-in';
+const _noAccess = '/no-access';
 
 class AdminApp extends ConsumerStatefulWidget {
   const AdminApp({super.key});
@@ -68,26 +109,12 @@ class _AdminAppState extends ConsumerState<AdminApp> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ref.watch(authControllerProvider);
-    // Keeps an emailed sign-in link working if the console is opened with one.
-    ref.watch(adminEmailLinkWatcherProvider);
-
     return MaterialApp.router(
-      title: 'BloodLink Operations',
+      title: 'Rakt Pravah Operations',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      routerConfig: _adminRouter,
-      builder: (context, child) {
-        return switch (auth.status) {
-          AuthStatus.unknown => const _Booting(),
-          AuthStatus.unauthenticated => const AdminSignInScreen(),
-          _ =>
-            (auth.user?.isAdmin ?? false)
-                ? (child ?? const SizedBox.shrink())
-                : const AdminNoAccessScreen(),
-        };
-      },
+      routerConfig: ref.watch(adminRouterProvider),
     );
   }
 }

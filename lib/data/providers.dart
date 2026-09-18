@@ -103,24 +103,17 @@ class AuthController extends Notifier<AuthState> {
     this.state = AuthState(AuthStatus.authenticated, _backend.currentUser);
   }
 
-  /// Sends the passwordless sign-in link the admin console uses to identify
-  /// an operator. The mobile app doesn't ask for an email at all.
-  Future<void> sendEmailVerification(String email) =>
-      _backend.sendVerificationEmailLink(email);
-
-  bool isEmailVerificationLink(String link) => _backend.isEmailSignInLink(link);
-
-  /// Completes sign-in once the operator opens the emailed link, keeping
-  /// whatever auth status they were already in.
-  Future<void> completeEmailVerification({
+  /// Signs an operator into the admin console. Throws [SignInFailure] with
+  /// something worth showing when the credentials don't match.
+  Future<void> signInWithPassword({
     required String email,
-    required String link,
+    required String password,
   }) async {
-    final user = await _backend.completeEmailLinkVerification(
+    final user = await _backend.signInWithPassword(
       email: email,
-      link: link,
+      password: password,
     );
-    state = AuthState(state.status, user);
+    state = AuthState(AuthStatus.authenticated, user);
   }
 
   Future<void> logout() async {

@@ -157,61 +157,52 @@ class FirebaseBackend implements Backend {
   }
 
   // ---------------------------------------------------------------------
-  // Email sign-in link. Only the admin console uses this now, to identify
-  // operators; the mobile app no longer asks users to verify an email.
+  // Operator sign-in. Only the admin console uses this: the mobile app runs
+  // on anonymous auth and never asks for an email or a password. Operator
+  // accounts are created in the Firebase console, and an existing admin
+  // grants access from the Users page.
   // ---------------------------------------------------------------------
-  static const _emailContinueUrl =
-      'https://nobloodlink.firebaseapp.com/finishSignIn.html';
-
   @override
-  Future<void> sendVerificationEmailLink(String email) async {
-    await _ensureSignedIn();
-    await _auth.sendSignInLinkToEmail(
-      email: email,
-      actionCodeSettings: fb_auth.ActionCodeSettings(
-        url: _emailContinueUrl,
-        handleCodeInApp: true,
-        androidPackageName: 'com.bloodlink.bloodlink',
-        androidInstallApp: true,
-        androidMinimumVersion: '1',
-        iOSBundleId: 'com.bloodlink.bloodlink',
-      ),
-    );
-  }
-
-  @override
-  bool isEmailSignInLink(String link) => _auth.isSignInWithEmailLink(link);
-
-  /// Completes verification once the user taps the emailed link. Links the
-  /// email credential onto the current (likely anonymous) session so the uid
-  /// and all existing data stay put — unless that email was already
-  /// verified on a different device, in which case this signs into that
-  /// existing account instead. That fallback is also what gives verified
-  /// email a second job: real cross-device sign-in, which anonymous-only
-  /// auth never had.
-  @override
-  Future<UserProfile> completeEmailLinkVerification({
+  Future<UserProfile> signInWithPassword({
     required String email,
-    required String link,
+    required String password,
   }) async {
-    await _ensureSignedIn();
-    final credential = fb_auth.EmailAuthProvider.credentialWithLink(
-      email: email,
-      emailLink: link,
-    );
+    final fb_auth.UserCredential credential;
     try {
-      await _auth.currentUser!.linkWithCredential(credential);
+      credential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
     } on fb_auth.FirebaseAuthException catch (e) {
-      if (e.code != 'credential-already-in-use' &&
-          e.code != 'email-already-in-use') {
-        rethrow;
-      }
-      await _auth.signInWithCredential(credential);
+      throw SignInFailure(switch (e.code) {
+        'invalid-email' => 'That doesn\'t look like an email address.',
+        'user-disabled' => 'This account has been disabled.',
+        'too-many-requests' =>
+          'Too many attempts. Wait a few minutes and try again.',
+        'operation-not-allowed' =>
+          'Email and password sign-in is switched off for this project.',
+        // Firebase deliberately doesn't say which of the two was wrong, and
+        // neither do we — that's what stops an attacker probing for emails.
+        _ => 'Wrong email or password.',
+      });
     }
-    await _auth.currentUser!.reload();
-    await _users.doc(uid).set({'email': email}, fs.SetOptions(merge: true));
-    final doc = await _users.doc(uid).get();
-    return _applyProfileDoc(doc.data()!);
+
+    final doc = await _users.doc(credential.user!.uid).get();
+    if (doc.exists) return _applyProfileDoc(doc.data()!);
+
+    // An account created straight in the Firebase console has no profile
+    // document yet. Give it one so the console has a name to show. isAdmin
+    // starts false: only an existing admin can grant access.
+    final data = <String, dynamic>{
+      'name': email.split('@').first,
+      'phone': '',
+      'bloodGroup': BloodGroup.oPos.label,
+      'email': email,
+      'isAdmin': false,
+      'lastDonation': null,
+    };
+    await _users.doc(uid).set(data, fs.SetOptions(merge: true));
+    return _applyProfileDoc(data);
   }
 
   UserProfile _applyProfileDoc(Map<String, dynamic> data) {

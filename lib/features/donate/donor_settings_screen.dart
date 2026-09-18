@@ -19,7 +19,7 @@ class DonorSettingsScreen extends ConsumerWidget {
       ref.read(backendProvider).setDonorProfile(next);
 
   /// Turning this on triggers the real OS location permission dialog — not a
-  /// fake flag. Turning it off only stops BloodLink from using location for
+  /// fake flag. Turning it off only stops Rakt Pravah from using location for
   /// matching; it can't revoke an already-granted OS permission from inside
   /// the app, so we're upfront about that rather than pretending otherwise.
   Future<void> _toggleLocation(
@@ -39,7 +39,7 @@ class DonorSettingsScreen extends ConsumerWidget {
         SnackBar(
           content: Text(
             deniedForever
-                ? 'Location is blocked for BloodLink. Enable it in system settings.'
+                ? 'Location is blocked for Rakt Pravah. Enable it in system settings.'
                 : 'Location access is needed to match you by distance.',
           ),
           action: deniedForever

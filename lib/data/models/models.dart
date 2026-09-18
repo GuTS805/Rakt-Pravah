@@ -5,7 +5,7 @@ export 'blood_compatibility.dart';
 export 'donor_eligibility.dart';
 export 'enums.dart';
 
-/// Immutable domain entities for BloodLink. These are plain value objects; the
+/// Immutable domain entities for Rakt Pravah. These are plain value objects; the
 /// repository layer is the source of truth and hands these to the UI. When the
 /// real FastAPI backend lands, only the repositories change — screens keep
 /// consuming these same models.

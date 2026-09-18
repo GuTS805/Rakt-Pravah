@@ -1,7 +1,7 @@
-# BloodLink
+# Rakt Pravah
 
 **Emergency blood donor coordination.** One account, two loops: request blood when
-you need it, and help as a donor when someone nearby does. BloodLink is a
+you need it, and help as a donor when someone nearby does. Rakt Pravah is a
 peer-to-peer coordination app — not a hospital, blood-bank, or inventory system.
 Hospitals are only destinations attached to a request.
 
@@ -23,7 +23,7 @@ backend, so UI and domain flows can be exercised without a live Firebase
 project. Firestore rules live in `firestore.rules`; deploy and validate them
 separately from an app build.
 
-BloodLink coordinates registered people. It does not claim hospital
+Rakt Pravah coordinates registered people. It does not claim hospital
 partnerships, blood-bank inventory, automated medical eligibility, or a medical
 recommendation engine. Medical decisions remain with qualified professionals.
 
@@ -79,6 +79,24 @@ flutter run -d <android-id>  # android device/emulator
 flutter test                 # widget tests
 flutter analyze              # static analysis (0 errors, 0 warnings)
 ```
+
+## Operations console
+
+The console is a second entrypoint into the same codebase, deployed on its own
+URL: **https://nobloodlink.web.app/admin/**. Operators sign in with an email
+and password; the mobile app never asks for either.
+
+```bash
+flutter build web -t lib/main_admin.dart --base-href /admin/ --pwa-strategy=none
+rm -rf hosting_public/admin && cp -r build/web hosting_public/admin
+firebase deploy --only hosting
+```
+
+Granting access to the first operator is a manual step, by design: no rule
+lets an account promote itself. Create the account under Authentication in the
+Firebase console, sign in once so the profile document appears, then set
+`isAdmin: true` on that document in Firestore. Every operator after that can be
+granted from the console's own Users page.
 
 ## Local development boundaries
 

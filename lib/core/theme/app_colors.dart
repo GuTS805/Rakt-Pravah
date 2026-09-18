@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Centralized semantic color tokens for BloodLink.
+/// Centralized semantic color tokens for Rakt Pravah.
 ///
 /// Colors are never hardcoded in screens. Widgets read tokens from
 /// `Theme.of(context).extension<AppColors>()!` (or the `context.colors`

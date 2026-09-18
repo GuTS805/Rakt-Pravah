@@ -5,7 +5,47 @@
   },
   "hosting": {
     "public": "hosting_public",
-    "ignore": ["firebase.json", "**/.*"]
+    "ignore": [
+      "firebase.json",
+      "**/.*"
+    ],
+    "rewrites": [
+      {
+        "source": "/admin/**",
+        "destination": "/admin/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "/admin/**/*.@(html|js|json)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      }
+    ]
   },
-  "flutter": {"platforms": {"android": {"default": {"projectId": "nobloodlink", "appId": "1:458287363105:android:086daa00fa4171b3005f60", "fileOutput": "android/app/google-services.json"}}, "dart": {"lib/firebase_options.dart": {"projectId": "nobloodlink", "configurations": {"android": "1:458287363105:android:086daa00fa4171b3005f60", "ios": "1:458287363105:ios:0c00cfe8296dc836005f60", "web": "1:458287363105:web:09a1f9af7fc04b6d005f60"}}}}}
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "nobloodlink",
+          "appId": "1:458287363105:android:086daa00fa4171b3005f60",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "nobloodlink",
+          "configurations": {
+            "android": "1:458287363105:android:086daa00fa4171b3005f60",
+            "ios": "1:458287363105:ios:0c00cfe8296dc836005f60",
+            "web": "1:458287363105:web:09a1f9af7fc04b6d005f60"
+          }
+        }
+      }
+    }
+  }
 }

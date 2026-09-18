@@ -1,45 +1,17 @@
-import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/services/email_link_store.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/buttons.dart';
+import '../data/backend.dart';
 import '../data/providers.dart';
 import '../shared/brand_mark.dart';
 
-/// Completes an emailed sign-in link when the console is opened with one.
-/// The mobile app has its own watcher wired to its router; the console needs
-/// the same behaviour without dragging the mobile routes in.
-final adminEmailLinkWatcherProvider = Provider<void>((ref) {
-  final appLinks = AppLinks();
-  final store = EmailLinkStore();
-
-  Future<void> handle(Uri uri) async {
-    final link = uri.toString();
-    final auth = ref.read(authControllerProvider.notifier);
-    if (!auth.isEmailVerificationLink(link)) return;
-    final email = await store.read();
-    if (email == null) return;
-    try {
-      await auth.completeEmailVerification(email: email, link: link);
-      await store.clear();
-    } catch (_) {
-      // Surfaced by the sign-in screen, which stays put on failure.
-    }
-  }
-
-  final sub = appLinks.uriLinkStream.listen(handle);
-  ref.onDispose(sub.cancel);
-  appLinks.getInitialLink().then((uri) {
-    if (uri != null) handle(uri);
-  });
-});
-
-/// Sends an admin a sign-in link. Deliberately the same passwordless flow the
-/// mobile app uses — one identity system, and no separate admin password to
-/// leak.
+/// Sign-in for the operations console. Operator accounts are created in the
+/// Firebase console and granted access from the Users page — there is no
+/// sign-up here, because anyone who could sign themselves up wouldn't be an
+/// operator.
 class AdminSignInScreen extends ConsumerStatefulWidget {
   const AdminSignInScreen({super.key});
 
@@ -49,34 +21,38 @@ class AdminSignInScreen extends ConsumerStatefulWidget {
 
 class _AdminSignInScreenState extends ConsumerState<AdminSignInScreen> {
   final _email = TextEditingController();
+  final _password = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  final _store = EmailLinkStore();
   bool _busy = false;
-  bool _sent = false;
+  bool _showPassword = false;
   String? _error;
 
   @override
   void dispose() {
     _email.dispose();
+    _password.dispose();
     super.dispose();
   }
 
-  Future<void> _send() async {
+  Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final email = _email.text.trim();
       await ref
           .read(authControllerProvider.notifier)
-          .sendEmailVerification(email);
-      await _store.save(email);
-      if (mounted) setState(() => _sent = true);
-    } catch (e) {
+          .signInWithPassword(
+            email: _email.text.trim(),
+            password: _password.text,
+          );
+      // On success the app shell swaps this screen out for the console.
+    } on SignInFailure catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Could not send the link. $e');
+        setState(() => _error = 'Couldn\'t sign in. Check your connection.');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -109,73 +85,83 @@ class _AdminSignInScreenState extends ConsumerState<AdminSignInScreen> {
                       const BrandMark(size: 30),
                       const SizedBox(width: AppSpacing.md),
                       Text(
-                        'BloodLink Operations',
+                        'Rakt Pravah Operations',
                         style: context.text.titleLarge,
                       ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.xl),
-                  if (_sent) ...[
-                    Text('Check your inbox', style: context.text.headlineSmall),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      'A sign-in link is on its way to ${_email.text.trim()}. '
-                      'Open it in this browser to finish signing in.',
-                      style: context.text.bodyMedium?.copyWith(
-                        color: c.textSecondary,
-                      ),
+                  Text('Sign in', style: context.text.headlineSmall),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Operator access only.',
+                    style: context.text.bodyMedium?.copyWith(
+                      color: c.textSecondary,
                     ),
-                    const SizedBox(height: AppSpacing.lg),
-                    TextButton(
-                      onPressed: _busy ? null : _send,
-                      child: const Text('Send again'),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  TextFormField(
+                    controller: _email,
+                    autofocus: true,
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.username],
+                    decoration: const InputDecoration(
+                      labelText: 'Work email',
+                      hintText: 'you@example.com',
+                      prefixIcon: Icon(Icons.email_outlined),
                     ),
-                  ] else ...[
-                    Text('Sign in', style: context.text.headlineSmall),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      'Operator access only. You\'ll get a one-time sign-in '
-                      'link by email.',
-                      style: context.text.bodyMedium?.copyWith(
-                        color: c.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                    TextFormField(
-                      controller: _email,
-                      autofocus: true,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        labelText: 'Work email',
-                        hintText: 'you@example.com',
-                        prefixIcon: Icon(Icons.email_outlined),
-                      ),
-                      validator: (v) {
-                        final value = (v ?? '').trim();
-                        if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                            .hasMatch(value)) {
-                          return 'Enter a valid email address';
-                        }
-                        return null;
-                      },
-                      onFieldSubmitted: (_) => _send(),
-                    ),
-                    if (_error != null) ...[
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        _error!,
-                        style: context.text.bodySmall?.copyWith(
-                          color: c.danger,
+                    validator: (v) {
+                      final value = (v ?? '').trim();
+                      if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                          .hasMatch(value)) {
+                        return 'Enter a valid email address';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextFormField(
+                    controller: _password,
+                    obscureText: !_showPassword,
+                    autofillHints: const [AutofillHints.password],
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      // No tooltip here on purpose: this screen is built by
+                      // MaterialApp's builder, above the Navigator, so there
+                      // is no Overlay for a tooltip to live in and one would
+                      // crash the page. The icon carries the label instead.
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _showPassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          size: 20,
+                          semanticLabel: _showPassword
+                              ? 'Hide password'
+                              : 'Show password',
                         ),
+                        onPressed: () =>
+                            setState(() => _showPassword = !_showPassword),
                       ),
-                    ],
-                    const SizedBox(height: AppSpacing.xl),
-                    PrimaryButton(
-                      label: 'Send sign-in link',
-                      busy: _busy,
-                      onPressed: _send,
+                    ),
+                    validator: (v) =>
+                        (v ?? '').isEmpty ? 'Enter your password' : null,
+                    onFieldSubmitted: (_) => _signIn(),
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      _error!,
+                      style: context.text.bodySmall?.copyWith(color: c.danger),
                     ),
                   ],
+                  const SizedBox(height: AppSpacing.xl),
+                  PrimaryButton(
+                    label: 'Sign in',
+                    busy: _busy,
+                    onPressed: _signIn,
+                  ),
                 ],
               ),
             ),

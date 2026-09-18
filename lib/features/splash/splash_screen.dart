@@ -36,7 +36,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           children: [
             const BrandMark(size: 56),
             const SizedBox(height: AppSpacing.lg),
-            Text('BloodLink', style: context.text.headlineMedium),
+            Text('Rakt Pravah', style: context.text.headlineMedium),
             const SizedBox(height: AppSpacing.xs),
             Text(
               'Emergency blood, coordinated',

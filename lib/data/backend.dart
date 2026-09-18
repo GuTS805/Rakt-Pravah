@@ -1,5 +1,15 @@
 import 'models/models.dart';
 
+/// A sign-in that failed for a reason worth showing someone, already phrased
+/// for them. Anything else is a bug and keeps its original exception.
+class SignInFailure implements Exception {
+  const SignInFailure(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// Everything the app is allowed to ask of its data layer.
 ///
 /// Screens and providers depend on this, never on the Firebase implementation,
@@ -59,17 +69,15 @@ abstract class Backend {
 
   Future<void> signOut();
 
-  // --- Email sign-in link (admin console only) ---------------------------
+  // --- Operator sign-in (admin console only) -----------------------------
 
-  Future<void> sendVerificationEmailLink(String email);
-
-  bool isEmailSignInLink(String link);
-
-  /// Completes sign-in for a link the operator opened, attaching the proven
-  /// email to their account.
-  Future<UserProfile> completeEmailLinkVerification({
+  /// Signs an operator in with the email and password their account was
+  /// created with. Throws [SignInFailure] when those don't match an account.
+  /// Being signed in is not the same as having access: that's still decided
+  /// by the `isAdmin` flag on the returned profile.
+  Future<UserProfile> signInWithPassword({
     required String email,
-    required String link,
+    required String password,
   });
 
   // --- Donor Mode --------------------------------------------------------

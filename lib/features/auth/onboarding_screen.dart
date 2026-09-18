@@ -17,12 +17,12 @@ const _pages = [
   _Page(
     Icons.bloodtype_rounded,
     'Blood when it counts',
-    'BloodLink connects you directly with nearby registered donors during an emergency — no queues, no middlemen.',
+    'Rakt Pravah connects you directly with nearby registered donors during an emergency — no queues, no middlemen.',
   ),
   _Page(
     Icons.radar_rounded,
     'How a request works',
-    'Create a request in seconds. BloodLink notifies eligible donors nearby in waves until someone accepts.',
+    'Create a request in seconds. Rakt Pravah notifies eligible donors nearby in waves until someone accepts.',
   ),
   _Page(
     Icons.favorite_rounded,

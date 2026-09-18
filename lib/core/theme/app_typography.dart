@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Type system for BloodLink.
+/// Type system for Rakt Pravah.
 ///
 /// Two families, one idea:
 ///  - IBM Plex Sans  -> all UI text and headings (heavier weights for display).

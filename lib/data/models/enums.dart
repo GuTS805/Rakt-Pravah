@@ -1,4 +1,4 @@
-/// Core domain enums for BloodLink. These mirror the backend contract and the
+/// Core domain enums for Rakt Pravah. These mirror the backend contract and the
 /// request state machine (spec §25). Never invent alternative states casually.
 library;
 

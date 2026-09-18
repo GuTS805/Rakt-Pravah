@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
 
-/// BloodLink's mark: the blood drop with two hands inside it.
+/// Rakt Pravah's mark: the blood drop with two hands inside it.
 ///
 /// Presented on a white chip rather than free-standing, because the hands are
 /// white negative space that opens out to the background — lift the artwork

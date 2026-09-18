@@ -1,11 +1,11 @@
 {
-    "name": "bloodlink",
-    "short_name": "bloodlink",
+    "name": "Rakt Pravah",
+    "short_name": "Rakt Pravah",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "BloodLink — emergency blood donor coordination",
+    "description": "Rakt Pravah — emergency blood donor coordination",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

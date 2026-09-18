@@ -3,13 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:bloodlink/core/router/routes.dart';
-import 'package:bloodlink/core/theme/app_theme.dart';
-import 'package:bloodlink/data/models/models.dart';
-import 'package:bloodlink/data/providers.dart';
-import 'package:bloodlink/features/home/donor_status_card.dart';
-import 'package:bloodlink/features/home/home_screen.dart';
-import 'package:bloodlink/features/invitations/invitation_detail_screen.dart';
+import 'package:rakt_pravah/core/router/routes.dart';
+import 'package:rakt_pravah/core/theme/app_theme.dart';
+import 'package:rakt_pravah/data/models/models.dart';
+import 'package:rakt_pravah/data/providers.dart';
+import 'package:rakt_pravah/features/home/donor_status_card.dart';
+import 'package:rakt_pravah/features/home/home_screen.dart';
+import 'package:rakt_pravah/features/invitations/invitation_detail_screen.dart';
 
 import 'fakes.dart';
 

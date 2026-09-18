@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:geolocator/geolocator.dart' show LocationPermission;
 
-import 'package:bloodlink/core/services/location_service.dart';
-import 'package:bloodlink/data/backend.dart';
-import 'package:bloodlink/data/models/models.dart';
+import 'package:rakt_pravah/core/services/location_service.dart';
+import 'package:rakt_pravah/data/backend.dart';
+import 'package:rakt_pravah/data/models/models.dart';
 
 /// Holds a current value and replays it to every new listener, so a widget
 /// that subscribes after the fact still sees the present state instead of
@@ -75,7 +75,7 @@ class FakeBackend implements Backend {
   final List<String> withdrawnRequestIds = [];
   final List<String> extendedRequestIds = [];
   final List<(String, InvitationStatus)> invitationResponses = [];
-  final List<String> sentVerificationEmails = [];
+  final Map<String, String> passwords = {};
   final List<(String, GeoPoint)> liveLocationUpdates = [];
   final List<String> stoppedLiveLocationIds = [];
   final List<String> sentMessages = [];
@@ -205,17 +205,13 @@ class FakeBackend implements Backend {
       stoppedLiveLocationIds.add(requestId);
 
   @override
-  Future<void> sendVerificationEmailLink(String email) async =>
-      sentVerificationEmails.add(email);
-
-  @override
-  bool isEmailSignInLink(String link) => link.contains('mode=signIn');
-
-  @override
-  Future<UserProfile> completeEmailLinkVerification({
+  Future<UserProfile> signInWithPassword({
     required String email,
-    required String link,
+    required String password,
   }) async {
+    if (passwords[email] != password) {
+      throw const SignInFailure('Wrong email or password.');
+    }
     final user = currentUser!;
     final signedIn = UserProfile(
       id: user.id,

@@ -14,11 +14,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await NotificationService.instance.init();
-  runApp(const ProviderScope(child: BloodLinkApp()));
+  runApp(const ProviderScope(child: RaktPravahApp()));
 }
 
-class BloodLinkApp extends ConsumerWidget {
-  const BloodLinkApp({super.key});
+class RaktPravahApp extends ConsumerWidget {
+  const RaktPravahApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,7 +29,7 @@ class BloodLinkApp extends ConsumerWidget {
     ref.watch(notificationWatcherProvider);
 
     return MaterialApp.router(
-      title: 'BloodLink',
+      title: 'Rakt Pravah',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
