@@ -268,7 +268,7 @@ class _BellButton extends StatelessWidget {
 /// Greeting + headline. The headline is state-aware on purpose: an
 /// inspirational line is right when nothing is happening, and wrong while
 /// someone's own request is out searching for a donor.
-class _Hero extends StatelessWidget {
+class _Hero extends ConsumerWidget {
   const _Hero({
     required this.name,
     required this.hasActiveRequest,
@@ -280,8 +280,9 @@ class _Hero extends StatelessWidget {
   final bool isDonating;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    final now = ref.watch(currentTimeProvider).valueOrNull ?? DateTime.now();
     final headline = hasActiveRequest
         ? 'Your request is live.'
         : isDonating
@@ -294,6 +295,22 @@ class _Hero extends StatelessWidget {
         Text(
           '${_greeting()}, ${name.split(' ').first}',
           style: context.text.titleMedium?.copyWith(color: c.brand),
+        ),
+        const SizedBox(height: 3),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.schedule_rounded, size: 13, color: c.textTertiary),
+            const SizedBox(width: 4),
+            Text(
+              Fmt.localDateTime(now),
+              style: AppTypography.mono(
+                size: 11,
+                weight: FontWeight.w500,
+                color: c.textSecondary,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(headline, style: context.text.displaySmall),

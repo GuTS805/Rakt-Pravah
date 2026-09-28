@@ -7,6 +7,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/semantics.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/indian_locations.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/badges.dart';
 import '../../core/widgets/blood_group_picker.dart';
@@ -25,7 +26,7 @@ class CreateRequestScreen extends ConsumerStatefulWidget {
       _CreateRequestScreenState();
 }
 
-enum _LocationSource { current, home, other }
+enum _LocationSource { current, stateCity }
 
 class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   static const _steps = ['Patient', 'Location', 'Hospital', 'Review'];
@@ -33,8 +34,11 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   bool _submitting = false;
 
   // Step 1. The patient is often not the person filling this in, so their
-  // blood group is asked for directly instead of borrowing the requester's.
+  // blood group and phone are asked for directly instead of borrowing the requester's.
   final _patientName = TextEditingController();
+  final _patientPhone = TextEditingController();
+  String _bloodType = 'Blood';
+  DateTime _requiredDate = DateTime.now();
   BloodGroup? _patientGroup;
   // Donor groups the request is open to: every group that can safely give to
   // the patient, narrowed by the requester if the hospital asks for fewer.
@@ -42,9 +46,29 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   int _units = 1;
   Urgency _urgency = Urgency.urgent;
 
-  // Step 2. Live GPS and the saved home address are different things; the
-  // requester picks which one describes where they are.
+  Future<void> _pickRequiredDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _requiredDate.isBefore(now) ? now : _requiredDate,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 60)),
+    );
+    if (picked != null) {
+      setState(() => _requiredDate = picked);
+    }
+  }
+
+  bool _isToday(DateTime d) {
+    final now = DateTime.now();
+    return d.year == now.year && d.month == now.month && d.day == now.day;
+  }
+
+  // Step 2. Location selection via live GPS or State/City dropdowns.
   final _location = TextEditingController();
+  final _customCityController = TextEditingController();
+  String? _selectedState;
+  String? _selectedCity;
   _LocationSource _source = _LocationSource.current;
   bool _locating = false;
   GeoPoint? _requestPoint;
@@ -52,26 +76,35 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   // Step 3
   final _destName = TextEditingController();
   final _destAddress = TextEditingController();
-  final _destWard = TextEditingController();
+  final _destCustomCityController = TextEditingController();
+  String? _destState;
+  String? _destCity;
 
   // Step 4. Wrong details send donors to the wrong place, so they're
   // confirmed explicitly rather than assumed.
+  final _notes = TextEditingController();
   bool _confirmed = false;
 
   @override
   void initState() {
     super.initState();
-    // If location was already granted (e.g. prompted on Home), use it
-    // immediately without asking again; otherwise prompt now.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _useDeviceLocation());
-  }
-
-  void _useHomeAddress() {
-    final home = ref.read(currentUserProvider)?.placeLabel;
-    setState(() {
-      _source = _LocationSource.home;
-      _requestPoint = null;
-      _location.text = home ?? '';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = ref.read(currentUserProvider);
+      if (user?.state != null && indianStates.contains(user!.state)) {
+        _selectedState = user.state;
+        if (user.city != null && user.city!.isNotEmpty) {
+          final cities = indianCitiesByState[user.state] ?? const [];
+          if (cities.contains(user.city)) {
+            _selectedCity = user.city;
+          } else {
+            _selectedCity = 'Other';
+            _customCityController.text = user.city!;
+          }
+          _location.text = '${user.city}, ${user.state}';
+          _source = _LocationSource.stateCity;
+        }
+      }
+      _useDeviceLocation();
     });
   }
 
@@ -90,41 +123,59 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
         _requestPoint = state.point;
         _location.text = state.label ?? 'Current location';
       } else if (_source == _LocationSource.current) {
-        // Be honest when we don't have a real fix. Fall back to the saved
-        // home address rather than a made-up place name.
         _requestPoint = null;
-        _location.text = '';
+        if (_selectedState != null && _selectedCity != null) {
+          _source = _LocationSource.stateCity;
+          _location.text = _selectedCity == 'Other'
+              ? (_customCityController.text.trim().isEmpty
+                  ? _selectedState!
+                  : '${_customCityController.text.trim()}, $_selectedState')
+              : '$_selectedCity, $_selectedState';
+        } else {
+          _location.text = '';
+        }
       }
     });
-    if (!state.isGranted &&
-        _location.text.isEmpty &&
-        ref.read(currentUserProvider)?.placeLabel != null) {
-      _useHomeAddress();
-    }
   }
 
   @override
   void dispose() {
     _patientName.dispose();
+    _patientPhone.dispose();
     _location.dispose();
+    _customCityController.dispose();
     _destName.dispose();
     _destAddress.dispose();
-    _destWard.dispose();
+    _destCustomCityController.dispose();
+    _notes.dispose();
     super.dispose();
   }
 
   bool get _canAdvance {
     switch (_step) {
       case 0:
+        final digits = _patientPhone.text.replaceAll(RegExp(r'\D'), '');
         return _patientName.text.trim().length >= 2 &&
+            digits.length >= 10 &&
             _patientGroup != null &&
             _groups.isNotEmpty &&
             _units >= 1;
       case 1:
-        return _location.text.trim().isNotEmpty;
+        if (_source == _LocationSource.current &&
+            (_requestPoint != null || _location.text.trim().isNotEmpty)) {
+          return true;
+        }
+        return _selectedState != null &&
+            (_selectedCity != null &&
+                (_selectedCity != 'Other' ||
+                    _customCityController.text.trim().isNotEmpty));
       case 2:
         return _destName.text.trim().isNotEmpty &&
-            _destAddress.text.trim().isNotEmpty;
+            _destAddress.text.trim().isNotEmpty &&
+            _destState != null &&
+            (_destCity != null &&
+                (_destCity != 'Other' ||
+                    _destCustomCityController.text.trim().isNotEmpty));
       default:
         return _confirmed;
     }
@@ -140,6 +191,15 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
 
   Future<void> _next() async {
     if (_step < _steps.length - 1) {
+      if (_step == 1) {
+        _destState ??= _selectedState;
+        if (_destCity == null && _selectedCity != null) {
+          _destCity = _selectedCity;
+          if (_selectedCity == 'Other') {
+            _destCustomCityController.text = _customCityController.text;
+          }
+        }
+      }
       setState(() => _step += 1);
     } else {
       await _submit();
@@ -154,15 +214,27 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
       // real coordinate, so the coordination map shows an actual pin instead
       // of a fabricated position. If it fails, the map falls back honestly to
       // a city-center default rather than faking precision.
+      final resolvedDestCity = _destCity == 'Other'
+          ? _destCustomCityController.text.trim()
+          : (_destCity ?? '');
+      final fullDestAddress = [
+        _destAddress.text.trim(),
+        if (resolvedDestCity.isNotEmpty) resolvedDestCity,
+        if (_destState != null && _destState!.isNotEmpty) _destState!,
+      ].where((part) => part.isNotEmpty).join(', ');
+
       final locationService = ref.read(locationServiceProvider);
       final destPoint = await locationService.forwardGeocode(
-        '${_destName.text.trim()}, ${_destAddress.text.trim()}',
+        '${_destName.text.trim()}, $fullDestAddress',
       );
-      // A typed or home location has no coordinates yet; look them up the
+      // A typed or state/city location has no coordinates yet; look them up the
       // same way so donors can still be sorted by distance.
       final requestPoint =
           _requestPoint ??
           await locationService.forwardGeocode(_location.text.trim());
+
+      final phoneText = _patientPhone.text.trim();
+      final contactText = phoneText.isNotEmpty ? 'Contact: $phoneText' : null;
 
       final req = await ref
           .read(backendProvider)
@@ -174,12 +246,14 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
             urgency: _urgency,
             requestLocationLabel: _location.text.trim(),
             requestLocation: requestPoint,
+            bloodType: _bloodType,
+            phone: phoneText.isEmpty ? null : phoneText,
+            requiredDate: _requiredDate,
+            notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
             destination: Destination(
               name: _destName.text.trim(),
-              address: _destAddress.text.trim(),
-              wardOrContact: _destWard.text.trim().isEmpty
-                  ? null
-                  : _destWard.text.trim(),
+              address: fullDestAddress,
+              wardOrContact: contactText,
               location: destPoint,
             ),
           );
@@ -267,6 +341,55 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
             hintText: 'Full name as registered at the hospital',
           ),
         ),
+        const SizedBox(height: AppSpacing.lg),
+        Text('Phone number', style: context.text.titleSmall),
+        const SizedBox(height: AppSpacing.sm),
+        TextField(
+          controller: _patientPhone,
+          keyboardType: TextInputType.phone,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            hintText: '10-digit mobile number for coordination',
+            prefixIcon: Icon(Icons.phone_outlined),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Text('Blood Type', style: context.text.titleSmall),
+        const SizedBox(height: AppSpacing.sm),
+        DropdownButtonFormField<String>(
+          initialValue: _bloodType,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.water_drop_outlined),
+          ),
+          items: const [
+            DropdownMenuItem(value: 'Blood', child: Text('Blood')),
+            DropdownMenuItem(value: 'Platelets', child: Text('Platelets')),
+          ],
+          onChanged: (v) {
+            if (v != null) setState(() => _bloodType = v);
+          },
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Text('Required date', style: context.text.titleSmall),
+        const SizedBox(height: AppSpacing.sm),
+        InkWell(
+          onTap: _pickRequiredDate,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          child: InputDecorator(
+            decoration: const InputDecoration(
+              hintText: 'Select required date',
+              prefixIcon: Icon(Icons.calendar_today_outlined),
+              suffixIcon: Icon(Icons.arrow_drop_down_rounded),
+            ),
+            child: Text(
+              _isToday(_requiredDate)
+                  ? 'Today (${Fmt.date(_requiredDate)})'
+                  : Fmt.date(_requiredDate),
+              style: context.text.bodyMedium,
+            ),
+          ),
+        ),
         const SizedBox(height: AppSpacing.xl),
         Text('Patient\'s blood group', style: context.text.titleSmall),
         const SizedBox(height: AppSpacing.md),
@@ -297,13 +420,13 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
         const SizedBox(height: AppSpacing.xl),
         Text('Urgency', style: context.text.titleSmall),
         const SizedBox(height: AppSpacing.md),
-        for (final u in Urgency.values) ...[
+        for (final u in [Urgency.urgent, Urgency.critical]) ...[
           _UrgencyOption(
             urgency: u,
             selected: _urgency == u,
             onTap: () => setState(() => _urgency = u),
           ),
-          if (u != Urgency.values.last) const SizedBox(height: AppSpacing.sm),
+          if (u != Urgency.critical) const SizedBox(height: AppSpacing.sm),
         ],
       ],
     );
@@ -311,6 +434,11 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
 
   // ---- Step 2: location ----
   Widget _locationStep() {
+    final availableCities = _selectedState != null
+        ? (indianCitiesByState[_selectedState] ?? const <String>[])
+        : const <String>[];
+    final usingCurrent = _source == _LocationSource.current;
+
     return Column(
       key: const ValueKey(1),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,7 +450,6 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
         Consumer(
           builder: (context, ref, _) {
             final deviceLoc = ref.watch(deviceLocationProvider);
-            final usingCurrent = _source == _LocationSource.current;
             final subtitle = _locating
                 ? 'Getting your location…'
                 : usingCurrent && _requestPoint != null
@@ -343,44 +470,118 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
               onTap: _locating
                   ? () {}
                   : () {
-                      setState(() => _source = _LocationSource.current);
+                      setState(() {
+                        _source = _LocationSource.current;
+                        _selectedState = null;
+                        _selectedCity = null;
+                        _customCityController.clear();
+                      });
                       _useDeviceLocation();
                     },
             );
           },
         ),
-        if (ref.watch(currentUserProvider)?.placeLabel case final home?) ...[
-          const SizedBox(height: AppSpacing.sm),
-          _SelectableTile(
-            icon: Icons.home_outlined,
-            title: 'Use my home address',
-            subtitle: home,
-            selected: _source == _LocationSource.home,
-            onTap: _useHomeAddress,
-          ),
-        ],
-        const SizedBox(height: AppSpacing.sm),
-        _SelectableTile(
-          icon: Icons.edit_location_alt_rounded,
-          title: 'Enter a different location',
-          subtitle: 'Search an address or area',
-          selected: _source == _LocationSource.other,
-          onTap: () => setState(() {
-            _source = _LocationSource.other;
-            _requestPoint = null;
-            _location.clear();
-          }),
-        ),
-        if (_source == _LocationSource.other) ...[
-          const SizedBox(height: AppSpacing.lg),
-          TextField(
-            controller: _location,
-            autofocus: true,
-            onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(
-              hintText: 'e.g. Hazratganj, Lucknow',
-              prefixIcon: Icon(Icons.search_rounded),
+        const SizedBox(height: AppSpacing.xl),
+        Row(
+          children: [
+            Expanded(child: Divider(color: context.colors.border)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: Text(
+                'OR SELECT LOCATION',
+                style: context.text.labelSmall?.copyWith(
+                  color: context.colors.textSecondary,
+                  letterSpacing: 1.1,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
+            Expanded(child: Divider(color: context.colors.border)),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        Text('Select State:', style: context.text.titleSmall),
+        const SizedBox(height: AppSpacing.sm),
+        DropdownButtonFormField<String>(
+          key: ValueKey('state-$_selectedState'),
+          initialValue: _selectedState,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            hintText: 'Choose a state or union territory',
+            prefixIcon: Icon(Icons.map_outlined),
+          ),
+          items: [
+            for (final s in indianStates)
+              DropdownMenuItem(value: s, child: Text(s)),
+          ],
+          onChanged: (val) {
+            setState(() {
+              _selectedState = val;
+              _selectedCity = null;
+              _customCityController.clear();
+              _source = _LocationSource.stateCity;
+              _requestPoint = null;
+              _location.text = val ?? '';
+            });
+          },
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Text('Select City:', style: context.text.titleSmall),
+        const SizedBox(height: AppSpacing.sm),
+        DropdownButtonFormField<String>(
+          key: ValueKey('city-${_selectedState ?? "none"}-$_selectedCity'),
+          initialValue: _selectedCity,
+          isExpanded: true,
+          decoration: InputDecoration(
+            hintText: _selectedState == null
+                ? 'Select a state first'
+                : 'Choose a city',
+            prefixIcon: const Icon(Icons.location_city_outlined),
+          ),
+          items: _selectedState == null
+              ? []
+              : [
+                  for (final c in availableCities)
+                    DropdownMenuItem(value: c, child: Text(c)),
+                  const DropdownMenuItem(
+                    value: 'Other',
+                    child: Text('Other (enter manually)'),
+                  ),
+                ],
+          onChanged: _selectedState == null
+              ? null
+              : (val) {
+                  setState(() {
+                    _selectedCity = val;
+                    _source = _LocationSource.stateCity;
+                    _requestPoint = null;
+                    if (val == 'Other') {
+                      _location.text = _customCityController.text.trim().isEmpty
+                          ? _selectedState!
+                          : '${_customCityController.text.trim()}, $_selectedState';
+                    } else if (val != null) {
+                      _location.text = '$val, $_selectedState';
+                    }
+                  });
+                },
+        ),
+        if (_selectedCity == 'Other') ...[
+          const SizedBox(height: AppSpacing.md),
+          TextField(
+            controller: _customCityController,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(
+              hintText: 'Enter city name',
+              prefixIcon: Icon(Icons.edit_location_outlined),
+            ),
+            onChanged: (text) {
+              setState(() {
+                _location.text = text.trim().isEmpty
+                    ? _selectedState!
+                    : '${text.trim()}, $_selectedState';
+              });
+            },
           ),
         ],
       ],
@@ -389,6 +590,10 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
 
   // ---- Step 3: destination ----
   Widget _destinationStep() {
+    final availableCities = _destState != null
+        ? (indianCitiesByState[_destState] ?? const <String>[])
+        : const <String>[];
+
     return Column(
       key: const ValueKey(2),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,15 +618,75 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
         TextField(
           controller: _destAddress,
           onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(hintText: 'Street, area, city'),
+          decoration: const InputDecoration(hintText: 'Street, area, landmark'),
         ),
         const SizedBox(height: AppSpacing.lg),
-        Text('Ward / contact (optional)', style: context.text.titleSmall),
+        Text('Select State:', style: context.text.titleSmall),
         const SizedBox(height: AppSpacing.sm),
-        TextField(
-          controller: _destWard,
-          decoration: const InputDecoration(hintText: 'e.g. Ward 3B, Dr. Rao'),
+        DropdownButtonFormField<String>(
+          key: ValueKey('dest-state-$_destState'),
+          initialValue: _destState,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            hintText: 'Choose state or union territory',
+            prefixIcon: Icon(Icons.map_outlined),
+          ),
+          items: [
+            for (final s in indianStates)
+              DropdownMenuItem(value: s, child: Text(s)),
+          ],
+          onChanged: (val) {
+            setState(() {
+              _destState = val;
+              _destCity = null;
+              _destCustomCityController.clear();
+            });
+          },
         ),
+        const SizedBox(height: AppSpacing.lg),
+        Text('Select City:', style: context.text.titleSmall),
+        const SizedBox(height: AppSpacing.sm),
+        DropdownButtonFormField<String>(
+          key: ValueKey('dest-city-${_destState ?? "none"}-$_destCity'),
+          initialValue: _destCity,
+          isExpanded: true,
+          decoration: InputDecoration(
+            hintText: _destState == null
+                ? 'Select a state first'
+                : 'Choose a city',
+            prefixIcon: const Icon(Icons.location_city_outlined),
+          ),
+          items: _destState == null
+              ? []
+              : [
+                  for (final c in availableCities)
+                    DropdownMenuItem(value: c, child: Text(c)),
+                  const DropdownMenuItem(
+                    value: 'Other',
+                    child: Text('Other (enter manually)'),
+                  ),
+                ],
+          onChanged: _destState == null
+              ? null
+              : (val) {
+                  setState(() {
+                    _destCity = val;
+                  });
+                },
+        ),
+        if (_destCity == 'Other') ...[
+          const SizedBox(height: AppSpacing.md),
+          TextField(
+            controller: _destCustomCityController,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(
+              hintText: 'Enter city name',
+              prefixIcon: Icon(Icons.edit_location_outlined),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
       ],
     );
   }
@@ -442,6 +707,19 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
           child: Column(
             children: [
               _reviewRow('Patient', _patientName.text.trim()),
+              if (_patientPhone.text.trim().isNotEmpty) ...[
+                _divider(),
+                _reviewRow('Phone', _patientPhone.text.trim(), mono: true),
+              ],
+              _divider(),
+              _reviewRow('Blood type', _bloodType),
+              _divider(),
+              _reviewRow(
+                'Required date',
+                _isToday(_requiredDate)
+                    ? 'Today (${Fmt.date(_requiredDate)})'
+                    : Fmt.date(_requiredDate),
+              ),
               _divider(),
               _reviewRowWidget(
                 'Patient\'s group',
@@ -464,12 +742,33 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
               _divider(),
               _reviewRow('Hospital', _destName.text.trim()),
               _divider(),
-              _reviewRow('Hospital address', _destAddress.text.trim()),
-              if (_destWard.text.trim().isNotEmpty) ...[
-                _divider(),
-                _reviewRow('Ward / contact', _destWard.text.trim()),
-              ],
+              _reviewRow(
+                'Hospital address',
+                () {
+                  final resolved = _destCity == 'Other'
+                      ? _destCustomCityController.text.trim()
+                      : (_destCity ?? '');
+                  final parts = [
+                    _destAddress.text.trim(),
+                    if (resolved.isNotEmpty) resolved,
+                    if (_destState != null && _destState!.isNotEmpty) _destState!,
+                  ].where((p) => p.isNotEmpty).join(', ');
+                  return parts.isEmpty ? '—' : parts;
+                }(),
+              ),
             ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Text('Additional Notes (Optional)', style: context.text.titleSmall),
+        const SizedBox(height: AppSpacing.sm),
+        TextField(
+          controller: _notes,
+          maxLines: 3,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            hintText: 'Any special instructions, room number, or timing for donors…',
+            alignLabelWithHint: true,
           ),
         ),
         const SizedBox(height: AppSpacing.md),

@@ -98,6 +98,13 @@ abstract class Backend {
 
   Future<DonorProfile> setDonorProfile(DonorProfile next);
 
+  /// Records that the user donated blood today (or at [donatedAt]).
+  /// Automatically turns Donor Mode OFF and starts the 3-month waiting period.
+  Future<DonorProfile> recordDonation([DateTime? donatedAt]);
+
+  /// Resets the donation cooldown (clears lastDonation and restores Donor Mode ON).
+  Future<DonorProfile> resetDonationCooldown();
+
   // --- Requests ----------------------------------------------------------
 
   Stream<List<BloodRequest>> get myRequestsStream;
@@ -113,6 +120,10 @@ abstract class Backend {
     required String requestLocationLabel,
     required Destination destination,
     GeoPoint? requestLocation,
+    String? bloodType,
+    String? phone,
+    DateTime? requiredDate,
+    String? notes,
   });
 
   Future<void> cancelRequest(String id);
@@ -131,9 +142,18 @@ abstract class Backend {
   /// another donor can pick it up, and this donor won't be offered it again.
   Future<void> withdrawFromRequest(String id);
 
+  /// Live nearby matched donors for a request, ranked nearest distance first.
+  Stream<List<MatchedDonor>> nearbyDonorsStream(String requestId);
+
+  /// Expands the search radius for an open request and notifies matching donors.
+  Future<void> expandSearchRadius(String requestId, double newRadiusKm);
+
   // --- Invitations (the donor side of a request) -------------------------
 
   Stream<List<Invitation>> get invitationsStream;
+
+  /// Marks an invitation as viewed by the signed-in donor.
+  Future<void> markInvitationViewed(String requestId);
 
   /// Accepting is a race: only the first donor wins, and the loser gets an
   /// error rather than a silent no-op.
@@ -145,7 +165,18 @@ abstract class Backend {
 
   Future<ChatMessage> sendMessage(String requestId, String text);
 
-  Future<void> updateLiveLocation(String requestId, GeoPoint point);
+  Future<void> updateLiveLocation(
+    String requestId,
+    GeoPoint point, {
+    DonorTransitStatus transitStatus = DonorTransitStatus.onTheWay,
+    double? headingDegrees,
+    bool isRequester = false,
+  });
 
-  Future<void> stopLiveLocation(String requestId);
+  Future<void> updateDonorTransitStatus(
+    String requestId,
+    DonorTransitStatus status,
+  );
+
+  Future<void> stopLiveLocation(String requestId, {bool isRequester = false});
 }

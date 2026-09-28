@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/services/donor_gate.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_typography.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/widgets/app_card.dart';
-import '../../data/models/enums.dart';
+import '../../data/models/models.dart';
 import '../../data/providers.dart';
 
 /// Donor Mode status with an inline toggle. The backend is the source of truth:
@@ -13,9 +15,10 @@ import '../../data/providers.dart';
 /// a message if it fails (spec §15) — a local toggle never lies about server
 /// state.
 ///
-/// While a donor is within the 90-day cooldown after their last donation,
-/// the switch is frozen — this isn't optional, it's the same real constraint
-/// the backend's matching query enforces, just made visible here.
+/// While a donor is within the 3-month (90-day) cooldown after their last donation,
+/// Donor Mode is automatically turned OFF and the switch is frozen. The next
+/// eligible donation date is displayed with a live countdown. When the waiting
+/// period ends, Donor Mode automatically turns back ON.
 class DonorStatusCard extends ConsumerStatefulWidget {
   const DonorStatusCard({super.key});
 
@@ -25,6 +28,20 @@ class DonorStatusCard extends ConsumerStatefulWidget {
 
 class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
   bool _busy = false;
+
+  void _checkAutoReenable(DonorProfile donor) {
+    if (donor.lastDonation != null &&
+        !donor.isInCooldown &&
+        donor.availability == DonorAvailability.off &&
+        !_busy) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(backendProvider).setDonorProfile(
+          donor.copyWith(availability: DonorAvailability.available),
+        );
+      });
+    }
+  }
 
   Future<void> _toggle(bool on) async {
     if (on && !requireDonorProfile(context, ref)) return;
@@ -52,10 +69,86 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
     }
   }
 
+  Future<void> _recordDonationToday() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Donated Blood Today?'),
+        content: const Text(
+          'Marking that you donated blood today will start your mandatory 3-month '
+          'recovery period. Donor Mode will automatically turn OFF for safety, '
+          'and will automatically reactivate ON when the 3 months end.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Confirm Donation'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await ref.read(backendProvider).recordDonation(DateTime.now());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Thank you for donating blood! Donor Mode is now OFF for 3 months recovery.',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Couldn\'t record donation. Please try again.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _resetCooldown() async {
+    setState(() => _busy = true);
+    try {
+      await ref.read(backendProvider).resetDonationCooldown();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cooldown reset. Donor Mode is ON.'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Couldn\'t reset cooldown. Try again.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final donor = ref.watch(donorProfileValueProvider);
+    final now = ref.watch(currentTimeProvider).valueOrNull ?? DateTime.now();
+    _checkAutoReenable(donor);
+
     final cooldown = donor.isInCooldown;
     // The heart stays warm whether or not Donor Mode is on — it's an
     // invitation, and the switch beside it already says what the state is.
@@ -68,68 +161,204 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
         : (c.brand, c.brandSubtle);
 
     return AppCard(
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 46,
-            width: 46,
-            decoration: BoxDecoration(
-              color: tintSubtle,
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
-            child: Icon(
-              cooldown ? Icons.bedtime_rounded : Icons.favorite_rounded,
-              color: tint,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          Row(
+            children: [
+              Container(
+                height: 46,
+                width: 46,
+                decoration: BoxDecoration(
+                  color: tintSubtle,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(
+                  cooldown ? Icons.bedtime_rounded : Icons.favorite_rounded,
+                  color: tint,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: Text(
-                        'Donor Mode',
-                        style: context.text.titleMedium,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Donor Mode',
+                            style: context.text.titleMedium,
+                          ),
+                        ),
+                        // Only the cooldown badge survives: it carries a number
+                        // the subtitle doesn't. An availability chip would just
+                        // repeat the line underneath it.
+                        if (cooldown) ...[
+                          const SizedBox(width: AppSpacing.sm),
+                          _CooldownBadge(remaining: donor.cooldownRemaining),
+                        ],
+                      ],
                     ),
-                    // Only the cooldown badge survives: it carries a number
-                    // the subtitle doesn't. An availability chip would just
-                    // repeat the line underneath it.
-                    if (cooldown) ...[
-                      const SizedBox(width: AppSpacing.sm),
-                      _CooldownBadge(remaining: donor.cooldownRemaining),
-                    ],
+                    const SizedBox(height: 2),
+                    Text(
+                      cooldown
+                          ? 'Resting after your last donation — thank you.'
+                          : _subtitle(donor.availability),
+                      style: context.text.bodySmall,
+                    ),
                   ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  cooldown
-                      ? 'Resting after your last donation — thank you.'
-                      : _subtitle(donor.availability),
-                  style: context.text.bodySmall,
+              ),
+              if (_busy)
+                SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(c.brand),
+                  ),
+                )
+              else
+                Switch(
+                  value: donor.isOn && !cooldown,
+                  activeThumbColor: c.brand,
+                  onChanged: cooldown ? null : (v) => _toggle(v),
+                ),
+            ],
+          ),
+
+          const SizedBox(height: AppSpacing.md),
+          Divider(height: 1, color: c.border),
+          const SizedBox(height: AppSpacing.sm),
+
+          // User's current local date and time
+          Row(
+            children: [
+              Icon(Icons.schedule_rounded, size: 14, color: c.textTertiary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Local time: ${Fmt.localDateTime(now)}',
+                  style: AppTypography.mono(
+                    size: 11,
+                    weight: FontWeight.w500,
+                    color: c.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // Cooldown details with Next Eligible Date and live countdown
+          if (cooldown && donor.nextEligibleDonationDate != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: c.warningSubtle,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(
+                  color: c.warning.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.event_available_rounded, size: 16, color: c.warning),
+                      const SizedBox(width: AppSpacing.xs),
+                      Text(
+                        'Next eligible donation date (3 months later):',
+                        style: context.text.labelSmall?.copyWith(
+                          color: c.warning,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    Fmt.fullDate(donor.nextEligibleDonationDate!),
+                    style: context.text.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: c.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      Icon(Icons.timer_outlined, size: 15, color: c.warning),
+                      const SizedBox(width: AppSpacing.xs),
+                      Text(
+                        'Time remaining: ',
+                        style: context.text.bodySmall?.copyWith(
+                          color: c.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        Fmt.countdown(donor.cooldownRemaining),
+                        style: AppTypography.mono(
+                          size: 13,
+                          weight: FontWeight.w700,
+                          color: c.warning,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Donor Mode is automatically OFF and will automatically become ON again when the 3-month waiting period ends.',
+                    style: context.text.bodySmall?.copyWith(
+                      fontSize: 11,
+                      color: c.textTertiary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: _busy ? null : _resetCooldown,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: const Icon(Icons.refresh_rounded, size: 14),
+                      label: const Text(
+                        'Reset waiting period',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  onPressed: _busy ? null : _recordDonationToday,
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  ),
+                  icon: Icon(Icons.water_drop_outlined, size: 14, color: c.brand),
+                  label: Text(
+                    'I donated blood today',
+                    style: context.text.labelSmall?.copyWith(
+                      color: c.brand,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
-          if (_busy)
-            SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(c.brand),
-              ),
-            )
-          else
-            Switch(
-              value: donor.isOn && !cooldown,
-              activeThumbColor: c.brand,
-              onChanged: cooldown ? null : (v) => _toggle(v),
-            ),
+          ],
         ],
       ),
     );

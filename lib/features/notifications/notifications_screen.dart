@@ -51,8 +51,8 @@ class NotificationsScreen extends ConsumerWidget {
           _Notif(
             Icons.how_to_reg_rounded,
             c.success,
-            'Donor accepted',
-            '${r.acceptedDonorName} accepted your ${_groupsLabel(r.bloodGroups)} request.',
+            'Your blood request has been accepted by a donor',
+            '${r.acceptedDonorName ?? "A donor"} has accepted your ${_groupsLabel(r.bloodGroups)} request.',
             now.subtract(const Duration(minutes: 1)),
             Routes.requestDetail(r.id),
           ),

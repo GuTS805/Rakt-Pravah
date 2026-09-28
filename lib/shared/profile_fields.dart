@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/formatters.dart';
+import '../core/utils/indian_locations.dart';
 import '../data/models/models.dart';
 import 'segmented_control.dart';
+
+export '../core/utils/indian_locations.dart' show indianStates;
 
 // Profile inputs shared by registration and Edit profile, so both ask for
 // the same things the same way.
@@ -190,42 +193,3 @@ class _HomeLocationFieldsState extends State<HomeLocationFields> {
   }
 }
 
-/// India's 28 states and 8 union territories.
-const indianStates = [
-  'Andaman and Nicobar Islands',
-  'Andhra Pradesh',
-  'Arunachal Pradesh',
-  'Assam',
-  'Bihar',
-  'Chandigarh',
-  'Chhattisgarh',
-  'Dadra and Nagar Haveli and Daman and Diu',
-  'Delhi',
-  'Goa',
-  'Gujarat',
-  'Haryana',
-  'Himachal Pradesh',
-  'Jammu and Kashmir',
-  'Jharkhand',
-  'Karnataka',
-  'Kerala',
-  'Ladakh',
-  'Lakshadweep',
-  'Madhya Pradesh',
-  'Maharashtra',
-  'Manipur',
-  'Meghalaya',
-  'Mizoram',
-  'Nagaland',
-  'Odisha',
-  'Puducherry',
-  'Punjab',
-  'Rajasthan',
-  'Sikkim',
-  'Tamil Nadu',
-  'Telangana',
-  'Tripura',
-  'Uttar Pradesh',
-  'Uttarakhand',
-  'West Bengal',
-];

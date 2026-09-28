@@ -33,6 +33,14 @@ class _InvitationDetailScreenState
   bool _busy = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(backendProvider).markInvitationViewed(widget.invitationId);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final invites = ref.watch(invitationsProvider).valueOrNull ?? const [];
     final matches = invites.where((i) => i.id == widget.invitationId);

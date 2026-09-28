@@ -104,11 +104,15 @@ class DonorProfile {
 
   bool get isOn => availability != DonorAvailability.off;
 
-  /// Standard medical gap between whole-blood donations. Enforced here so
-  /// donors don't accidentally donate too soon, not just as a UI suggestion.
+  /// Standard medical gap between whole-blood donations: 3 months (90 days).
+  /// Enforced here so donors don't accidentally donate too soon.
   static const cooldownDuration = Duration(days: 90);
 
-  DateTime? get cooldownEndsAt => lastDonation?.add(cooldownDuration);
+  /// The next eligible donation date (3 months / 90 days after last donation).
+  DateTime? get nextEligibleDonationDate =>
+      lastDonation?.add(cooldownDuration);
+
+  DateTime? get cooldownEndsAt => nextEligibleDonationDate;
 
   bool get isInCooldown {
     final ends = cooldownEndsAt;
@@ -132,6 +136,7 @@ class DonorProfile {
     DateTime? pausedUntil,
     int? totalDonations,
     DateTime? lastDonation,
+    bool clearLastDonation = false,
   }) {
     return DonorProfile(
       availability: availability ?? this.availability,
@@ -142,7 +147,7 @@ class DonorProfile {
       maxDistanceKm: maxDistanceKm ?? this.maxDistanceKm,
       pausedUntil: pausedUntil ?? this.pausedUntil,
       totalDonations: totalDonations ?? this.totalDonations,
-      lastDonation: lastDonation ?? this.lastDonation,
+      lastDonation: clearLastDonation ? null : (lastDonation ?? this.lastDonation),
     );
   }
 }
@@ -172,6 +177,49 @@ class StatusEvent {
   final String? note;
 }
 
+/// State of a donor's interaction with a blood request notification.
+enum DonorRequestInteractionStatus {
+  notified('Notified'),
+  viewed('Viewed'),
+  accepted('Accepted'),
+  declined('Declined'),
+  expired('Expired');
+
+  const DonorRequestInteractionStatus(this.label);
+  final String label;
+}
+
+/// An eligible nearby donor candidate matched to a blood request.
+class MatchedDonor {
+  const MatchedDonor({
+    required this.id,
+    required this.name,
+    required this.bloodGroup,
+    required this.distanceKm,
+    required this.status,
+    this.phone,
+    this.location,
+    this.notifiedAt,
+    this.isEligible = true,
+    this.isDonorModeOn = true,
+  });
+
+  final String id;
+  final String name;
+  final BloodGroup bloodGroup;
+  final double distanceKm;
+  final DonorRequestInteractionStatus status;
+  final String? phone;
+  final GeoPoint? location;
+  final DateTime? notifiedAt;
+  final bool isEligible;
+  final bool isDonorModeOn;
+
+  /// Approximate travel time in minutes based on distance (~30 km/h urban speed).
+  int get estimatedTravelMinutes =>
+      (distanceKm / 0.5).round().clamp(2, 180);
+}
+
 /// A donor who has committed to one unit of a request. A request needing
 /// three units needs three of these — one donor can only give one unit.
 class AcceptedDonor {
@@ -179,18 +227,106 @@ class AcceptedDonor {
     required this.id,
     required this.name,
     required this.acceptedAt,
+    this.bloodGroup,
+    this.bloodType = 'Blood',
+    this.photoUrl,
+    this.phone,
+    this.distanceKm,
+    this.location,
+    this.status = 'Accepted',
+    this.transitStatus = DonorTransitStatus.accepted,
+    this.isVerified = true,
+    this.isDonorModeOn = true,
   });
 
   final String id;
   final String name;
   final DateTime acceptedAt;
+  final BloodGroup? bloodGroup;
+  final String bloodType;
+  final String? photoUrl;
+  final String? phone;
+  final double? distanceKm;
+  final GeoPoint? location;
+  final String status;
+  final DonorTransitStatus transitStatus;
+  final bool isVerified;
+  final bool isDonorModeOn;
+
+  /// Approximate travel time in minutes based on distance (~30 km/h urban speed).
+  int? get estimatedTravelMinutes =>
+      distanceKm == null ? null : (distanceKm! / 0.5).round().clamp(2, 180);
+
+  AcceptedDonor copyWith({
+    String? id,
+    String? name,
+    DateTime? acceptedAt,
+    BloodGroup? bloodGroup,
+    String? bloodType,
+    String? photoUrl,
+    String? phone,
+    double? distanceKm,
+    GeoPoint? location,
+    String? status,
+    DonorTransitStatus? transitStatus,
+    bool? isVerified,
+    bool? isDonorModeOn,
+  }) {
+    return AcceptedDonor(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      acceptedAt: acceptedAt ?? this.acceptedAt,
+      bloodGroup: bloodGroup ?? this.bloodGroup,
+      bloodType: bloodType ?? this.bloodType,
+      photoUrl: photoUrl ?? this.photoUrl,
+      phone: phone ?? this.phone,
+      distanceKm: distanceKm ?? this.distanceKm,
+      location: location ?? this.location,
+      status: status ?? this.status,
+      transitStatus: transitStatus ?? this.transitStatus,
+      isVerified: isVerified ?? this.isVerified,
+      isDonorModeOn: isDonorModeOn ?? this.isDonorModeOn,
+    );
+  }
+}
+
+enum DonorTransitStatus {
+  accepted,
+  onTheWay,
+  nearHospital,
+  reached,
+  donationCompleted;
+
+  String get label => switch (this) {
+    accepted => 'Accepted',
+    onTheWay => 'On the Way',
+    nearHospital => 'Near Hospital',
+    reached => 'Reached',
+    donationCompleted => 'Donation Completed',
+  };
+
+  int get stepIndex => switch (this) {
+    accepted => 0,
+    onTheWay => 1,
+    nearHospital => 2,
+    reached => 3,
+    donationCompleted => 4,
+  };
 }
 
 /// The last position a donor shared while heading to the hospital.
 class DonorPing {
-  const DonorPing({required this.point, required this.at});
+  const DonorPing({
+    required this.point,
+    required this.at,
+    this.transitStatus = DonorTransitStatus.onTheWay,
+    this.headingDegrees,
+  });
+
   final GeoPoint point;
   final DateTime at;
+  final DonorTransitStatus transitStatus;
+  final double? headingDegrees;
 }
 
 class BloodRequest {
@@ -208,13 +344,20 @@ class BloodRequest {
     this.patientName,
     this.patientBloodGroup,
     this.requestLocation,
+    this.bloodType = 'Blood',
+    this.phone,
+    this.requiredDate,
+    this.notes,
     this.donorsContacted = 0,
     this.currentWave = 0,
-    this.searchRadiusKm = 5,
+    this.searchRadiusKm = 25,
     this.acceptedDonors = const [],
+    this.declinedByDonorIds = const [],
+    this.viewedByDonorIds = const [],
     this.expiresAt,
     this.timeline = const [],
     this.donorLiveLocations = const {},
+    this.requesterLiveLocation,
   });
 
   final String id;
@@ -238,14 +381,20 @@ class BloodRequest {
   final String? patientName;
   final BloodGroup? patientBloodGroup;
   final GeoPoint? requestLocation;
+  final String bloodType;
+  final String? phone;
+  final DateTime? requiredDate;
+  final String? notes;
 
   // Matching progress (surfaced to the requester without leaking internals).
   final int donorsContacted;
   final int currentWave;
   final double searchRadiusKm;
 
-  /// Everyone who has committed a unit so far, oldest first.
+  /// Everyone who has committed a unit so far, sorted by distance.
   final List<AcceptedDonor> acceptedDonors;
+  final List<String> declinedByDonorIds;
+  final List<String> viewedByDonorIds;
   final DateTime? expiresAt;
   final List<StatusEvent> timeline;
 
@@ -253,6 +402,9 @@ class BloodRequest {
   /// keyed by donor id — empty whenever nobody is sharing. Lets the
   /// requester's coordination map track donors heading their way.
   final Map<String, DonorPing> donorLiveLocations;
+
+  /// Optional live position of the requester/hospital coordinator for two-way tracking.
+  final DonorPing? requesterLiveLocation;
 
   List<String> get acceptedDonorIds => [for (final d in acceptedDonors) d.id];
 
@@ -285,13 +437,23 @@ class BloodRequest {
     RequestStatus? status,
     Destination? destination,
     String? requestLocationLabel,
+    String? patientName,
+    BloodGroup? patientBloodGroup,
     GeoPoint? requestLocation,
+    String? bloodType,
+    String? phone,
+    DateTime? requiredDate,
+    String? notes,
     int? donorsContacted,
     int? currentWave,
     double? searchRadiusKm,
     List<AcceptedDonor>? acceptedDonors,
+    List<String>? declinedByDonorIds,
+    List<String>? viewedByDonorIds,
     DateTime? expiresAt,
     List<StatusEvent>? timeline,
+    Map<String, DonorPing>? donorLiveLocations,
+    DonorPing? requesterLiveLocation,
   }) {
     return BloodRequest(
       id: id,
@@ -304,16 +466,24 @@ class BloodRequest {
       status: status ?? this.status,
       destination: destination ?? this.destination,
       requestLocationLabel: requestLocationLabel ?? this.requestLocationLabel,
-      patientName: patientName,
-      patientBloodGroup: patientBloodGroup,
+      patientName: patientName ?? this.patientName,
+      patientBloodGroup: patientBloodGroup ?? this.patientBloodGroup,
       requestLocation: requestLocation ?? this.requestLocation,
+      bloodType: bloodType ?? this.bloodType,
+      phone: phone ?? this.phone,
+      requiredDate: requiredDate ?? this.requiredDate,
+      notes: notes ?? this.notes,
       donorsContacted: donorsContacted ?? this.donorsContacted,
       currentWave: currentWave ?? this.currentWave,
       searchRadiusKm: searchRadiusKm ?? this.searchRadiusKm,
       acceptedDonors: acceptedDonors ?? this.acceptedDonors,
+      declinedByDonorIds: declinedByDonorIds ?? this.declinedByDonorIds,
+      viewedByDonorIds: viewedByDonorIds ?? this.viewedByDonorIds,
       expiresAt: expiresAt ?? this.expiresAt,
       timeline: timeline ?? this.timeline,
-      donorLiveLocations: donorLiveLocations,
+      donorLiveLocations: donorLiveLocations ?? this.donorLiveLocations,
+      requesterLiveLocation:
+          requesterLiveLocation ?? this.requesterLiveLocation,
     );
   }
 }

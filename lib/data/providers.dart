@@ -182,6 +182,15 @@ class ThemeModeController extends Notifier<ThemeMode> {
 }
 
 // ---------------------------------------------------------------------------
+// Time & Clock
+// ---------------------------------------------------------------------------
+/// Live clock that emits the current local DateTime every second.
+final currentTimeProvider = StreamProvider<DateTime>((ref) async* {
+  yield DateTime.now();
+  yield* Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now());
+});
+
+// ---------------------------------------------------------------------------
 // Donor Mode
 // ---------------------------------------------------------------------------
 final donorProfileProvider = StreamProvider<DonorProfile>((ref) {
@@ -371,4 +380,13 @@ final chatProvider = StreamProvider.family<List<ChatMessage>, String>((
 ) {
   final backend = ref.watch(backendProvider);
   return backend.chatStream(requestId);
+});
+
+// ---------------------------------------------------------------------------
+// Matched & Nearby Donors
+// ---------------------------------------------------------------------------
+final nearbyDonorsProvider =
+    StreamProvider.family<List<MatchedDonor>, String>((ref, requestId) {
+  final backend = ref.watch(backendProvider);
+  return backend.nearbyDonorsStream(requestId);
 });

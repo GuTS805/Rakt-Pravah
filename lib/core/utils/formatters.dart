@@ -42,11 +42,68 @@ abstract class Fmt {
     'Dec',
   ];
 
+  static const _fullMonths = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  static const _weekdays = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+
   /// Short date, e.g. "12 Aug".
   static String shortDate(DateTime t) => '${t.day} ${_months[t.month - 1]}';
 
   static String date(DateTime t) =>
       '${t.day} ${_months[t.month - 1]} ${t.year}';
+
+  /// Full date, e.g. "22 September 2026".
+  static String fullDate(DateTime t) =>
+      '${t.day} ${_fullMonths[t.month - 1]} ${t.year}';
+
+  /// Formats user's local date and time:
+  /// e.g. "Tuesday, 22 Sep 2026 • 07:35:10 PM"
+  static String localDateTime(DateTime t) {
+    final weekday = _weekdays[t.weekday - 1];
+    final month = _months[t.month - 1];
+    final hour12 = t.hour == 0 ? 12 : (t.hour > 12 ? t.hour - 12 : t.hour);
+    final period = t.hour >= 12 ? 'PM' : 'AM';
+    final minute = t.minute.toString().padLeft(2, '0');
+    final second = t.second.toString().padLeft(2, '0');
+    return '$weekday, ${t.day} $month ${t.year} • ${hour12.toString().padLeft(2, '0')}:$minute:$second $period';
+  }
+
+  /// Live countdown formatted as "89d 23h 59m 45s", or "00h 00m 00s"
+  static String countdown(Duration d) {
+    if (d.isNegative || d == Duration.zero) return '00d 00h 00m 00s';
+    final days = d.inDays;
+    final hours = d.inHours % 24;
+    final minutes = d.inMinutes % 60;
+    final seconds = d.inSeconds % 60;
+    final hStr = hours.toString().padLeft(2, '0');
+    final mStr = minutes.toString().padLeft(2, '0');
+    final sStr = seconds.toString().padLeft(2, '0');
+    if (days > 0) {
+      return '${days}d ${hStr}h ${mStr}m ${sStr}s';
+    }
+    return '${hStr}h ${mStr}m ${sStr}s';
+  }
 
   /// Units label, e.g. "2 units" / "1 unit".
   static String units(int n) => n == 1 ? '1 unit' : '$n units';

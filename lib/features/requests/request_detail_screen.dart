@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/router/routes.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_typography.dart';
 import '../../core/theme/semantics.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/widgets/accepted_donor_profile_card.dart';
 import '../../core/widgets/app_card.dart';
+import '../../core/widgets/avatar.dart';
 import '../../core/widgets/badges.dart';
 import '../../core/widgets/buttons.dart';
+import '../../core/widgets/donor_ranking_card.dart';
 import '../../core/widgets/states.dart';
 import '../../core/widgets/status_timeline.dart';
 import '../../data/models/models.dart';
@@ -69,6 +74,13 @@ class _Body extends ConsumerWidget {
             children: [
               _SummaryCard(request: request),
               const SizedBox(height: AppSpacing.lg),
+              if (request.acceptedDonors.isNotEmpty) ...[
+                _AcceptedDonorsSection(request: request),
+              ],
+              if (request.status.isActive) ...[
+                _NearbyDonorsSection(request: request),
+                const SizedBox(height: AppSpacing.lg),
+              ],
               if (request.status == RequestStatus.searching) ...[
                 _SearchingCard(request: request),
                 const SizedBox(height: AppSpacing.lg),
@@ -86,6 +98,404 @@ class _Body extends ConsumerWidget {
           ),
         ),
         _ActionBar(request: request),
+      ],
+    );
+  }
+}
+
+class _AcceptedDonorsSection extends StatefulWidget {
+  const _AcceptedDonorsSection({required this.request});
+  final BloodRequest request;
+
+  @override
+  State<_AcceptedDonorsSection> createState() => _AcceptedDonorsSectionState();
+}
+
+class _AcceptedDonorsSectionState extends State<_AcceptedDonorsSection> {
+  String? _selectedDonorId;
+
+  Future<void> _makePhoneCall(BuildContext context, String rawPhone) async {
+    final clean = rawPhone.replaceAll(RegExp(r'[^\d+]'), '');
+    final uri = Uri.parse('tel:$clean');
+    final opened = await launchUrl(uri);
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not place call to $rawPhone')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final sorted = [...widget.request.acceptedDonors]
+      ..sort((a, b) {
+        final da = a.distanceKm ?? double.infinity;
+        final db = b.distanceKm ?? double.infinity;
+        return da.compareTo(db);
+      });
+
+    if (sorted.isEmpty) return const SizedBox.shrink();
+
+    final selectedId = _selectedDonorId != null &&
+            sorted.any((d) => d.id == _selectedDonorId)
+        ? _selectedDonorId!
+        : sorted.first.id;
+
+    final primaryDonor =
+        sorted.firstWhere((d) => d.id == selectedId, orElse: () => sorted.first);
+    final alternativeDonors =
+        sorted.where((d) => d.id != primaryDonor.id).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(child: SectionHeader('Accepted Donors')),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: c.successSubtle,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+                border: Border.all(
+                  color: c.success.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Text(
+                '${sorted.length} accepted · nearest first',
+                style: AppTypography.mono(
+                  size: 11,
+                  weight: FontWeight.w700,
+                  color: c.success,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+
+        // Primary selected accepted donor profile card
+        AcceptedDonorProfileCard(
+          donor: primaryDonor,
+          request: widget.request,
+          isSelected: true,
+          onTrackLive: () =>
+              context.push(Routes.liveLocation(widget.request.id)),
+        ),
+
+        // Alternative donors if multiple donors accepted
+        if (alternativeDonors.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            children: [
+              Text(
+                'Alternative Donors (${alternativeDonors.length} available)',
+                style: context.text.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Tooltip(
+                message: 'Tap any donor to select and coordinate with them',
+                child: Icon(
+                  Icons.info_outline_rounded,
+                  size: 14,
+                  color: c.textTertiary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          for (final alt in alternativeDonors) ...[
+            _AlternativeDonorCard(
+              donor: alt,
+              request: widget.request,
+              onSelect: () => setState(() => _selectedDonorId = alt.id),
+              onCall: alt.phone != null && alt.phone!.isNotEmpty
+                  ? () => _makePhoneCall(context, alt.phone!)
+                  : null,
+              onChat: () => context.push(Routes.chat(widget.request.id)),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+          ],
+        ],
+        const SizedBox(height: AppSpacing.md),
+      ],
+    );
+  }
+}
+
+class _AlternativeDonorCard extends StatelessWidget {
+  const _AlternativeDonorCard({
+    required this.donor,
+    required this.request,
+    required this.onSelect,
+    this.onCall,
+    required this.onChat,
+  });
+
+  final AcceptedDonor donor;
+  final BloodRequest request;
+  final VoidCallback onSelect;
+  final VoidCallback? onCall;
+  final VoidCallback onChat;
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) return 'D';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return (parts.first[0] + parts.last[0]).toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final dist = donor.distanceKm != null
+        ? '${donor.distanceKm!.toStringAsFixed(1)} km away'
+        : 'Nearby';
+    final eta = donor.estimatedTravelMinutes != null
+        ? '~${donor.estimatedTravelMinutes} min'
+        : '';
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: c.border),
+      ),
+      child: Row(
+        children: [
+          Avatar(
+            initials: _initials(donor.name),
+            photoUrl: donor.photoUrl,
+            size: 42,
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        donor.name,
+                        style: context.text.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    if (donor.bloodGroup != null)
+                      BloodGroupBadge(donor.bloodGroup!),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '$dist ${eta.isNotEmpty ? "• $eta travel" : ""}',
+                  style: context.text.bodySmall?.copyWith(
+                    color: c.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          // Actions
+          if (onCall != null)
+            IconButton(
+              tooltip: 'Call donor',
+              icon: Icon(Icons.phone_rounded, size: 18, color: c.success),
+              style: IconButton.styleFrom(
+                backgroundColor: c.successSubtle,
+                minimumSize: const Size(32, 32),
+                padding: EdgeInsets.zero,
+              ),
+              onPressed: onCall,
+            ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'Chat with donor',
+            icon: Icon(Icons.forum_rounded, size: 18, color: c.brand),
+            style: IconButton.styleFrom(
+              backgroundColor: c.brandSubtle,
+              minimumSize: const Size(32, 32),
+              padding: EdgeInsets.zero,
+            ),
+            onPressed: onChat,
+          ),
+          const SizedBox(width: 6),
+          ElevatedButton(
+            onPressed: onSelect,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: c.surfaceMuted,
+              foregroundColor: c.textPrimary,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              minimumSize: const Size(60, 32),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                side: BorderSide(color: c.border),
+              ),
+            ),
+            child: const Text(
+              'Select',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NearbyDonorsSection extends ConsumerWidget {
+  const _NearbyDonorsSection({required this.request});
+  final BloodRequest request;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final nearbyAsync = ref.watch(nearbyDonorsProvider(request.id));
+    final currentRadius =
+        request.searchRadiusKm > 0 ? request.searchRadiusKm : 25.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: SectionHeader('Nearby & Matched Donors'),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: c.brandSubtle,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+                border: Border.all(color: c.brand.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.radar_rounded, size: 12, color: c.brand),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${currentRadius.round()} km radius',
+                    style: AppTypography.mono(
+                      size: 11,
+                      weight: FontWeight.w700,
+                      color: c.brand,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'Ranked by real distance from hospital • Nearest first',
+          style: context.text.bodySmall?.copyWith(
+            color: c.textTertiary,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final r in [15.0, 25.0, 50.0, 100.0])
+              ChoiceChip(
+                label: Text('${r.round()} km'),
+                selected: (currentRadius - r).abs() < 1.0,
+                onSelected: (selected) {
+                  if (selected) {
+                    ref.read(backendProvider).expandSearchRadius(request.id, r);
+                  }
+                },
+                selectedColor: c.brandSubtle,
+                labelStyle: AppTypography.mono(
+                  size: 11,
+                  weight: FontWeight.w600,
+                  color: (currentRadius - r).abs() < 1.0
+                      ? c.brand
+                      : c.textSecondary,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        nearbyAsync.when(
+          loading: () => const CardSkeleton(),
+          error: (_, _) => const SizedBox.shrink(),
+          data: (donors) {
+            final acceptedIds = request.acceptedDonorIds.toSet();
+            final unaccepted =
+                donors.where((d) => !acceptedIds.contains(d.id)).toList();
+
+            if (unaccepted.isEmpty) {
+              return AppCard(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.travel_explore_rounded,
+                          size: 36,
+                          color: c.textTertiary,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'No donors within ${currentRadius.round()} km yet',
+                          style: context.text.titleSmall,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Expand search radius to notify donors in surrounding areas.',
+                          textAlign: TextAlign.center,
+                          style: context.text.bodySmall,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        SecondaryButton(
+                          label: 'Expand to ${(currentRadius + 25).round()} km',
+                          icon: Icons.zoom_out_map_rounded,
+                          onPressed: () {
+                            ref
+                                .read(backendProvider)
+                                .expandSearchRadius(
+                                  request.id,
+                                  currentRadius + 25,
+                                );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              children: [
+                for (final donor in unaccepted)
+                  DonorRankingCard(
+                    donor: donor,
+                    destination: request.destination,
+                  ),
+              ],
+            );
+          },
+        ),
       ],
     );
   }
@@ -147,6 +557,13 @@ class _SummaryCard extends ConsumerWidget {
                   value: request.urgency.label,
                 ),
               ),
+              if (request.requiredDate != null)
+                Expanded(
+                  child: DataField(
+                    label: 'Date needed',
+                    value: Fmt.date(request.requiredDate!),
+                  ),
+                ),
               Expanded(
                 child: DataField(
                   label: 'Location',

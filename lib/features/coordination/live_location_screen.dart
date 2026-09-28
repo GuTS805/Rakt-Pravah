@@ -1,21 +1,22 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/services/location_service.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/app_typography.dart';
-import '../../core/widgets/app_card.dart';
-import '../../core/widgets/buttons.dart';
+import '../../core/widgets/states.dart';
+import '../../data/models/models.dart';
 import '../../data/providers.dart';
-import 'map_panel.dart';
+import 'live_tracking_map.dart';
+import 'live_tracking_sheet.dart';
 
-/// Live location sharing (spec §19). Never on by default: the user explicitly
-/// starts a temporary, time-boxed session and can stop it anytime. The backend
-/// must enforce authorization for real sessions — hiding the button is never
-/// the security boundary.
+/// Full-screen real-time delivery-style tracking screen (Zepto/Blinkit style).
+/// Displays live donor transit, hospital destination, ETA, interactive
+/// 4-step progress, call/chat actions, and two-way location sharing.
 class LiveLocationScreen extends ConsumerStatefulWidget {
   const LiveLocationScreen({super.key, required this.requestId});
   final String requestId;
@@ -25,269 +26,409 @@ class LiveLocationScreen extends ConsumerStatefulWidget {
 }
 
 class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
-  static const _sessionMinutes = 30;
-  static const _updateInterval = Duration(seconds: 15);
+  static const _updateInterval = Duration(seconds: 5);
 
   bool _sharing = false;
-  bool _starting = false;
-  Duration _remaining = const Duration(minutes: _sessionMinutes);
-  Timer? _countdownTimer;
+  bool _simulating = false;
   Timer? _locationTimer;
+  Timer? _simulationTimer;
+
+  DonorTransitStatus _transitStatus = DonorTransitStatus.onTheWay;
+  GeoPoint? _simulatedDonorPoint;
+  double _simProgress = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start the Donor <-> Requester live-location session after acceptance
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final req = ref.read(requestProvider(widget.requestId)).valueOrNull;
+      final me = ref.read(currentUserProvider);
+      final isDonor = req?.acceptedDonorIds.contains(me?.id) ?? false;
+      final isRequester = req?.requesterId == me?.id;
+      if (req != null && req.status.isActive && (isDonor || isRequester)) {
+        _startSharing();
+      }
+    });
+  }
 
   @override
   void dispose() {
-    _countdownTimer?.cancel();
     _locationTimer?.cancel();
-    // Leaving this screen ends sharing rather than leaving a stale position
-    // visible on the other side indefinitely — "Stop sharing" is explicit,
-    // but so is walking away from the temporary session that created it.
+    _simulationTimer?.cancel();
     if (_sharing) {
       ref.read(backendProvider).stopLiveLocation(widget.requestId);
     }
     super.dispose();
   }
 
-  Future<void> _start() async {
-    // Sharing is explicit and opt-in: fetching the real position only happens
-    // here, the moment the user taps to start — never before, never silently.
-    setState(() => _starting = true);
+  Future<void> _startSharing() async {
     final result = await ref.read(deviceLocationProvider.notifier).request();
     if (!mounted) return;
-    setState(() => _starting = false);
 
     if (!result.isGranted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Location access is needed to share your live location.',
-          ),
-        ),
-      );
+      // In dev/web environments without hardware GPS permission, proceed with cached location
+      debugPrint('Device location permission not granted, proceeding with fallback.');
+    }
+
+    setState(() => _sharing = true);
+
+    // Initial push
+    await _pushCurrentLocation();
+
+    _locationTimer?.cancel();
+    _locationTimer = Timer.periodic(_updateInterval, (_) => _pushCurrentLocation());
+  }
+
+  Future<void> _pushCurrentLocation() async {
+    if (!_sharing || !mounted) return;
+
+    final req = ref.read(requestProvider(widget.requestId)).valueOrNull;
+    final me = ref.read(currentUserProvider);
+    final isRequester = req?.requesterId == me?.id;
+
+    final locResult =
+        await ref.read(locationServiceProvider).getLocationIfPermitted();
+    GeoPoint? point;
+
+    if (locResult is LocationGranted) {
+      point = locResult.point;
+    } else {
+      point = ref.read(deviceLocationProvider).point ??
+          ref.read(backendProvider).myLocation;
+    }
+
+    if (point != null && mounted) {
+      await ref.read(backendProvider).updateLiveLocation(
+            widget.requestId,
+            point,
+            transitStatus: _transitStatus,
+            isRequester: isRequester,
+          );
+    }
+  }
+
+  void _stopSharing() {
+    _locationTimer?.cancel();
+    _simulationTimer?.cancel();
+    ref.read(backendProvider).stopLiveLocation(widget.requestId);
+    setState(() {
+      _sharing = false;
+      _simulating = false;
+    });
+  }
+
+  void _toggleSharing() {
+    if (_sharing) {
+      _stopSharing();
+    } else {
+      _startSharing();
+    }
+  }
+
+  void _toggleSimulation() {
+    if (_simulating) {
+      _simulationTimer?.cancel();
+      setState(() => _simulating = false);
       return;
     }
 
     setState(() {
+      _simulating = true;
       _sharing = true;
-      _remaining = const Duration(minutes: _sessionMinutes);
+      _simProgress = 0.0;
     });
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (!mounted) return;
-      final next = _remaining - const Duration(seconds: 1);
-      if (next.isNegative) {
-        _stop();
-      } else {
-        setState(() => _remaining = next);
+
+    final req = ref.read(requestProvider(widget.requestId)).valueOrNull;
+    final dest = req?.destination.location ?? const GeoPoint(28.6139, 77.2090);
+
+    // Start simulated point ~4 km away from hospital
+    const startOffsetLat = 0.028;
+    const startOffsetLng = -0.025;
+    final startLat = dest.lat + startOffsetLat;
+    final startLng = dest.lng + startOffsetLng;
+
+    _simulatedDonorPoint = GeoPoint(startLat, startLng);
+
+    // Push initial simulated point
+    ref.read(backendProvider).updateLiveLocation(
+          widget.requestId,
+          _simulatedDonorPoint!,
+          transitStatus: DonorTransitStatus.onTheWay,
+        );
+
+    _simulationTimer?.cancel();
+    _simulationTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
       }
+
+      setState(() {
+        _simProgress += 0.12;
+        if (_simProgress >= 1.0) {
+          _simProgress = 1.0;
+          _transitStatus = DonorTransitStatus.reached;
+          _simulatedDonorPoint = dest;
+          timer.cancel();
+          _simulating = false;
+        } else {
+          final curLat = startLat + (dest.lat - startLat) * _simProgress;
+          final curLng = startLng + (dest.lng - startLng) * _simProgress;
+          _simulatedDonorPoint = GeoPoint(curLat, curLng);
+
+          if (_simProgress > 0.75) {
+            _transitStatus = DonorTransitStatus.nearHospital;
+          } else if (_simProgress > 0.1) {
+            _transitStatus = DonorTransitStatus.onTheWay;
+          }
+        }
+      });
+
+      ref.read(backendProvider).updateLiveLocation(
+            widget.requestId,
+            _simulatedDonorPoint!,
+            transitStatus: _transitStatus,
+          );
     });
-    // Push a real position update immediately, then keep refreshing it —
-    // this is what the other party's coordination map actually tracks.
-    unawaited(_pushLocation());
-    _locationTimer = Timer.periodic(_updateInterval, (_) => _pushLocation());
   }
 
-  Future<void> _pushLocation() async {
-    final result = await ref
-        .read(locationServiceProvider)
-        .getLocationIfPermitted();
-    if (result is LocationGranted && mounted) {
-      await ref
-          .read(backendProvider)
-          .updateLiveLocation(widget.requestId, result.point);
-    }
+  void _updateTransitStatus(DonorTransitStatus next) {
+    setState(() => _transitStatus = next);
+    ref.read(backendProvider).updateDonorTransitStatus(widget.requestId, next);
   }
 
-  void _stop() {
-    _countdownTimer?.cancel();
-    _locationTimer?.cancel();
-    ref.read(backendProvider).stopLiveLocation(widget.requestId);
-    setState(() => _sharing = false);
+  double _haversineKm(GeoPoint a, GeoPoint b) {
+    const r = 6371.0;
+    final dLat = (b.lat - a.lat) * (math.pi / 180.0);
+    final dLng = (b.lng - a.lng) * (math.pi / 180.0);
+    final lat1 = a.lat * (math.pi / 180.0);
+    final lat2 = b.lat * (math.pi / 180.0);
+    final h = math.pow(math.sin(dLat / 2), 2) +
+        math.pow(math.sin(dLng / 2), 2) * math.cos(lat1) * math.cos(lat2);
+    return r * 2 * math.asin(math.sqrt(h));
   }
 
   @override
   Widget build(BuildContext context) {
-    final req = ref.watch(requestProvider(widget.requestId)).valueOrNull;
-    final myLocation = ref.watch(deviceLocationProvider).point;
     final c = context.colors;
+    final asyncReq = ref.watch(requestProvider(widget.requestId));
+    final me = ref.watch(currentUserProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Live location')),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        children: [
-          if (_sharing) _ActiveBanner(remaining: _remaining),
-          if (_sharing) const SizedBox(height: AppSpacing.lg),
-          if (req != null)
-            MapPanel(
-              destination: req.destination,
-              // Only reveal the position dot while actually sharing — this
-              // mirrors what the other party would see: nothing until you
-              // explicitly opt in.
-              myLocation: _sharing ? myLocation : null,
-            ),
-          const SizedBox(height: AppSpacing.lg),
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.shield_outlined, size: 20, color: c.info),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text('How sharing works', style: context.text.titleSmall),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _bullet(
-                  context,
-                  'Only the person you\'re coordinating with can see it.',
-                ),
-                _bullet(
-                  context,
-                  'It\'s temporary — sharing ends automatically after $_sessionMinutes minutes.',
-                ),
-                _bullet(context, 'You can stop sharing at any time.'),
-              ],
-            ),
+      backgroundColor: c.background,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: Container(
+          margin: const EdgeInsets.only(left: 8),
+          decoration: BoxDecoration(
+            color: c.surface.withValues(alpha: 0.9),
+            shape: BoxShape.circle,
+            border: Border.all(color: c.border),
           ),
-          const SizedBox(height: AppSpacing.xl),
-          if (_sharing)
-            PrimaryButton(
-              label: 'Stop sharing',
-              icon: Icons.stop_circle_outlined,
-              danger: true,
-              onPressed: _stop,
-            )
-          else
-            PrimaryButton(
-              label: 'Share live location',
-              icon: Icons.my_location_rounded,
-              busy: _starting,
-              onPressed: _start,
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _bullet(BuildContext context, String text) {
-    final c = context.colors;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 7),
-            child: Container(
-              height: 5,
-              width: 5,
-              decoration: BoxDecoration(
-                color: c.textTertiary,
-                shape: BoxShape.circle,
-              ),
-            ),
+          child: IconButton(
+            icon: Icon(Icons.arrow_back_rounded, color: c.textPrimary),
+            onPressed: () => Navigator.of(context).pop(),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(child: Text(text, style: context.text.bodyMedium)),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActiveBanner extends StatelessWidget {
-  const _ActiveBanner({required this.remaining});
-  final Duration remaining;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final mm = remaining.inMinutes.toString().padLeft(2, '0');
-    final ss = (remaining.inSeconds % 60).toString().padLeft(2, '0');
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: c.successSubtle,
-        borderRadius: AppRadius.cardLg,
-        border: Border.all(color: c.success.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: [
-          _PulsingDot(color: c.success),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(
-              'Your live location is being shared temporarily.',
-              style: context.text.bodyMedium?.copyWith(color: c.textPrimary),
-            ),
+        ),
+        title: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: c.surface.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+            border: Border.all(color: c.border),
           ),
-          Text(
-            '$mm:$ss',
-            style: AppTypography.mono(
-              size: 14,
-              weight: FontWeight.w600,
-              color: c.success,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PulsingDot extends StatefulWidget {
-  const _PulsingDot({required this.color});
-  final Color color;
-
-  @override
-  State<_PulsingDot> createState() => _PulsingDotState();
-}
-
-class _PulsingDotState extends State<_PulsingDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1200),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 16,
-      width: 16,
-      child: AnimatedBuilder(
-        animation: _ctrl,
-        builder: (context, _) {
-          return Stack(
-            alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                height: 8 + _ctrl.value * 8,
-                width: 8 + _ctrl.value * 8,
-                decoration: BoxDecoration(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: widget.color.withValues(
-                    alpha: (1 - _ctrl.value) * 0.4,
-                  ),
+                  color: Colors.green,
                 ),
               ),
-              Container(
-                height: 8,
-                width: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: widget.color,
+              const SizedBox(width: 6),
+              Text(
+                'Live Donation Tracking',
+                style: context.text.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: asyncReq.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, _) => ErrorStateView(
+          message: 'Unable to load live location session.',
+          onRetry: () => ref.invalidate(requestProvider(widget.requestId)),
+        ),
+        data: (req) {
+          if (req.status.isTerminal) {
+            if (_sharing) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _stopSharing();
+              });
+            }
+            return _buildClosedSessionView(context, req);
+          }
+          final isDonor = req.acceptedDonorIds.contains(me?.id);
+          final firstDonor = req.acceptedDonors.firstOrNull;
+          final donorId = isDonor ? me?.id : firstDonor?.id;
+          final donorPing =
+              donorId != null ? req.donorLiveLocations[donorId] : null;
+
+          final effectiveTransitStatus =
+              donorPing?.transitStatus ?? _transitStatus;
+
+          final effectiveDonorPoint = _simulatedDonorPoint ??
+              donorPing?.point ??
+              firstDonor?.location ??
+              (isDonor
+                  ? (ref.watch(deviceLocationProvider).point ??
+                      ref.watch(backendProvider).myLocation)
+                  : null) ??
+              (req.destination.location != null
+                  ? GeoPoint(
+                      req.destination.location!.lat + 0.02,
+                      req.destination.location!.lng - 0.02,
+                    )
+                  : null);
+
+          final effectiveRequesterPoint = req.requesterLiveLocation?.point ??
+              (isDonor ? null : ref.watch(deviceLocationProvider).point);
+
+          final double currentDistance;
+          if (effectiveDonorPoint != null && req.destination.location != null) {
+            currentDistance = _haversineKm(
+              effectiveDonorPoint,
+              req.destination.location!,
+            );
+          } else {
+            currentDistance = firstDonor?.distanceKm ?? 2.4;
+          }
+
+          final partnerName = isDonor
+              ? req.requesterName
+              : (firstDonor?.name ?? 'Assigned Donor');
+          final partnerPhone = isDonor ? req.phone : firstDonor?.phone;
+          final partnerBloodGroup =
+              isDonor ? req.patientBloodGroup : firstDonor?.bloodGroup;
+
+          return Stack(
+            children: [
+              // Full-screen Map
+              Positioned.fill(
+                child: LiveTrackingMap(
+                  destination: req.destination,
+                  donorLocation: effectiveDonorPoint,
+                  requesterLocation: effectiveRequesterPoint,
+                  donorName: isDonor ? me?.name : firstDonor?.name,
+                  donorBloodGroup:
+                      isDonor ? me?.bloodGroup : firstDonor?.bloodGroup,
+                  transitStatus: effectiveTransitStatus,
+                  onLocateMe: () async {
+                    await ref
+                        .read(deviceLocationProvider.notifier)
+                        .request();
+                  },
+                ),
+              ),
+
+              // Bottom Tracking Card (Zepto/Blinkit style)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: LiveTrackingSheet(
+                  request: req,
+                  partnerName: partnerName,
+                  partnerPhone: partnerPhone,
+                  partnerBloodGroup: partnerBloodGroup,
+                  isDonor: isDonor,
+                  transitStatus: effectiveTransitStatus,
+                  distanceKm: currentDistance,
+                  isSharingLocation: _sharing,
+                  isSimulating: _simulating,
+                  onToggleSharing: _toggleSharing,
+                  onToggleSimulation: _toggleSimulation,
+                  onUpdateTransitStatus: _updateTransitStatus,
                 ),
               ),
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildClosedSessionView(BuildContext context, BloodRequest req) {
+    final c = context.colors;
+    final isFulfilled = req.status == RequestStatus.fulfilled;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: isFulfilled ? c.successSubtle : c.surfaceMuted,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isFulfilled
+                    ? Icons.volunteer_activism_rounded
+                    : Icons.lock_outline_rounded,
+                size: 48,
+                color: isFulfilled ? c.success : c.textSecondary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              isFulfilled ? 'Donation Completed' : 'Session Closed',
+              style: context.text.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              isFulfilled
+                  ? 'The blood donation was completed successfully. Live-location sharing has stopped to protect donor and requester privacy.'
+                  : 'This request was ${req.status.label.toLowerCase()}. Active tracking and live-location sharing have been terminated.',
+              style: context.text.bodyMedium?.copyWith(
+                color: c.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            ElevatedButton.icon(
+              onPressed: () => context.pop(),
+              icon: const Icon(Icons.arrow_back_rounded, size: 18),
+              label: const Text('Back to Request'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: c.brand,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

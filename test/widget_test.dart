@@ -162,12 +162,50 @@ void main() {
       expect(paused.isInCooldown, isTrue);
     });
 
-    test('copyWith preserves the donation date that drives cooldown', () {
-      final donated = DateTime.now().subtract(const Duration(days: 10));
-      final donor = _donor(lastDonation: donated)
-          .copyWith(availability: DonorAvailability.off);
-      expect(donor.lastDonation, donated);
-      expect(donor.isInCooldown, isTrue);
+    test('nextEligibleDonationDate is 3 months (90 days) after last donation', () {
+      final donated = DateTime(2026, 9, 22, 12, 0, 0);
+      final donor = _donor(lastDonation: donated);
+      expect(donor.nextEligibleDonationDate, donated.add(const Duration(days: 90)));
+      expect(Fmt.fullDate(donor.nextEligibleDonationDate!), '21 December 2026');
+    });
+
+    test('Fmt.localDateTime formats date and time with weekday', () {
+      final dt = DateTime(2026, 9, 22, 19, 30, 45);
+      final formatted = Fmt.localDateTime(dt);
+      expect(formatted, contains('Tuesday'));
+      expect(formatted, contains('22 Sep 2026'));
+      expect(formatted, contains('07:30:45 PM'));
+    });
+
+    test('Fmt.countdown formats remaining duration nicely', () {
+      expect(Fmt.countdown(const Duration(days: 89, hours: 23, minutes: 59, seconds: 42)), '89d 23h 59m 42s');
+      expect(Fmt.countdown(const Duration(hours: 4, minutes: 12, seconds: 5)), '04h 12m 05s');
+      expect(Fmt.countdown(Duration.zero), '00d 00h 00m 00s');
+    });
+
+    test('FakeBackend.recordDonation turns Donor Mode OFF and sets lastDonation', () async {
+      final backend = FakeBackend(
+        donor: const DonorProfile(
+          availability: DonorAvailability.available,
+          bloodGroup: BloodGroup.oPos,
+        ),
+      );
+      expect(backend.donorProfile.isOn, isTrue);
+
+      final now = DateTime(2026, 9, 22);
+      await backend.recordDonation(now);
+
+      expect(backend.donorProfile.availability, DonorAvailability.off);
+      expect(backend.donorProfile.isOn, isFalse);
+      expect(backend.donorProfile.lastDonation, now);
+      expect(backend.donorProfile.isInCooldown, isTrue);
+      expect(backend.donorProfile.nextEligibleDonationDate, now.add(const Duration(days: 90)));
+
+      // Resetting cooldown turns Donor Mode back ON
+      await backend.resetDonationCooldown();
+      expect(backend.donorProfile.availability, DonorAvailability.available);
+      expect(backend.donorProfile.isOn, isTrue);
+      expect(backend.donorProfile.isInCooldown, isFalse);
     });
   });
 

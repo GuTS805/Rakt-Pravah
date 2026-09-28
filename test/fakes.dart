@@ -81,6 +81,9 @@ class FakeBackend implements Backend {
   final List<(String, GeoPoint)> liveLocationUpdates = [];
   final List<String> stoppedLiveLocationIds = [];
   final List<String> sentMessages = [];
+  final List<String> viewedInvitationRequestIds = [];
+  final List<(String, double)> expandedRadiusCalls = [];
+  List<MatchedDonor>? customMatchedDonors;
   int createRequestCalls = 0;
 
   /// Makes the next accept lose the race, the way a real transaction does
@@ -115,6 +118,30 @@ class FakeBackend implements Backend {
   }
 
   @override
+  Future<DonorProfile> recordDonation([DateTime? donatedAt]) async {
+    final when = donatedAt ?? DateTime.now();
+    final updated = donorProfile.copyWith(
+      availability: DonorAvailability.off,
+      lastDonation: when,
+      totalDonations: donorProfile.totalDonations + 1,
+    );
+    setDonorProfileCalls.add(updated);
+    _donor.value = updated;
+    return updated;
+  }
+
+  @override
+  Future<DonorProfile> resetDonationCooldown() async {
+    final updated = donorProfile.copyWith(
+      availability: DonorAvailability.available,
+      clearLastDonation: true,
+    );
+    setDonorProfileCalls.add(updated);
+    _donor.value = updated;
+    return updated;
+  }
+
+  @override
   Stream<List<BloodRequest>> get myRequestsStream => _requests.stream;
 
   @override
@@ -138,6 +165,10 @@ class FakeBackend implements Backend {
     required String requestLocationLabel,
     required Destination destination,
     GeoPoint? requestLocation,
+    String? bloodType,
+    String? phone,
+    DateTime? requiredDate,
+    String? notes,
   }) async {
     createRequestCalls++;
     patientNames['req-$createRequestCalls'] = patientName;
@@ -155,16 +186,48 @@ class FakeBackend implements Backend {
       destination: destination,
       requestLocationLabel: requestLocationLabel,
       requestLocation: requestLocation,
+      bloodType: bloodType ?? 'Blood',
+      phone: (phone != null && phone.trim().isNotEmpty)
+          ? phone.trim()
+          : currentUser?.phone,
+      requiredDate: requiredDate,
+      notes: notes,
     );
     _requests.value = [..._requests.value, created];
     return created;
   }
 
   @override
-  Future<void> cancelRequest(String id) async => cancelledRequestIds.add(id);
+  Future<void> cancelRequest(String id) async {
+    cancelledRequestIds.add(id);
+    _requests.value = [
+      for (final r in _requests.value)
+        if (r.id == id)
+          r.copyWith(
+            status: RequestStatus.cancelled,
+            donorLiveLocations: const {},
+            requesterLiveLocation: null,
+          )
+        else
+          r,
+    ];
+  }
 
   @override
-  Future<void> markFulfilled(String id) async => fulfilledRequestIds.add(id);
+  Future<void> markFulfilled(String id) async {
+    fulfilledRequestIds.add(id);
+    _requests.value = [
+      for (final r in _requests.value)
+        if (r.id == id)
+          r.copyWith(
+            status: RequestStatus.fulfilled,
+            donorLiveLocations: const {},
+            requesterLiveLocation: null,
+          )
+        else
+          r,
+    ];
+  }
 
   @override
   Future<void> withdrawFromRequest(String id) async =>
@@ -172,6 +235,95 @@ class FakeBackend implements Backend {
 
   @override
   Future<void> extendRequest(String id) async => extendedRequestIds.add(id);
+
+  @override
+  Stream<List<MatchedDonor>> nearbyDonorsStream(String requestId) {
+    if (customMatchedDonors != null) {
+      return Stream.value(customMatchedDonors!);
+    }
+    final req = _requests.value.where((r) => r.id == requestId).firstOrNull;
+    final maxRadius = req?.searchRadiusKm ?? 25.0;
+
+    final defaults = [
+      MatchedDonor(
+        id: 'donor-1',
+        name: 'Aarav Sharma',
+        bloodGroup: BloodGroup.oPos,
+        distanceKm: 1.2,
+        status: (req?.acceptedDonorIds.contains('donor-1') ?? false)
+            ? DonorRequestInteractionStatus.accepted
+            : DonorRequestInteractionStatus.notified,
+        phone: '+91 98765 43210',
+        notifiedAt: DateTime.now().subtract(const Duration(minutes: 15)),
+      ),
+      MatchedDonor(
+        id: 'donor-2',
+        name: 'Priya Patel',
+        bloodGroup: BloodGroup.oPos,
+        distanceKm: 2.8,
+        status: (req?.acceptedDonorIds.contains('donor-2') ?? false)
+            ? DonorRequestInteractionStatus.accepted
+            : (req?.viewedByDonorIds.contains('donor-2') ?? false)
+                ? DonorRequestInteractionStatus.viewed
+                : DonorRequestInteractionStatus.notified,
+        phone: '+91 98765 43211',
+        notifiedAt: DateTime.now().subtract(const Duration(minutes: 12)),
+      ),
+      MatchedDonor(
+        id: 'donor-3',
+        name: 'Rahul Verma',
+        bloodGroup: BloodGroup.aPos,
+        distanceKm: 5.4,
+        status: DonorRequestInteractionStatus.notified,
+        phone: '+91 98765 43212',
+        notifiedAt: DateTime.now().subtract(const Duration(minutes: 10)),
+      ),
+      MatchedDonor(
+        id: 'donor-4',
+        name: 'Ananya Rao',
+        bloodGroup: BloodGroup.oNeg,
+        distanceKm: 9.7,
+        status: DonorRequestInteractionStatus.notified,
+        phone: '+91 98765 43213',
+        notifiedAt: DateTime.now().subtract(const Duration(minutes: 5)),
+      ),
+      MatchedDonor(
+        id: 'donor-5',
+        name: 'Vikram Singh',
+        bloodGroup: BloodGroup.bPos,
+        distanceKm: 18.5,
+        status: DonorRequestInteractionStatus.notified,
+        phone: '+91 98765 43214',
+        notifiedAt: DateTime.now().subtract(const Duration(minutes: 2)),
+      ),
+    ];
+
+    // Filter by radius and sort nearest first
+    final filtered = defaults.where((d) => d.distanceKm <= maxRadius).toList()
+      ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+    return Stream.value(filtered);
+  }
+
+  @override
+  Future<void> markInvitationViewed(String requestId) async {
+    viewedInvitationRequestIds.add(requestId);
+    _requests.value = [
+      for (final r in _requests.value)
+        if (r.id == requestId && !r.viewedByDonorIds.contains(uid))
+          r.copyWith(viewedByDonorIds: [...r.viewedByDonorIds, uid])
+        else
+          r,
+    ];
+  }
+
+  @override
+  Future<void> expandSearchRadius(String requestId, double newRadiusKm) async {
+    expandedRadiusCalls.add((requestId, newRadiusKm));
+    _requests.value = [
+      for (final r in _requests.value)
+        if (r.id == requestId) r.copyWith(searchRadiusKm: newRadiusKm) else r,
+    ];
+  }
 
   @override
   Future<void> respondToInvitation(String id, InvitationStatus status) async {
@@ -184,6 +336,44 @@ class FakeBackend implements Backend {
       for (final i in _invitations.value)
         if (i.id == id) i.copyWith(status: status) else i,
     ];
+    if (status == InvitationStatus.accepted) {
+      final inv = _invitations.value.where((i) => i.id == id).firstOrNull;
+      final targetReqId = inv?.requestId ?? id;
+      _requests.value = [
+        for (final r in _requests.value)
+          if (r.id == targetReqId)
+            r.copyWith(
+              status: RequestStatus.donorAccepted,
+              acceptedDonors: [
+                ...r.acceptedDonors,
+                AcceptedDonor(
+                  id: uid,
+                  name: currentUser?.name ?? 'Donor',
+                  bloodGroup: currentUser?.bloodGroup ?? BloodGroup.aPos,
+                  bloodType: r.bloodType,
+                  phone: currentUser?.phone,
+                  distanceKm: inv?.distanceKm ?? 2.4,
+                  location: myLocation,
+                  status: 'Accepted',
+                  transitStatus: DonorTransitStatus.accepted,
+                  isVerified: true,
+                  isDonorModeOn: true,
+                  acceptedAt: DateTime.now(),
+                ),
+              ],
+              timeline: [
+                ...r.timeline,
+                StatusEvent(
+                  status: RequestStatus.donorAccepted,
+                  at: DateTime.now(),
+                  note: '${currentUser?.name ?? "Donor"} accepted your blood request',
+                ),
+              ],
+            )
+          else
+            r,
+      ];
+    }
   }
 
   @override
@@ -204,12 +394,82 @@ class FakeBackend implements Backend {
   }
 
   @override
-  Future<void> updateLiveLocation(String requestId, GeoPoint point) async =>
-      liveLocationUpdates.add((requestId, point));
+  Future<void> updateLiveLocation(
+    String requestId,
+    GeoPoint point, {
+    DonorTransitStatus transitStatus = DonorTransitStatus.onTheWay,
+    double? headingDegrees,
+    bool isRequester = false,
+  }) async {
+    liveLocationUpdates.add((requestId, point));
+    final ping = DonorPing(
+      point: point,
+      at: DateTime.now(),
+      transitStatus: transitStatus,
+      headingDegrees: headingDegrees,
+    );
+    _requests.value = [
+      for (final r in _requests.value)
+        if (r.id == requestId)
+          isRequester
+              ? r.copyWith(requesterLiveLocation: ping)
+              : r.copyWith(
+                  donorLiveLocations: {
+                    ...r.donorLiveLocations,
+                    uid: ping,
+                  },
+                )
+        else
+          r,
+    ];
+  }
 
   @override
-  Future<void> stopLiveLocation(String requestId) async =>
-      stoppedLiveLocationIds.add(requestId);
+  Future<void> updateDonorTransitStatus(
+    String requestId,
+    DonorTransitStatus status,
+  ) async {
+    _requests.value = [
+      for (final r in _requests.value)
+        if (r.id == requestId)
+          r.copyWith(
+            donorLiveLocations: {
+              for (final entry in r.donorLiveLocations.entries)
+                entry.key: DonorPing(
+                  point: entry.value.point,
+                  at: entry.value.at,
+                  transitStatus:
+                      entry.key == uid ? status : entry.value.transitStatus,
+                  headingDegrees: entry.value.headingDegrees,
+                ),
+            },
+          )
+        else
+          r,
+    ];
+  }
+
+  @override
+  Future<void> stopLiveLocation(
+    String requestId, {
+    bool isRequester = false,
+  }) async {
+    stoppedLiveLocationIds.add(requestId);
+    _requests.value = [
+      for (final r in _requests.value)
+        if (r.id == requestId)
+          isRequester
+              ? r.copyWith(requesterLiveLocation: null)
+              : r.copyWith(
+                  donorLiveLocations: {
+                    for (final entry in r.donorLiveLocations.entries)
+                      if (entry.key != uid) entry.key: entry.value,
+                  },
+                )
+        else
+          r,
+    ];
+  }
 
   @override
   Future<UserProfile> signInWithPassword({

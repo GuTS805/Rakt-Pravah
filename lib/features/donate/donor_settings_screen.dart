@@ -6,6 +6,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/theme/semantics.dart';
+import '../../core/utils/formatters.dart';
 import '../../data/models/models.dart';
 import '../../data/providers.dart';
 import '../../shared/settings_widgets.dart';
@@ -86,7 +87,10 @@ class DonorSettingsScreen extends ConsumerWidget {
           ),
           if (donor.isInCooldown) ...[
             const SizedBox(height: AppSpacing.sm),
-            _CooldownNotice(remaining: donor.cooldownRemaining),
+            _CooldownNotice(
+              remaining: donor.cooldownRemaining,
+              nextEligibleDate: donor.nextEligibleDonationDate,
+            ),
           ],
           const SizedBox(height: AppSpacing.xl),
           SettingsSection(
@@ -235,32 +239,60 @@ class _AvailabilityRow extends StatelessWidget {
 }
 
 class _CooldownNotice extends StatelessWidget {
-  const _CooldownNotice({required this.remaining});
+  const _CooldownNotice({
+    required this.remaining,
+    this.nextEligibleDate,
+  });
   final Duration remaining;
+  final DateTime? nextEligibleDate;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final days = remaining.inHours < 24 ? 1 : (remaining.inHours / 24).ceil();
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: c.warningSubtle,
         borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: c.warning.withValues(alpha: 0.3)),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.bedtime_rounded, size: 18, color: c.warning),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              days == 1
-                  ? 'Thanks for donating. You\'ll be eligible to donate again tomorrow.'
-                  : 'Thanks for donating. You\'ll be eligible to donate again in $days days — this keeps donation safe for you.',
-              style: context.text.bodySmall,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.bedtime_rounded, size: 18, color: c.warning),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Thanks for donating! Donor Mode is automatically OFF during your 3-month waiting period.',
+                  style: context.text.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
+          if (nextEligibleDate != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Next eligible donation date: ${Fmt.fullDate(nextEligibleDate!)}',
+              style: context.text.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: c.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Time remaining: ${Fmt.countdown(remaining)}',
+              style: AppTypography.mono(
+                size: 12,
+                weight: FontWeight.w600,
+                color: c.warning,
+              ),
+            ),
+          ],
         ],
       ),
     );

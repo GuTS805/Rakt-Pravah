@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/models.dart';
 import '../../data/providers.dart';
 import '../router/app_router.dart';
-import '../utils/formatters.dart';
 import '../router/routes.dart';
 import 'notification_service.dart';
 
@@ -115,14 +114,12 @@ final notificationWatcherProvider = Provider<void>((ref) {
         final newest = r.acceptedDonors.last.name;
         service.show(
           id: r.id.hashCode,
-          title: r.isFullyMatched
-              ? 'Every unit has a donor'
-              : 'A donor accepted your request',
-          body: r.isFullyMatched
-              ? '$newest completes the ${Fmt.units(r.units)} you asked for '
-                    'at ${r.destination.name}.'
-              : '$newest is coming to ${r.destination.name}. '
-                    '${r.unitsRemaining} still needed.',
+          title: '🩸 Blood Request Accepted',
+          body:
+              'Your blood request has been accepted by a donor.\n'
+              '$newest has accepted your blood request.\n'
+              '🟢 On the way\n'
+              '[Track Donor] [Call] [Chat]',
           payload: 'request:${r.id}',
         );
       } else if (r.unitsPledged < previous && r.status.isActive) {
