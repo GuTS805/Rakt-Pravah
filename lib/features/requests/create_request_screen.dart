@@ -703,6 +703,45 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
           'Donors will go to this hospital for this patient, so make sure '
               'everything is right.',
         ),
+        if (_urgency == Urgency.critical) ...[
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            margin: const EdgeInsets.only(bottom: AppSpacing.md),
+            decoration: BoxDecoration(
+              color: c.dangerSubtle,
+              borderRadius: AppRadius.cardMd,
+              border: Border.all(color: c.danger.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, size: 22, color: c.danger),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '🚨 EMERGENCY BLOOD REQUEST',
+                        style: context.text.titleSmall?.copyWith(
+                          color: c.danger,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'This request will immediately alert compatible nearby donors as critical urgency.',
+                        style: context.text.bodySmall?.copyWith(
+                          color: c.danger,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         AppCard(
           child: Column(
             children: [

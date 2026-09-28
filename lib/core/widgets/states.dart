@@ -208,3 +208,176 @@ class CardSkeleton extends StatelessWidget {
     );
   }
 }
+
+/// A skeleton loader for tabular/grid views.
+class TableSkeleton extends StatelessWidget {
+  const TableSkeleton({super.key, this.rows = 4});
+  final int rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: AppRadius.cardMd,
+        border: Border.all(color: c.border),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
+            ),
+            color: c.surfaceMuted,
+            child: Row(
+              children: const [
+                Expanded(flex: 3, child: Skeleton(height: 12, width: 80)),
+                SizedBox(width: AppSpacing.md),
+                Expanded(flex: 2, child: Skeleton(height: 12, width: 60)),
+                SizedBox(width: AppSpacing.md),
+                Expanded(flex: 2, child: Skeleton(height: 12, width: 60)),
+                SizedBox(width: AppSpacing.md),
+                Expanded(flex: 1, child: Skeleton(height: 12, width: 40)),
+              ],
+            ),
+          ),
+          for (int i = 0; i < rows; i++) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.md + 2,
+              ),
+              child: Row(
+                children: [
+                  const Expanded(flex: 3, child: Skeleton(height: 14)),
+                  const SizedBox(width: AppSpacing.md),
+                  const Expanded(flex: 2, child: Skeleton(height: 14)),
+                  const SizedBox(width: AppSpacing.md),
+                  const Expanded(flex: 2, child: Skeleton(height: 14)),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    flex: 1,
+                    child: Skeleton(
+                      height: 22,
+                      width: 48,
+                      radius: AppRadius.pill,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (i < rows - 1) Divider(height: 1, color: c.border),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A skeleton loader for KPI/Stat cards.
+class StatCardSkeleton extends StatelessWidget {
+  const StatCardSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      width: 200,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: AppRadius.cardMd,
+        border: Border.all(color: c.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Skeleton(height: 28, width: 28, radius: AppRadius.sm),
+          SizedBox(height: AppSpacing.md),
+          Skeleton(height: 24, width: 64),
+          SizedBox(height: AppSpacing.xs),
+          Skeleton(height: 12, width: 100),
+        ],
+      ),
+    );
+  }
+}
+
+/// Consistent toast & feedback helper for the entire application.
+abstract class AppToast {
+  static void showSuccess(BuildContext context, String message) {
+    _show(context, message, isError: false, icon: Icons.check_circle_rounded);
+  }
+
+  static void showError(BuildContext context, String message) {
+    _show(context, message, isError: true, icon: Icons.error_outline_rounded);
+  }
+
+  static void showWarning(BuildContext context, String message) {
+    final c = context.colors;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: c.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.buttonRadius,
+          side: BorderSide(color: c.warning.withValues(alpha: 0.4)),
+        ),
+        content: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, size: 18, color: c.warning),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                message,
+                style: context.text.bodyMedium?.copyWith(
+                  color: c.textPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static void _show(
+    BuildContext context,
+    String message, {
+    required bool isError,
+    required IconData icon,
+  }) {
+    final c = context.colors;
+    final color = isError ? c.danger : c.success;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: c.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.buttonRadius,
+          side: BorderSide(color: color.withValues(alpha: 0.4)),
+        ),
+        content: Row(
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                message,
+                style: context.text.bodyMedium?.copyWith(
+                  color: c.textPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

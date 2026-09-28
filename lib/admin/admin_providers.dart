@@ -15,6 +15,7 @@ final adminBackendProvider = Provider<AdminBackend?>((ref) {
     fs.FirebaseFirestore.instance,
     actorId: user.id,
     actorName: user.name,
+    isAdmin: user.isAdmin,
   );
 });
 

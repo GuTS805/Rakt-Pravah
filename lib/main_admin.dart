@@ -6,13 +6,22 @@ import 'package:go_router/go_router.dart';
 import 'admin/admin_auth.dart';
 import 'admin/admin_screens.dart';
 import 'admin/admin_shell.dart';
+import 'admin/screens/admin_analytics_screen.dart';
+import 'admin/screens/admin_availability_screen.dart';
+import 'admin/screens/admin_connections_screen.dart';
+import 'admin/screens/admin_donations_screen.dart';
+import 'admin/screens/admin_hospitals_screen.dart';
+import 'admin/screens/admin_live_map_screen.dart';
+import 'admin/screens/admin_notifications_screen.dart';
+import 'admin/screens/admin_settings_screen.dart';
+import 'admin/screens/admin_verification_screen.dart';
 import 'core/theme/app_theme.dart';
 import 'data/providers.dart';
 import 'firebase_options.dart';
 
-/// Separate entrypoint for the operations console (spec §27): a desktop web
-/// surface with its own sidebar layout, deliberately not reachable from the
-/// mobile app's bottom navigation.
+/// Separate entrypoint for the operations console: a desktop web surface with
+/// its own sidebar layout, deliberately not reachable from the mobile app's
+/// bottom navigation.
 ///
 /// Build it with:
 ///   flutter build web -t lib/main_admin.dart
@@ -22,10 +31,6 @@ void main() async {
   runApp(const ProviderScope(child: AdminApp()));
 }
 
-/// Sign-in and the console are routes, not a wrapper around them: a screen
-/// built by MaterialApp's builder sits above the Navigator, where there is no
-/// Overlay — and a text field without an Overlay crashes the page the moment
-/// it takes focus.
 final adminRouterProvider = Provider<GoRouter>((ref) {
   final authListenable = ValueNotifier(ref.read(authControllerProvider));
   ref.onDispose(authListenable.dispose);
@@ -46,7 +51,6 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
           return loc == _signIn ? null : _signIn;
         case AuthStatus.needsOnboarding:
         case AuthStatus.authenticated:
-          // Signed in is not the same as being an operator.
           if (!(auth.user?.isAdmin ?? false)) {
             return loc == _noAccess ? null : _noAccess;
           }
@@ -60,12 +64,67 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => AdminShell(child: child),
         routes: [
-          GoRoute(path: '/', builder: (_, _) => const AdminDashboardScreen()),
+          // Dashboard
+          GoRoute(
+            path: '/',
+            builder: (_, _) => const AdminDashboardScreen(),
+          ),
+
+          // People
+          GoRoute(
+            path: '/users',
+            builder: (_, _) => const AdminUsersScreen(),
+          ),
+          GoRoute(
+            path: '/donors',
+            builder: (_, _) => const AdminDonorsScreen(),
+          ),
+          GoRoute(
+            path: '/verification',
+            builder: (_, _) => const AdminVerificationScreen(),
+          ),
+
+          // Blood Operations
           GoRoute(
             path: '/requests',
             builder: (_, _) => const AdminRequestsScreen(),
           ),
-          GoRoute(path: '/users', builder: (_, _) => const AdminUsersScreen()),
+          GoRoute(
+            path: '/emergency',
+            builder: (_, _) => const AdminEmergencyScreen(),
+          ),
+          GoRoute(
+            path: '/map',
+            builder: (_, _) => const AdminLiveMapScreen(),
+          ),
+          GoRoute(
+            path: '/availability',
+            builder: (_, _) => const AdminAvailabilityScreen(),
+          ),
+          GoRoute(
+            path: '/donations',
+            builder: (_, _) => const AdminDonationsScreen(),
+          ),
+          GoRoute(
+            path: '/connections',
+            builder: (_, _) => const AdminConnectionsScreen(),
+          ),
+
+          // Management
+          GoRoute(
+            path: '/hospitals',
+            builder: (_, _) => const AdminHospitalsScreen(),
+          ),
+          GoRoute(
+            path: '/analytics',
+            builder: (_, _) => const AdminAnalyticsScreen(),
+          ),
+          GoRoute(
+            path: '/notifications',
+            builder: (_, _) => const AdminNotificationsScreen(),
+          ),
+
+          // Safety
           GoRoute(
             path: '/reports',
             builder: (_, _) => const AdminReportsScreen(),
@@ -74,10 +133,19 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
             path: '/moderation',
             builder: (_, _) => const AdminModerationScreen(),
           ),
-          GoRoute(path: '/audit', builder: (_, _) => const AdminAuditScreen()),
+          GoRoute(
+            path: '/audit',
+            builder: (_, _) => const AdminAuditScreen(),
+          ),
+
+          // System
           GoRoute(
             path: '/health',
             builder: (_, _) => const AdminHealthScreen(),
+          ),
+          GoRoute(
+            path: '/settings',
+            builder: (_, _) => const AdminSettingsScreen(),
           ),
         ],
       ),
@@ -100,8 +168,6 @@ class _AdminAppState extends ConsumerState<AdminApp> {
   @override
   void initState() {
     super.initState();
-    // The mobile app does this from its splash screen; the console has no
-    // splash, so it restores any existing session on first frame instead.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(authControllerProvider.notifier).finishStartup();
     });

@@ -179,6 +179,100 @@ class AvailabilityBadge extends StatelessWidget {
   );
 }
 
+class VerificationBadge extends StatelessWidget {
+  const VerificationBadge({
+    super.key,
+    required this.verified,
+    this.dense = false,
+  });
+  final bool verified;
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: dense ? AppSpacing.sm : AppSpacing.md,
+        vertical: dense ? 3 : AppSpacing.xs + 1,
+      ),
+      decoration: BoxDecoration(
+        color: verified ? c.successSubtle : c.warningSubtle,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(
+          color: (verified ? c.success : c.warning).withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            verified ? Icons.verified_rounded : Icons.pending_outlined,
+            size: dense ? 12 : 14,
+            color: verified ? c.success : c.warning,
+          ),
+          const SizedBox(width: AppSpacing.xs + 1),
+          Text(
+            verified ? 'Verified Donor' : 'Pending Verification',
+            style: TextStyle(
+              fontSize: dense ? 10.5 : 11.5,
+              fontWeight: FontWeight.w600,
+              color: verified ? c.success : c.warning,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CustomStatusBadge extends StatelessWidget {
+  const CustomStatusBadge({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.backgroundColor,
+    this.dense = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final Color backgroundColor;
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: dense ? AppSpacing.sm : AppSpacing.md,
+        vertical: dense ? 3 : AppSpacing.xs + 1,
+      ),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: dense ? 12 : 14, color: color),
+          const SizedBox(width: AppSpacing.xs + 1),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: dense ? 10.5 : 11.5,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Distance readout in mono ("3.2 km"), used on invitation/opportunity cards.
 class DistanceIndicator extends StatelessWidget {
   const DistanceIndicator(this.km, {super.key});

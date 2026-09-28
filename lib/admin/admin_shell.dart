@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/app_typography.dart';
+import '../data/models/models.dart';
 import '../data/providers.dart';
 import '../shared/brand_mark.dart';
 import 'admin_providers.dart';
@@ -16,21 +17,45 @@ class AdminSection {
   final IconData icon;
 }
 
-/// Spec §27: Dashboard, Requests, Users, Reports, Moderation, Audit Logs,
-/// System Health — in that order, in a desktop sidebar.
-const adminSections = [
-  AdminSection('/', 'Dashboard', Icons.speed_rounded),
-  AdminSection('/requests', 'Requests', Icons.receipt_long_rounded),
-  AdminSection('/users', 'Users', Icons.people_alt_rounded),
-  AdminSection('/reports', 'Reports', Icons.flag_rounded),
-  AdminSection('/moderation', 'Moderation', Icons.gavel_rounded),
-  AdminSection('/audit', 'Audit Logs', Icons.fact_check_rounded),
-  AdminSection('/health', 'System Health', Icons.monitor_heart_rounded),
+/// Sidebar sections grouped by category.
+const _mainSections = [
+  AdminSection('/', 'Dashboard', Icons.dashboard_rounded),
 ];
 
-/// The console frame: a fixed sidebar and a scrolling work area. Nothing here
-/// is shared with the mobile app's bottom navigation — admin is a separate
-/// surface by design.
+const _peopleSections = [
+  AdminSection('/users', 'Users', Icons.people_alt_rounded),
+  AdminSection('/donors', 'Donors', Icons.volunteer_activism_rounded),
+  AdminSection('/verification', 'Donor Verification', Icons.verified_user_rounded),
+];
+
+const _bloodSections = [
+  AdminSection('/requests', 'Blood Requests', Icons.receipt_long_rounded),
+  AdminSection('/emergency', 'Emergency Requests', Icons.emergency_rounded),
+  AdminSection('/map', 'Live Map', Icons.map_rounded),
+  AdminSection('/availability', 'Blood Availability', Icons.water_drop_rounded),
+  AdminSection('/donations', 'Donations', Icons.bloodtype_rounded),
+  AdminSection('/connections', 'Connections', Icons.handshake_rounded),
+];
+
+const _manageSections = [
+  AdminSection('/hospitals', 'Hospitals', Icons.local_hospital_rounded),
+  AdminSection('/analytics', 'Analytics', Icons.analytics_rounded),
+  AdminSection('/notifications', 'Notifications', Icons.notifications_rounded),
+];
+
+const _safetySections = [
+  AdminSection('/reports', 'Reports & Abuse', Icons.flag_rounded),
+  AdminSection('/moderation', 'Moderation', Icons.gavel_rounded),
+  AdminSection('/audit', 'Audit Logs', Icons.fact_check_rounded),
+];
+
+const _systemSections = [
+  AdminSection('/health', 'System Health', Icons.monitor_heart_rounded),
+  AdminSection('/settings', 'Settings', Icons.settings_rounded),
+];
+
+/// The console frame: responsive with desktop sidebar (>=800px) and
+/// mobile header + navigation drawer (<800px).
 class AdminShell extends ConsumerWidget {
   const AdminShell({super.key, required this.child});
   final Widget child;
@@ -38,16 +63,231 @@ class AdminShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    final width = MediaQuery.sizeOf(context).width;
+    final isMobile = width < 800;
     final location = GoRouterState.of(context).uri.path;
     final user = ref.watch(currentUserProvider);
     final attention = ref.watch(adminAttentionQueueProvider).length;
 
+    Widget navItem(AdminSection section, {int? badge, VoidCallback? onNav}) {
+      final isPrefixAdmin = location.startsWith('/admin');
+      final fullPath = isPrefixAdmin
+          ? (section.path == '/' ? '/admin' : '/admin${section.path}')
+          : section.path;
+      final selected = section.path == '/'
+          ? (location == '/' || location == '/admin')
+          : (location == fullPath || location.startsWith('$fullPath/'));
+      return _NavItem(
+        section: section,
+        selected: selected,
+        badge: badge,
+        onTap: () {
+          if (onNav != null) onNav();
+          context.go(fullPath);
+        },
+      );
+    }
+
+    Widget buildNavList({VoidCallback? onNav}) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.only(
+          top: AppSpacing.sm,
+          bottom: AppSpacing.lg,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final s in _mainSections) navItem(s, onNav: onNav),
+            const AdminSidebarSection('People'),
+            for (final s in _peopleSections) navItem(s, onNav: onNav),
+            const AdminSidebarSection('Blood Operations'),
+            for (final s in _bloodSections)
+              navItem(
+                s,
+                onNav: onNav,
+                badge: s.path == '/emergency'
+                    ? _emergencyCount(ref)
+                    : null,
+              ),
+            const AdminSidebarSection('Management'),
+            for (final s in _manageSections) navItem(s, onNav: onNav),
+            const AdminSidebarSection('Safety'),
+            for (final s in _safetySections)
+              navItem(
+                s,
+                onNav: onNav,
+                badge: s.path == '/moderation' && attention > 0
+                    ? attention
+                    : null,
+              ),
+            const AdminSidebarSection('System'),
+            for (final s in _systemSections) navItem(s, onNav: onNav),
+          ],
+        ),
+      );
+    }
+
+    Widget buildFooter() {
+      return Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: c.brand.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  (user?.name.isNotEmpty == true ? user!.name[0] : '?').toUpperCase(),
+                  style: AppTypography.mono(
+                    size: 13,
+                    weight: FontWeight.w700,
+                    color: c.brand,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    user?.name ?? 'Signed out',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.text.titleSmall,
+                  ),
+                  Text(
+                    'Administrator',
+                    style: context.text.bodySmall?.copyWith(
+                      color: c.textTertiary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Sign out',
+              icon: const Icon(Icons.logout_rounded, size: 18),
+              onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (isMobile) {
+      return Scaffold(
+        backgroundColor: c.background,
+        appBar: AppBar(
+          backgroundColor: c.surface,
+          elevation: 0,
+          leading: Builder(
+            builder: (ctx) => IconButton(
+              icon: const Icon(Icons.menu_rounded),
+              tooltip: 'Navigation Menu',
+              onPressed: () => Scaffold.of(ctx).openDrawer(),
+            ),
+          ),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const BrandMark(size: 24),
+              const SizedBox(width: AppSpacing.sm),
+              Flexible(
+                child: Text(
+                  'Rakt Pravah Admin',
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(color: c.border, height: 1),
+          ),
+          actions: [
+            IconButton(
+              tooltip: 'Notifications',
+              icon: const Icon(Icons.notifications_outlined, size: 22),
+              onPressed: () => context.go('/notifications'),
+            ),
+          ],
+        ),
+        drawer: Drawer(
+          backgroundColor: c.surface,
+          width: (width * 0.82).clamp(280.0, 340.0),
+          child: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.md,
+                    AppSpacing.sm,
+                    AppSpacing.md,
+                  ),
+                  child: Row(
+                    children: [
+                      const BrandMark(size: 28),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Rakt Pravah',
+                              style: context.text.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              'Operations Console',
+                              style: context.text.bodySmall?.copyWith(
+                                color: c.textTertiary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        tooltip: 'Close Menu',
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: c.border),
+                Expanded(
+                  child: buildNavList(onNav: () => Navigator.of(context).pop()),
+                ),
+                Divider(height: 1, color: c.border),
+                buildFooter(),
+              ],
+            ),
+          ),
+        ),
+        body: child,
+      );
+    }
+
+    // Desktop permanent sidebar
     return Scaffold(
       backgroundColor: c.background,
       body: Row(
         children: [
           Container(
-            width: 232,
+            width: 250,
             decoration: BoxDecoration(
               color: c.surface,
               border: Border(right: BorderSide(color: c.border)),
@@ -72,10 +312,12 @@ class AdminShell extends ConsumerWidget {
                           children: [
                             Text(
                               'Rakt Pravah',
-                              style: context.text.titleMedium,
+                              style: context.text.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                             Text(
-                              'Operations',
+                              'Admin Console',
                               style: context.text.bodySmall?.copyWith(
                                 color: c.textTertiary,
                               ),
@@ -87,51 +329,9 @@ class AdminShell extends ConsumerWidget {
                   ),
                 ),
                 Divider(height: 1, color: c.border),
-                const SizedBox(height: AppSpacing.sm),
-                for (final section in adminSections)
-                  _NavItem(
-                    section: section,
-                    selected: section.path == '/'
-                        ? location == '/'
-                        : location.startsWith(section.path),
-                    badge: section.path == '/moderation' && attention > 0
-                        ? attention
-                        : null,
-                  ),
-                const Spacer(),
+                Expanded(child: buildNavList()),
                 Divider(height: 1, color: c.border),
-                Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              user?.name ?? 'Signed out',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: context.text.titleSmall,
-                            ),
-                            Text(
-                              'Administrator',
-                              style: context.text.bodySmall?.copyWith(
-                                color: c.textTertiary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Sign out',
-                        icon: const Icon(Icons.logout_rounded, size: 18),
-                        onPressed: () =>
-                            ref.read(authControllerProvider.notifier).logout(),
-                      ),
-                    ],
-                  ),
-                ),
+                buildFooter(),
               ],
             ),
           ),
@@ -140,13 +340,32 @@ class AdminShell extends ConsumerWidget {
       ),
     );
   }
+
+  int _emergencyCount(WidgetRef ref) {
+    final requests =
+        ref.watch(adminRequestsProvider).valueOrNull ?? const [];
+    return requests
+        .where(
+          (r) =>
+              r.isOpen &&
+              (r.urgency == Urgency.critical || r.urgency == Urgency.urgent),
+        )
+        .length;
+  }
 }
 
 class _NavItem extends StatelessWidget {
-  const _NavItem({required this.section, required this.selected, this.badge});
+  const _NavItem({
+    required this.section,
+    required this.selected,
+    this.badge,
+    this.onTap,
+  });
+
   final AdminSection section;
   final bool selected;
   final int? badge;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -158,14 +377,14 @@ class _NavItem extends StatelessWidget {
       ),
       child: Material(
         color: selected ? c.brandSubtle : Colors.transparent,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
+        borderRadius: AppRadius.buttonRadius,
         child: InkWell(
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          onTap: () => context.go(section.path),
+          borderRadius: AppRadius.buttonRadius,
+          onTap: onTap ?? () => context.go(section.path),
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.md,
-              vertical: AppSpacing.md,
+              vertical: 10,
             ),
             child: Row(
               children: [
@@ -184,14 +403,14 @@ class _NavItem extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (badge != null)
+                if (badge != null && badge! > 0)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: c.warning,
+                      color: c.danger,
                       borderRadius: BorderRadius.circular(AppRadius.pill),
                     ),
                     child: Text(
@@ -212,8 +431,36 @@ class _NavItem extends StatelessWidget {
   }
 }
 
+/// Category divider in the sidebar.
+class AdminSidebarSection extends StatelessWidget {
+  const AdminSidebarSection(this.label, {super.key});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.xs,
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: AppTypography.mono(
+          size: 10,
+          weight: FontWeight.w700,
+          color: c.textTertiary,
+          spacing: 0.8,
+        ),
+      ),
+    );
+  }
+}
+
 /// Every admin page opens the same way: what this page is, and how much work
-/// is on it. No decorative headers.
+/// is on it. Responsive padding ensures no overflow on narrow mobile screens.
 class AdminPage extends StatelessWidget {
   const AdminPage({
     super.key,
@@ -231,21 +478,26 @@ class AdminPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final width = MediaQuery.sizeOf(context).width;
+    final isMobile = width < 600;
+    final hPad = isMobile ? AppSpacing.md : AppSpacing.xxl;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xxl,
-            AppSpacing.xl,
-            AppSpacing.xxl,
-            AppSpacing.lg,
+          padding: EdgeInsets.fromLTRB(
+            hPad,
+            isMobile ? AppSpacing.md : AppSpacing.xl,
+            hPad,
+            isMobile ? AppSpacing.md : AppSpacing.lg,
           ),
           decoration: BoxDecoration(
             color: c.surface,
             border: Border(bottom: BorderSide(color: c.border)),
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Column(
@@ -262,13 +514,16 @@ class AdminPage extends StatelessWidget {
                   ],
                 ),
               ),
-              ...?actions,
+              if (actions != null && actions!.isNotEmpty) ...[
+                const SizedBox(width: AppSpacing.sm),
+                ...actions!,
+              ],
             ],
           ),
         ),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.xxl),
+            padding: EdgeInsets.all(hPad),
             child: child,
           ),
         ),
@@ -277,9 +532,7 @@ class AdminPage extends StatelessWidget {
   }
 }
 
-/// A count with a label. Reads as an instrument, not a marketing stat: the
-/// number carries a semantic colour only when it represents work that is
-/// going wrong.
+/// A count with a label. Reads as an instrument, not a marketing stat.
 class AdminMetric extends StatelessWidget {
   const AdminMetric({
     super.key,
@@ -299,11 +552,11 @@ class AdminMetric extends StatelessWidget {
     final c = context.colors;
     final colour = value == 0 ? c.textPrimary : (tone ?? c.textPrimary);
     return Container(
-      width: 190,
+      constraints: const BoxConstraints(minWidth: 160, maxWidth: 220),
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: c.surface,
-        borderRadius: AppRadius.cardLg,
+        borderRadius: AppRadius.cardMd,
         border: Border.all(color: c.border),
       ),
       child: Column(
@@ -312,7 +565,7 @@ class AdminMetric extends StatelessWidget {
           Text(
             '$value',
             style: AppTypography.mono(
-              size: 30,
+              size: 28,
               weight: FontWeight.w700,
               color: colour,
             ),
@@ -332,8 +585,7 @@ class AdminMetric extends StatelessWidget {
   }
 }
 
-/// A bordered surface for a table or list. Tables scroll horizontally inside
-/// it rather than forcing the page to.
+/// A bordered surface for a table or list.
 class AdminPanel extends StatelessWidget {
   const AdminPanel({
     super.key,
@@ -341,6 +593,7 @@ class AdminPanel extends StatelessWidget {
     required this.child,
     this.trailing,
   });
+
   final String title;
   final Widget child;
   final Widget? trailing;
@@ -351,7 +604,7 @@ class AdminPanel extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: c.surface,
-        borderRadius: AppRadius.cardLg,
+        borderRadius: AppRadius.cardMd,
         border: Border.all(color: c.border),
       ),
       child: Column(
@@ -379,8 +632,7 @@ class AdminPanel extends StatelessWidget {
   }
 }
 
-/// Honest empty state: says why there is nothing here, not just that there
-/// isn't.
+/// Honest empty state.
 class AdminEmpty extends StatelessWidget {
   const AdminEmpty({super.key, required this.message, this.icon});
   final String message;

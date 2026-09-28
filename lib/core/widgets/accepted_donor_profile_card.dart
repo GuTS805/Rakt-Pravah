@@ -73,7 +73,7 @@ class AcceptedDonorProfileCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       decoration: BoxDecoration(
         color: c.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        borderRadius: BorderRadius.circular(AppRadius.card),
         border: Border.all(
           color: isSelected
               ? c.success.withValues(alpha: 0.6)
@@ -97,7 +97,7 @@ class AcceptedDonorProfileCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
               decoration: BoxDecoration(
                 color: c.successSubtle,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.lg - 1)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.card - 1)),
               ),
               child: Row(
                 children: [
@@ -438,7 +438,7 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppRadius.md),
+                              borderRadius: BorderRadius.circular(AppRadius.button),
                             ),
                             elevation: 0,
                           ),
@@ -454,7 +454,7 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                             side: BorderSide(color: c.success.withValues(alpha: 0.5)),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppRadius.md),
+                              borderRadius: BorderRadius.circular(AppRadius.button),
                             ),
                           ),
                           child: const Row(
@@ -476,7 +476,7 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                           side: BorderSide(color: c.brand.withValues(alpha: 0.5)),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            borderRadius: BorderRadius.circular(AppRadius.button),
                           ),
                         ),
                         child: const Row(

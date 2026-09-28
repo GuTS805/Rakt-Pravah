@@ -11,7 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 ///    console rather than a social feed.
 abstract class AppTypography {
   static TextTheme textTheme(Color primary, Color secondary) {
-    final sans = GoogleFonts.ibmPlexSans;
+    final sans = GoogleFonts.inter;
 
     TextStyle s(
       double size,
@@ -28,20 +28,25 @@ abstract class AppTypography {
     );
 
     return TextTheme(
-      // Display / big moments (used sparingly)
-      displaySmall: s(30, FontWeight.w700, 1.15, spacing: -0.5),
-      headlineLarge: s(26, FontWeight.w700, 1.2, spacing: -0.3),
-      headlineMedium: s(22, FontWeight.w700, 1.25, spacing: -0.2),
-      headlineSmall: s(19, FontWeight.w600, 1.3, spacing: -0.1),
-      titleLarge: s(17, FontWeight.w600, 1.3),
-      titleMedium: s(15, FontWeight.w600, 1.35),
-      titleSmall: s(13, FontWeight.w600, 1.35),
-      bodyLarge: s(16, FontWeight.w400, 1.45, color: primary),
-      bodyMedium: s(14, FontWeight.w400, 1.45, color: secondary),
-      bodySmall: s(12.5, FontWeight.w400, 1.4, color: secondary),
-      labelLarge: s(14, FontWeight.w600, 1.2),
-      labelMedium: s(12.5, FontWeight.w600, 1.2),
-      labelSmall: s(11, FontWeight.w500, 1.2, color: secondary),
+      // Page Titles (28–32px)
+      displaySmall: s(32, FontWeight.w700, 1.2, spacing: -0.6),
+      headlineLarge: s(28, FontWeight.w700, 1.25, spacing: -0.4),
+      // Section Titles (20–24px)
+      headlineMedium: s(24, FontWeight.w600, 1.3, spacing: -0.3),
+      headlineSmall: s(20, FontWeight.w600, 1.3, spacing: -0.2),
+      // Card Titles (16–18px)
+      titleLarge: s(18, FontWeight.w600, 1.35),
+      titleMedium: s(16, FontWeight.w600, 1.35),
+      titleSmall: s(15, FontWeight.w600, 1.35),
+      // Body (14–16px)
+      bodyLarge: s(16, FontWeight.w400, 1.5, color: primary),
+      bodyMedium: s(14, FontWeight.w400, 1.5, color: secondary),
+      // Secondary (12–14px)
+      bodySmall: s(13, FontWeight.w400, 1.45, color: secondary),
+      labelLarge: s(15, FontWeight.w600, 1.25),
+      labelMedium: s(13, FontWeight.w600, 1.2),
+      // Caption (11–12px)
+      labelSmall: s(11.5, FontWeight.w500, 1.2, color: secondary),
     );
   }
 

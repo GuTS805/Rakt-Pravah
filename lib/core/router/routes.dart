@@ -31,4 +31,26 @@ abstract class Routes {
   static const donationHistory = '/you/history/donations';
   static const privacy = '/you/privacy';
   static const settings = '/you/settings';
+
+  // Admin Routes
+  static const adminLogin = '/admin/login';
+  static const adminNoAccess = '/admin/no-access';
+  static const adminDashboard = '/admin';
+  static const adminUsers = '/admin/users';
+  static const adminDonors = '/admin/donors';
+  static const adminVerification = '/admin/verification';
+  static const adminRequests = '/admin/requests';
+  static const adminEmergency = '/admin/emergency';
+  static const adminDonations = '/admin/donations';
+  static const adminConnections = '/admin/connections';
+  static const adminHospitals = '/admin/hospitals';
+  static const adminAnalytics = '/admin/analytics';
+  static const adminNotifications = '/admin/notifications';
+  static const adminReports = '/admin/reports';
+  static const adminModeration = '/admin/moderation';
+  static const adminAudit = '/admin/audit';
+  static const adminHealth = '/admin/health';
+  static const adminSettings = '/admin/settings';
+  static const adminLiveMap = '/admin/map';
+  static const adminAvailability = '/admin/availability';
 }

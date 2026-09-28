@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 /// Local, in-process alerts only — there is no push server behind this app
@@ -19,7 +20,7 @@ class NotificationService {
   void Function(String payload)? onTap;
 
   Future<void> init() async {
-    if (_ready) return;
+    if (_ready || kIsWeb) return;
     // A dedicated white-on-transparent silhouette: Android flattens a
     // notification icon to its alpha and tints it, so pointing this at the
     // colour launcher icon renders a solid blob in the status bar.

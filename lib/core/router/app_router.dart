@@ -2,6 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../admin/admin_auth.dart';
+import '../../admin/admin_screens.dart';
+import '../../admin/admin_shell.dart';
+import '../../admin/screens/admin_analytics_screen.dart';
+import '../../admin/screens/admin_availability_screen.dart';
+import '../../admin/screens/admin_connections_screen.dart';
+import '../../admin/screens/admin_donations_screen.dart';
+import '../../admin/screens/admin_hospitals_screen.dart';
+import '../../admin/screens/admin_live_map_screen.dart';
+import '../../admin/screens/admin_notifications_screen.dart';
+import '../../admin/screens/admin_settings_screen.dart';
+import '../../admin/screens/admin_verification_screen.dart';
 import '../../data/providers.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/onboarding_screen.dart';
@@ -41,23 +53,58 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final auth = authListenable.value;
       final loc = state.matchedLocation;
+      final isAdmin = auth.user?.isAdmin ?? false;
 
-      const authPages = {Routes.login, Routes.register};
+      const authPages = {
+        Routes.login,
+        Routes.register,
+        Routes.adminNoAccess,
+      };
 
       switch (auth.status) {
         case AuthStatus.unknown:
           return loc == Routes.splash ? null : Routes.splash;
+
         case AuthStatus.unauthenticated:
+          // Single unified login page for everyone: redirect to login
+          if (loc == Routes.adminLogin) {
+            return Routes.login;
+          }
           return authPages.contains(loc) ? null : Routes.login;
+
         case AuthStatus.needsOnboarding:
           return loc == Routes.onboarding ? null : Routes.onboarding;
+
         case AuthStatus.authenticated:
-          if (loc == Routes.splash ||
-              authPages.contains(loc) ||
-              loc == Routes.onboarding) {
-            return Routes.home;
+          if (isAdmin) {
+            // Administrator: Redirects straight to Admin Dashboard
+            final isUserRoute = loc == Routes.home ||
+                loc == Routes.requests ||
+                loc == Routes.donate ||
+                loc == Routes.you;
+            if (loc == Routes.splash ||
+                loc == Routes.login ||
+                loc == Routes.register ||
+                loc == Routes.adminLogin ||
+                loc == Routes.adminNoAccess ||
+                loc == Routes.onboarding ||
+                isUserRoute) {
+              return Routes.adminDashboard;
+            }
+            return null;
+          } else {
+            // Standard User: Redirects to User Home Dashboard; never access /admin
+            if (loc.startsWith('/admin')) {
+              return Routes.adminNoAccess;
+            }
+            if (loc == Routes.splash ||
+                authPages.contains(loc) ||
+                loc == Routes.adminLogin ||
+                loc == Routes.onboarding) {
+              return Routes.home;
+            }
+            return null;
           }
-          return null;
       }
     },
     routes: [
@@ -162,6 +209,95 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: Routes.privacy, builder: (_, _) => const PrivacyScreen()),
       GoRoute(path: Routes.settings, builder: (_, _) => const SettingsScreen()),
+
+      // ---- Admin Authentication & Gateways ----
+      GoRoute(
+        path: Routes.adminLogin,
+        redirect: (_, _) => Routes.login,
+      ),
+      GoRoute(
+        path: Routes.adminNoAccess,
+        builder: (_, _) => const AdminNoAccessScreen(),
+      ),
+
+      // ---- Admin Shell Route (Operations Console) ----
+      ShellRoute(
+        builder: (context, state, child) => AdminShell(child: child),
+        routes: [
+          GoRoute(
+            path: Routes.adminDashboard,
+            builder: (_, _) => const AdminDashboardScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminUsers,
+            builder: (_, _) => const AdminUsersScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminDonors,
+            builder: (_, _) => const AdminDonorsScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminVerification,
+            builder: (_, _) => const AdminVerificationScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminRequests,
+            builder: (_, _) => const AdminRequestsScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminEmergency,
+            builder: (_, _) => const AdminEmergencyScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminLiveMap,
+            builder: (_, _) => const AdminLiveMapScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminAvailability,
+            builder: (_, _) => const AdminAvailabilityScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminDonations,
+            builder: (_, _) => const AdminDonationsScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminConnections,
+            builder: (_, _) => const AdminConnectionsScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminHospitals,
+            builder: (_, _) => const AdminHospitalsScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminAnalytics,
+            builder: (_, _) => const AdminAnalyticsScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminNotifications,
+            builder: (_, _) => const AdminNotificationsScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminReports,
+            builder: (_, _) => const AdminReportsScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminModeration,
+            builder: (_, _) => const AdminModerationScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminAudit,
+            builder: (_, _) => const AdminAuditScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminHealth,
+            builder: (_, _) => const AdminHealthScreen(),
+          ),
+          GoRoute(
+            path: Routes.adminSettings,
+            builder: (_, _) => const AdminSettingsScreen(),
+          ),
+        ],
+      ),
     ],
   );
 });

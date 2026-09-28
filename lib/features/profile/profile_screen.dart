@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_typography.dart';
 import '../../core/widgets/avatar.dart';
 import '../../core/widgets/badges.dart';
 import '../../data/providers.dart';
@@ -53,8 +54,24 @@ class ProfileScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(user.name, style: context.text.titleLarge),
-                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                user.name,
+                                style: context.text.titleLarge,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            VerificationBadge(
+                              verified: user.email != null,
+                              dense: true,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
                         Text(user.phone, style: context.text.bodyMedium),
                         if (user.placeLabel != null) ...[
                           const SizedBox(height: 2),
@@ -64,6 +81,58 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                   ),
                   BloodGroupBadge(user.bloodGroup, large: true),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+
+            // Quick donation metric stats
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.md,
+              ),
+              decoration: BoxDecoration(
+                color: c.surface,
+                borderRadius: AppRadius.cardMd,
+                border: Border.all(color: c.border),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'TOTAL DONATIONS',
+                          style: AppTypography.eyebrow(c.textTertiary),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${donor.totalDonations} completed',
+                          style: context.text.titleSmall?.copyWith(
+                            color: c.textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(height: 32, width: 1, color: c.border),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'AVAILABILITY',
+                          style: AppTypography.eyebrow(c.textTertiary),
+                        ),
+                        const SizedBox(height: 4),
+                        AvailabilityBadge(donor.availability, dense: true),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),

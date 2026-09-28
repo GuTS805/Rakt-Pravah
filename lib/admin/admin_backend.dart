@@ -8,21 +8,41 @@ import '../data/models/models.dart';
 /// Every mutating action here writes an audit entry, because an operator
 /// reaching into another person's emergency request is exactly the kind of
 /// action that needs to be attributable after the fact.
-class AdminBackend {
-  AdminBackend(this._db, {required this.actorId, required this.actorName});
+class AdminUnauthorizedException implements Exception {
+  const AdminUnauthorizedException([
+    this.message = 'Access Denied: Administrator role required.',
+  ]);
+  final String message;
+  @override
+  String toString() => message;
+}
 
-  final fs.FirebaseFirestore _db;
+class AdminBackend {
+  AdminBackend(
+    this._db, {
+    required this.actorId,
+    required this.actorName,
+    this.isAdmin = true,
+  }) {
+    if (!isAdmin) {
+      throw const AdminUnauthorizedException();
+    }
+  }
+
+  final fs.FirebaseFirestore? _db;
   final String actorId;
   final String actorName;
+  final bool isAdmin;
+  fs.FirebaseFirestore get db => _db ?? fs.FirebaseFirestore.instance;
 
   fs.CollectionReference<Map<String, dynamic>> get _requests =>
-      _db.collection('blood_requests');
+      db.collection('blood_requests');
   fs.CollectionReference<Map<String, dynamic>> get _users =>
-      _db.collection('users');
+      db.collection('users');
   fs.CollectionReference<Map<String, dynamic>> get _audit =>
-      _db.collection('admin_audit');
+      db.collection('admin_audit');
   fs.CollectionReference<Map<String, dynamic>> get _reports =>
-      _db.collection('reports');
+      db.collection('reports');
 
   // --- Requests ----------------------------------------------------------
 
@@ -38,7 +58,7 @@ class AdminBackend {
   /// no new matching, no new coordination.
   Future<void> removeRequest(String id, String reason) async {
     final ref = _requests.doc(id);
-    await _db.runTransaction((tx) async {
+    await db.runTransaction((tx) async {
       final snap = await tx.get(ref);
       if (!snap.exists) return;
       final data = snap.data()!;
@@ -119,6 +139,90 @@ class AdminBackend {
     'actorName': actorName,
     'at': fs.Timestamp.fromDate(DateTime.now()),
   });
+
+  // --- Hospitals ---------------------------------------------------------
+
+  fs.CollectionReference<Map<String, dynamic>> get _hospitals =>
+      db.collection('hospitals');
+
+  Stream<List<AdminHospital>> get hospitals => _hospitals
+      .orderBy('createdAt', descending: true)
+      .limit(200)
+      .snapshots()
+      .map((s) => s.docs.map(AdminHospital.fromDoc).toList());
+
+  Future<void> addHospital({
+    required String name,
+    required String city,
+    String? address,
+    String? contact,
+    String? state,
+    String type = 'Hospital',
+  }) async {
+    final ref = await _hospitals.add({
+      'name': name,
+      'city': city,
+      'address': address,
+      'contact': contact,
+      'state': state,
+      'type': type,
+      'isVerified': false,
+      'createdAt': fs.Timestamp.fromDate(DateTime.now()),
+    });
+    await _writeAudit(
+      action: 'hospital.add',
+      targetId: ref.id,
+      detail: name,
+    );
+  }
+
+  Future<void> verifyHospital(String id) async {
+    await _hospitals.doc(id).set(
+      {'isVerified': true, 'verifiedBy': actorId},
+      fs.SetOptions(merge: true),
+    );
+    await _writeAudit(action: 'hospital.verify', targetId: id);
+  }
+
+  Future<void> deleteHospital(String id) async {
+    await _hospitals.doc(id).delete();
+    await _writeAudit(action: 'hospital.delete', targetId: id);
+  }
+
+  // --- Admin Notifications -----------------------------------------------
+
+  fs.CollectionReference<Map<String, dynamic>> get _notifications =>
+      db.collection('admin_notifications');
+
+  Stream<List<AdminNotificationEntry>> get adminNotifications => _notifications
+      .orderBy('sentAt', descending: true)
+      .limit(200)
+      .snapshots()
+      .map((s) => s.docs.map(AdminNotificationEntry.fromDoc).toList());
+
+  Future<void> sendNotification({
+    required String title,
+    required String body,
+    required String type,
+    required String target,
+  }) async {
+    final ref = await _notifications.add({
+      'title': title,
+      'body': body,
+      'type': type,
+      'target': target,
+      'sentBy': actorName,
+      'sentById': actorId,
+      'sentAt': fs.Timestamp.fromDate(DateTime.now()),
+    });
+    await _writeAudit(
+      action: type == 'emergency'
+          ? 'notification.emergency'
+          : 'notification.send',
+      targetId: ref.id,
+      detail: title,
+    );
+  }
 }
 
 /// A request as an operator sees it: everything, including the fields the
@@ -363,3 +467,80 @@ class AuditEntry {
     );
   }
 }
+
+class AdminHospital {
+  AdminHospital({
+    required this.id,
+    required this.name,
+    required this.city,
+    required this.isVerified,
+    required this.createdAt,
+    this.address,
+    this.contact,
+    this.state,
+    this.type = 'Hospital',
+  });
+
+  final String id;
+  final String name;
+  final String city;
+  final bool isVerified;
+  final DateTime createdAt;
+  final String? address;
+  final String? contact;
+  final String? state;
+  final String type;
+
+  static AdminHospital fromDoc(
+    fs.QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final m = doc.data();
+    return AdminHospital(
+      id: doc.id,
+      name: m['name'] as String? ?? 'Unknown',
+      city: m['city'] as String? ?? '',
+      isVerified: m['isVerified'] as bool? ?? false,
+      createdAt: (m['createdAt'] as fs.Timestamp?)?.toDate() ?? DateTime.now(),
+      address: m['address'] as String?,
+      contact: m['contact'] as String?,
+      state: m['state'] as String?,
+      type: m['type'] as String? ?? 'Hospital',
+    );
+  }
+}
+
+class AdminNotificationEntry {
+  AdminNotificationEntry({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.type,
+    required this.target,
+    required this.sentBy,
+    required this.sentAt,
+  });
+
+  final String id;
+  final String title;
+  final String body;
+  final String type;
+  final String target;
+  final String sentBy;
+  final DateTime sentAt;
+
+  static AdminNotificationEntry fromDoc(
+    fs.QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final m = doc.data();
+    return AdminNotificationEntry(
+      id: doc.id,
+      title: m['title'] as String? ?? '',
+      body: m['body'] as String? ?? '',
+      type: m['type'] as String? ?? 'general',
+      target: m['target'] as String? ?? 'all',
+      sentBy: m['sentBy'] as String? ?? 'Unknown',
+      sentAt: (m['sentAt'] as fs.Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+}
+

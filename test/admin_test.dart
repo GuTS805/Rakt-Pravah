@@ -244,10 +244,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text('Open requests'), findsOneWidget);
-      expect(find.text('Awaiting a donor'), findsOneWidget);
-      expect(find.text('Past expiry'), findsOneWidget);
-      expect(find.text('Needs attention'), findsOneWidget);
+      expect(find.text('Total Users'), findsOneWidget);
+      expect(find.text('Pending Verification'), findsOneWidget);
+      expect(find.text('Emergency Requests'), findsOneWidget);
+      expect(find.text('Needs Attention'), findsOneWidget);
     });
 
     testWidgets('says so plainly when nothing is stuck', (tester) async {
@@ -381,7 +381,7 @@ void main() {
 
       expect(find.text('Available Donor'), findsOneWidget);
       expect(find.text('Resting Donor'), findsOneWidget);
-      expect(find.text('On'), findsOneWidget);
+      expect(find.text('Available'), findsOneWidget);
       expect(find.text('Cooldown'), findsOneWidget);
       expect(find.text('4'), findsOneWidget);
     });

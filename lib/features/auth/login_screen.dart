@@ -102,7 +102,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Text('Welcome back', style: context.text.headlineMedium),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'Sign in to request blood or help a nearby donor.',
+                      'Sign in to your account',
                       style: context.text.bodyMedium,
                     ),
                     const SizedBox(height: AppSpacing.xxxl),

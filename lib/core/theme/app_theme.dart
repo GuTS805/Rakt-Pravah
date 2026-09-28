@@ -97,14 +97,14 @@ abstract class AppTheme {
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppRadius.xl),
+            top: Radius.circular(AppRadius.modal),
           ),
         ),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: c.surface,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.cardLg),
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalRadius),
       ),
       splashColor: c.brand.withValues(alpha: 0.06),
       highlightColor: c.brand.withValues(alpha: 0.04),

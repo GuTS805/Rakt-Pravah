@@ -16,6 +16,14 @@ class GeoPoint {
   final double lng;
 }
 
+enum UserRole {
+  user,
+  admin;
+
+  bool get isAdmin => this == UserRole.admin;
+  bool get isUser => this == UserRole.user;
+}
+
 class UserProfile {
   const UserProfile({
     required this.id,
@@ -51,6 +59,8 @@ class UserProfile {
   final String? city;
   final DateTime? lastDonation;
   final bool isAdmin;
+
+  UserRole get role => isAdmin ? UserRole.admin : UserRole.user;
 
   /// Whole years old on [on] (today by default), or null without a birth date.
   int? ageOn([DateTime? on]) =>

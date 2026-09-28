@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../core/router/routes.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/buttons.dart';
@@ -47,7 +49,16 @@ class _AdminSignInScreenState extends ConsumerState<AdminSignInScreen> {
             email: _email.text.trim(),
             password: _password.text,
           );
-      // On success the app shell swaps this screen out for the console.
+      final user = ref.read(currentUserProvider);
+      if (user != null && !user.isAdmin) {
+        await ref.read(authControllerProvider.notifier).logout();
+        if (mounted) {
+          setState(() {
+            _error = 'Access Denied: This account does not have administrator privileges.';
+          });
+        }
+        return;
+      }
     } on SignInFailure catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
@@ -158,9 +169,17 @@ class _AdminSignInScreenState extends ConsumerState<AdminSignInScreen> {
                   ],
                   const SizedBox(height: AppSpacing.xl),
                   PrimaryButton(
-                    label: 'Sign in',
+                    label: 'Sign in to Console',
                     busy: _busy,
                     onPressed: _signIn,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Center(
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                      label: const Text('Back to User Login'),
+                      onPressed: () => context.go(Routes.login),
+                    ),
                   ),
                 ],
               ),
@@ -184,31 +203,53 @@ class AdminNoAccessScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: c.background,
       body: Center(
-        child: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.lock_outline_rounded, size: 34, color: c.textTertiary),
-              const SizedBox(height: AppSpacing.lg),
-              Text('No operator access', style: context.text.headlineSmall),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '${user?.name ?? 'This account'} is signed in, but does not '
-                'have admin access. Someone with access has to grant it from '
-                'the Users page.',
-                textAlign: TextAlign.center,
-                style: context.text.bodyMedium?.copyWith(
-                  color: c.textSecondary,
-                ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Container(
+              padding: const EdgeInsets.all(AppSpacing.xxl),
+              decoration: BoxDecoration(
+                color: c.surface,
+                borderRadius: AppRadius.cardLg,
+                border: Border.all(color: c.border),
               ),
-              const SizedBox(height: AppSpacing.xl),
-              SecondaryButton(
-                label: 'Sign out',
-                onPressed: () =>
-                    ref.read(authControllerProvider.notifier).logout(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: c.dangerSubtle,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.lock_person_rounded, size: 36, color: c.danger),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text('Access Restricted', style: context.text.headlineSmall),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    '${user?.name ?? 'This account'} is signed in as a standard user. '
+                    'Administrator privileges are required to view the Operations Console.',
+                    textAlign: TextAlign.center,
+                    style: context.text.bodyMedium?.copyWith(
+                      color: c.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  PrimaryButton(
+                    label: 'Go to User Dashboard',
+                    onPressed: () => context.go(Routes.home),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  SecondaryButton(
+                    label: 'Sign out',
+                    onPressed: () =>
+                        ref.read(authControllerProvider.notifier).logout(),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
