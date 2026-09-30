@@ -39,6 +39,17 @@ final adminAuditProvider = StreamProvider<List<AuditEntry>>((ref) {
   return admin?.auditLog ?? const Stream.empty();
 });
 
+final adminHospitalsProvider = StreamProvider<List<AdminHospital>>((ref) {
+  final admin = ref.watch(adminBackendProvider);
+  return admin?.hospitals ?? const Stream.empty();
+});
+
+final adminNotificationsProvider =
+    StreamProvider<List<AdminNotificationEntry>>((ref) {
+  final admin = ref.watch(adminBackendProvider);
+  return admin?.adminNotifications ?? const Stream.empty();
+});
+
 /// The numbers an operator is actually scanning for. Deliberately about work
 /// state — what's stuck, what's unmatched — rather than vanity totals.
 class AdminStats {

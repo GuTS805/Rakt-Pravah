@@ -86,6 +86,36 @@ class UserProfile {
     return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
         .toUpperCase();
   }
+
+  UserProfile copyWith({
+    String? id,
+    String? name,
+    BloodGroup? bloodGroup,
+    String? phone,
+    String? email,
+    DateTime? dateOfBirth,
+    Gender? gender,
+    String? country,
+    String? state,
+    String? city,
+    DateTime? lastDonation,
+    bool? isAdmin,
+  }) {
+    return UserProfile(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      bloodGroup: bloodGroup ?? this.bloodGroup,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      gender: gender ?? this.gender,
+      country: country ?? this.country,
+      state: state ?? this.state,
+      city: city ?? this.city,
+      lastDonation: lastDonation ?? this.lastDonation,
+      isAdmin: isAdmin ?? this.isAdmin,
+    );
+  }
 }
 
 /// Donor Mode state — a capability attached to the user (spec §15).

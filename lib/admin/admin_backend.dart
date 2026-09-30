@@ -98,6 +98,14 @@ class AdminBackend {
     );
   }
 
+  Future<void> setUserActive(String uid, bool isActive) async {
+    await _users.doc(uid).set({'isActive': isActive}, fs.SetOptions(merge: true));
+    await _writeAudit(
+      action: isActive ? 'user.activate' : 'user.deactivate',
+      targetId: uid,
+    );
+  }
+
   // --- Reports -----------------------------------------------------------
 
   /// Reports filed by users against a request or another user. The mobile
@@ -340,6 +348,7 @@ class AdminUser {
     required this.bloodGroup,
     required this.isAdmin,
     required this.emailVerified,
+    this.isActive = true,
     this.email,
     this.city,
     this.donorAvailability,
@@ -353,6 +362,7 @@ class AdminUser {
   final BloodGroup bloodGroup;
   final bool isAdmin;
   final bool emailVerified;
+  final bool isActive;
   final String? email;
   final String? city;
   final DonorAvailability? donorAvailability;
@@ -379,6 +389,7 @@ class AdminUser {
           ? BloodGroup.fromLabel(m['bloodGroup'] as String)
           : BloodGroup.oPos,
       isAdmin: m['isAdmin'] as bool? ?? false,
+      isActive: (m['isActive'] as bool?) ?? (!(m['disabled'] as bool? ?? false)),
       // Firebase owns the real claim; the doc only mirrors that an address
       // exists, so this is "has a verified address on file", not authority.
       emailVerified: (m['email'] as String?) != null,

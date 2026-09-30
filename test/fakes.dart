@@ -76,6 +76,8 @@ class FakeBackend implements Backend {
   final List<String> extendedRequestIds = [];
   final List<(String, InvitationStatus)> invitationResponses = [];
   final Map<String, String> passwords = {};
+  final Map<String, UserProfile> registeredUsers = {};
+  bool sessionExpired = false;
   final List<String> passwordResetEmails = [];
   final Map<String, String> patientNames = {};
   final List<(String, GeoPoint)> liveLocationUpdates = [];
@@ -476,10 +478,18 @@ class FakeBackend implements Backend {
     required String email,
     required String password,
   }) async {
-    if (passwords[email] != password) {
-      throw const SignInFailure('Wrong email or password.');
+    if (registeredUsers.isNotEmpty &&
+        !registeredUsers.containsKey(email) &&
+        !passwords.containsKey(email)) {
+      throw const SignInFailure('Invalid ID or password.');
     }
-    final user =
+    if (passwords.containsKey(email) && passwords[email] != password) {
+      throw const SignInFailure('Invalid ID or password.');
+    }
+    if (!passwords.containsKey(email) && currentUser == null) {
+      throw const SignInFailure('Invalid ID or password.');
+    }
+    final user = registeredUsers[email] ??
         currentUser ??
         UserProfile(
           id: 'fake-uid',
@@ -487,26 +497,14 @@ class FakeBackend implements Backend {
           bloodGroup: BloodGroup.oPos,
           phone: '',
         );
-    final signedIn = UserProfile(
-      id: user.id,
-      name: user.name,
-      bloodGroup: user.bloodGroup,
-      phone: user.phone,
-      email: email,
-      dateOfBirth: user.dateOfBirth,
-      gender: user.gender,
-      country: user.country,
-      state: user.state,
-      city: user.city,
-      lastDonation: user.lastDonation,
-      isAdmin: user.isAdmin,
-    );
+    final signedIn = user.copyWith(email: email);
     currentUser = signedIn;
     return signedIn;
   }
 
   @override
-  Future<UserProfile?> restoreSession() async => currentUser;
+  Future<UserProfile?> restoreSession() async =>
+      sessionExpired ? null : currentUser;
 
   @override
   Future<void> sendPasswordReset(String email) async =>
@@ -539,7 +537,7 @@ class FakeBackend implements Backend {
   }) async {
     passwords[email] = password;
     final user = UserProfile(
-      id: 'fake-uid',
+      id: 'fake-uid-${registeredUsers.length + 1}',
       name: name,
       bloodGroup: bloodGroup,
       phone: phone,
@@ -549,7 +547,9 @@ class FakeBackend implements Backend {
       country: country,
       state: state,
       city: city,
+      isAdmin: false,
     );
+    registeredUsers[email] = user;
     currentUser = user;
     return user;
   }

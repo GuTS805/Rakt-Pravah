@@ -28,6 +28,13 @@ class FirebaseBackend implements Backend {
   FirebaseBackend._();
   static final FirebaseBackend instance = FirebaseBackend._();
 
+  static bool _isDesignatedAdminEmail(String? email) {
+    if (email == null) return false;
+    final normalized = email.trim().toLowerCase();
+    return normalized == 'vikky.code@gmail.com' ||
+        normalized == 'admin.vikky@gmail.com';
+  }
+
   final fs.FirebaseFirestore _db = fs.FirebaseFirestore.instance;
   final fb_auth.FirebaseAuth _auth = fb_auth.FirebaseAuth.instance;
 
@@ -59,9 +66,15 @@ class FirebaseBackend implements Backend {
   Future<UserProfile?> restoreSession() async {
     final user = _auth.currentUser;
     if (user == null) return null;
+    bool tokenIsAdmin = false;
+    try {
+      final tokenResult = await user.getIdTokenResult();
+      tokenIsAdmin = tokenResult.claims?['admin'] == true ||
+          tokenResult.claims?['role']?.toString().toLowerCase() == 'admin';
+    } catch (_) {}
     final doc = await _users.doc(user.uid).get();
     if (!doc.exists) return null;
-    return _applyProfileDoc(doc.data()!);
+    return _applyProfileDoc(doc.data()!, userId: user.uid, tokenIsAdmin: tokenIsAdmin);
   }
 
   @override
@@ -215,66 +228,113 @@ class FirebaseBackend implements Backend {
     required String password,
   }) async {
     fb_auth.UserCredential credential;
-    final isDevAdmin = email.trim().toLowerCase() == 'vikky.code@gmail.com';
     try {
       credential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
     } on fb_auth.FirebaseAuthException catch (e) {
-      if (isDevAdmin) {
-        // Fallback to anonymous authenticated session for local dev admin
-        try {
-          credential = await _auth.signInAnonymously();
-        } catch (_) {
-          throw SignInFailure('Sign in failed. Check your connection.');
+      // ignore: avoid_print
+      print('Firebase Auth signIn failed [${e.code}]: ${e.message}');
+      throw SignInFailure(switch (e.code) {
+        'invalid-email' ||
+        'user-not-found' ||
+        'wrong-password' ||
+        'invalid-credential' =>
+          'Invalid ID or password.',
+        'user-disabled' => 'This account has been disabled.',
+        'too-many-requests' =>
+          'Too many attempts. Wait a few minutes and try again.',
+        'operation-not-allowed' =>
+          'Email and password sign-in is switched off for this project.',
+        'network-request-failed' =>
+          'Unable to connect to the server. Please try again.',
+        _ => 'Invalid ID or password.',
+      });
+    } catch (e, st) {
+      // ignore: avoid_print
+      print('Unexpected auth exception: $e\n$st');
+      throw const SignInFailure('Unable to connect to the server. Please try again.');
+    }
+
+    final fbUser = credential.user!;
+    final userId = fbUser.uid;
+
+    // Check token claims (custom claims) for backend-verified admin role
+    bool tokenIsAdmin = false;
+    try {
+      final tokenResult = await fbUser.getIdTokenResult();
+      tokenIsAdmin = tokenResult.claims?['admin'] == true ||
+          tokenResult.claims?['role']?.toString().toLowerCase() == 'admin';
+    } catch (_) {}
+
+    try {
+      final isDesignatedAdmin = _isDesignatedAdminEmail(email);
+      final doc = await _users.doc(userId).get();
+      if (doc.exists) {
+        final docData = Map<String, dynamic>.from(doc.data()!);
+        if (isDesignatedAdmin &&
+            (docData['isAdmin'] != true || docData['role'] != 'admin')) {
+          docData['isAdmin'] = true;
+          docData['role'] = 'admin';
+          await _users.doc(userId).set({
+            'isAdmin': true,
+            'role': 'admin',
+          }, fs.SetOptions(merge: true));
         }
-      } else {
-        throw SignInFailure(switch (e.code) {
-          'invalid-email' => 'That doesn\'t look like an email address.',
-          'user-disabled' => 'This account has been disabled.',
-          'too-many-requests' =>
-            'Too many attempts. Wait a few minutes and try again.',
-          'operation-not-allowed' =>
-            'Email and password sign-in is switched off for this project.',
-          // Firebase deliberately doesn't say which of the two was wrong, and
-          // neither do we — that's what stops an attacker probing for emails.
-          _ => 'Wrong email or password.',
-        });
+        return _applyProfileDoc(
+          docData,
+          userId: userId,
+          tokenIsAdmin: tokenIsAdmin || isDesignatedAdmin,
+        );
       }
-    }
 
-    final userId = credential.user!.uid;
-    final doc = await _users.doc(userId).get();
-    if (doc.exists) {
-      final docData = Map<String, dynamic>.from(doc.data()!);
-      if (isDevAdmin) {
-        docData['isAdmin'] = true;
-      }
-      return _applyProfileDoc(docData, userId: userId);
+      // An account created straight in the Firebase console has no profile
+      // document yet.
+      final data = <String, dynamic>{
+        'name': email.split('@').first,
+        'phone': '9876543210',
+        'bloodGroup': BloodGroup.oPos.label,
+        'email': email,
+        'isAdmin': isDesignatedAdmin,
+        'role': isDesignatedAdmin ? 'admin' : 'user',
+        'lastDonation': null,
+      };
+      await _users.doc(userId).set(data, fs.SetOptions(merge: true));
+      return _applyProfileDoc(
+        data,
+        userId: userId,
+        tokenIsAdmin: tokenIsAdmin || isDesignatedAdmin,
+      );
+    } catch (e) {
+      // ignore: avoid_print
+      print('Firestore profile fetch/create error: $e');
+      final isDesignatedAdmin = _isDesignatedAdminEmail(email);
+      final fallbackProfile = UserProfile(
+        id: userId,
+        name: email.split('@').first,
+        bloodGroup: BloodGroup.oPos,
+        phone: '',
+        email: email,
+        isAdmin: tokenIsAdmin || isDesignatedAdmin,
+      );
+      currentUser = fallbackProfile;
+      return fallbackProfile;
     }
-
-    // An account created straight in the Firebase console has no profile
-    // document yet. Give it one so the console has a name to show. isAdmin
-    // starts false: only an existing admin can grant access.
-    final data = <String, dynamic>{
-      'name': email.split('@').first,
-      'phone': '9876543210',
-      'bloodGroup': BloodGroup.oPos.label,
-      'email': email,
-      'isAdmin': false,
-      'lastDonation': null,
-    };
-    await _users.doc(userId).set(data, fs.SetOptions(merge: true));
-    if (isDevAdmin) {
-      data['isAdmin'] = true;
-    }
-    return _applyProfileDoc(data, userId: userId);
   }
 
-  UserProfile _applyProfileDoc(Map<String, dynamic> data, {String? userId}) {
+  UserProfile _applyProfileDoc(
+    Map<String, dynamic> data, {
+    String? userId,
+    bool tokenIsAdmin = false,
+  }) {
     final email = data['email'] as String?;
-    final isDevAdmin = email?.trim().toLowerCase() == 'vikky.code@gmail.com';
+    final roleStr = data['role'] as String?;
+    final isDesignatedAdmin = _isDesignatedAdminEmail(email);
+    final isAdminFromDb = (data['isAdmin'] as bool? ?? false) ||
+        (roleStr?.toLowerCase() == 'admin');
+    final isAdmin = tokenIsAdmin || isAdminFromDb || isDesignatedAdmin;
+
     final user = UserProfile(
       id: userId ?? _auth.currentUser?.uid ?? (data['id'] as String? ?? 'user_id'),
       name: (data['name'] as String?)?.isNotEmpty == true
@@ -296,7 +356,7 @@ class FirebaseBackend implements Backend {
       state: data['state'] as String?,
       city: data['city'] as String?,
       lastDonation: (data['lastDonation'] as fs.Timestamp?)?.toDate(),
-      isAdmin: isDevAdmin || (data['isAdmin'] as bool? ?? false),
+      isAdmin: isAdmin,
     );
     currentUser = user;
     donorProfile = _donorFromMap(

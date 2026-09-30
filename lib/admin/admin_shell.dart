@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/router/routes.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/app_typography.dart';
@@ -19,39 +20,36 @@ class AdminSection {
 
 /// Sidebar sections grouped by category.
 const _mainSections = [
-  AdminSection('/', 'Dashboard', Icons.dashboard_rounded),
+  AdminSection(Routes.adminDashboard, 'Dashboard', Icons.dashboard_rounded),
+];
+
+const _operationsSections = [
+  AdminSection(Routes.adminEmergency, 'Emergency Monitoring', Icons.emergency_rounded),
+  AdminSection(Routes.adminAvailability, 'Blood Availability', Icons.water_drop_rounded),
+  AdminSection(Routes.adminLiveMap, 'Live Map', Icons.map_rounded),
+  AdminSection(Routes.adminRequests, 'Requests Overview', Icons.receipt_long_rounded),
+  AdminSection(Routes.adminDonations, 'Donations', Icons.bloodtype_rounded),
+  AdminSection(Routes.adminConnections, 'Connections', Icons.handshake_rounded),
 ];
 
 const _peopleSections = [
-  AdminSection('/users', 'Users', Icons.people_alt_rounded),
-  AdminSection('/donors', 'Donors', Icons.volunteer_activism_rounded),
-  AdminSection('/verification', 'Donor Verification', Icons.verified_user_rounded),
+  AdminSection(Routes.adminUsers, 'User Management', Icons.people_alt_rounded),
+  AdminSection(Routes.adminDonors, 'Donor Network', Icons.volunteer_activism_rounded),
+  AdminSection(Routes.adminVerification, 'Donor Verification', Icons.verified_user_rounded),
+  AdminSection(Routes.adminHospitals, 'Hospitals', Icons.local_hospital_rounded),
 ];
 
-const _bloodSections = [
-  AdminSection('/requests', 'Blood Requests', Icons.receipt_long_rounded),
-  AdminSection('/emergency', 'Emergency Requests', Icons.emergency_rounded),
-  AdminSection('/map', 'Live Map', Icons.map_rounded),
-  AdminSection('/availability', 'Blood Availability', Icons.water_drop_rounded),
-  AdminSection('/donations', 'Donations', Icons.bloodtype_rounded),
-  AdminSection('/connections', 'Connections', Icons.handshake_rounded),
-];
-
-const _manageSections = [
-  AdminSection('/hospitals', 'Hospitals', Icons.local_hospital_rounded),
-  AdminSection('/analytics', 'Analytics', Icons.analytics_rounded),
-  AdminSection('/notifications', 'Notifications', Icons.notifications_rounded),
-];
-
-const _safetySections = [
-  AdminSection('/reports', 'Reports & Abuse', Icons.flag_rounded),
-  AdminSection('/moderation', 'Moderation', Icons.gavel_rounded),
-  AdminSection('/audit', 'Audit Logs', Icons.fact_check_rounded),
+const _insightsSections = [
+  AdminSection(Routes.adminAnalytics, 'Analytics', Icons.analytics_rounded),
+  AdminSection(Routes.adminAudit, 'Activity & Audit Logs', Icons.fact_check_rounded),
+  AdminSection(Routes.adminReports, 'Reports', Icons.summarize_rounded),
+  AdminSection(Routes.adminNotifications, 'Notifications', Icons.notifications_rounded),
+  AdminSection(Routes.adminModeration, 'Moderation', Icons.gavel_rounded),
 ];
 
 const _systemSections = [
-  AdminSection('/health', 'System Health', Icons.monitor_heart_rounded),
-  AdminSection('/settings', 'Settings', Icons.settings_rounded),
+  AdminSection(Routes.adminHealth, 'System Health', Icons.monitor_heart_rounded),
+  AdminSection(Routes.adminSettings, 'Settings', Icons.settings_rounded),
 ];
 
 /// The console frame: responsive with desktop sidebar (>=800px) and
@@ -70,20 +68,16 @@ class AdminShell extends ConsumerWidget {
     final attention = ref.watch(adminAttentionQueueProvider).length;
 
     Widget navItem(AdminSection section, {int? badge, VoidCallback? onNav}) {
-      final isPrefixAdmin = location.startsWith('/admin');
-      final fullPath = isPrefixAdmin
-          ? (section.path == '/' ? '/admin' : '/admin${section.path}')
-          : section.path;
-      final selected = section.path == '/'
-          ? (location == '/' || location == '/admin')
-          : (location == fullPath || location.startsWith('$fullPath/'));
+      final selected = section.path == Routes.adminDashboard
+          ? (location == '/' || location == Routes.adminDashboard)
+          : (location == section.path || location.startsWith('${section.path}/'));
       return _NavItem(
         section: section,
         selected: selected,
         badge: badge,
         onTap: () {
           if (onNav != null) onNav();
-          context.go(fullPath);
+          context.go(section.path);
         },
       );
     }
@@ -98,25 +92,23 @@ class AdminShell extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             for (final s in _mainSections) navItem(s, onNav: onNav),
-            const AdminSidebarSection('People'),
-            for (final s in _peopleSections) navItem(s, onNav: onNav),
             const AdminSidebarSection('Blood Operations'),
-            for (final s in _bloodSections)
+            for (final s in _operationsSections)
               navItem(
                 s,
                 onNav: onNav,
-                badge: s.path == '/emergency'
+                badge: s.path == Routes.adminEmergency
                     ? _emergencyCount(ref)
                     : null,
               ),
-            const AdminSidebarSection('Management'),
-            for (final s in _manageSections) navItem(s, onNav: onNav),
-            const AdminSidebarSection('Safety'),
-            for (final s in _safetySections)
+            const AdminSidebarSection('People & Donors'),
+            for (final s in _peopleSections) navItem(s, onNav: onNav),
+            const AdminSidebarSection('Insights & Governance'),
+            for (final s in _insightsSections)
               navItem(
                 s,
                 onNav: onNav,
-                badge: s.path == '/moderation' && attention > 0
+                badge: s.path == Routes.adminModeration && attention > 0
                     ? attention
                     : null,
               ),
@@ -218,7 +210,7 @@ class AdminShell extends ConsumerWidget {
             IconButton(
               tooltip: 'Notifications',
               icon: const Icon(Icons.notifications_outlined, size: 22),
-              onPressed: () => context.go('/notifications'),
+              onPressed: () => context.go(Routes.adminNotifications),
             ),
           ],
         ),
@@ -496,11 +488,8 @@ class AdminPage extends StatelessWidget {
             color: c.surface,
             border: Border(bottom: BorderSide(color: c.border)),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
+          child: isMobile
+              ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: context.text.headlineSmall),
@@ -511,15 +500,40 @@ class AdminPage extends StatelessWidget {
                         color: c.textSecondary,
                       ),
                     ),
+                    if (actions != null && actions!.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
+                        children: actions!,
+                      ),
+                    ],
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title, style: context.text.headlineSmall),
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            style: context.text.bodyMedium?.copyWith(
+                              color: c.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (actions != null && actions!.isNotEmpty) ...[
+                      const SizedBox(width: AppSpacing.sm),
+                      ...actions!,
+                    ],
                   ],
                 ),
-              ),
-              if (actions != null && actions!.isNotEmpty) ...[
-                const SizedBox(width: AppSpacing.sm),
-                ...actions!,
-              ],
-            ],
-          ),
         ),
         Expanded(
           child: SingleChildScrollView(
@@ -617,9 +631,13 @@ class AdminPanel extends StatelessWidget {
               AppSpacing.md,
               AppSpacing.md,
             ),
-            child: Row(
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.xs,
               children: [
-                Expanded(child: Text(title, style: context.text.titleMedium)),
+                Text(title, style: context.text.titleMedium),
                 ?trailing,
               ],
             ),

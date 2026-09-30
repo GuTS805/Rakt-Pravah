@@ -151,7 +151,7 @@ void main() {
     testWidgets('a wrong password is refused', (tester) async {
       final backend = await signIn(tester, password: 'not-it');
 
-      expect(find.text('Wrong email or password.'), findsOneWidget);
+      expect(find.text('Invalid ID or password.'), findsOneWidget);
       expect(
         backend.currentUser,
         isNull,
@@ -162,7 +162,7 @@ void main() {
     testWidgets('the right password signs in', (tester) async {
       final backend = await signIn(tester, password: 'hunter22');
 
-      expect(find.text('Wrong email or password.'), findsNothing);
+      expect(find.text('Invalid ID or password.'), findsNothing);
       expect(backend.currentUser?.email, 'alok@example.com');
     });
 

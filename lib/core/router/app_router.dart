@@ -55,51 +55,47 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
       final isAdmin = auth.user?.isAdmin ?? false;
 
-      const authPages = {
-        Routes.login,
-        Routes.register,
-        Routes.adminNoAccess,
-      };
-
       switch (auth.status) {
         case AuthStatus.unknown:
           return loc == Routes.splash ? null : Routes.splash;
 
         case AuthStatus.unauthenticated:
-          // Single unified login page for everyone: redirect to login
-          if (loc == Routes.adminLogin) {
-            return Routes.login;
+          // Unauthenticated users can only view login or register
+          if (loc == Routes.login || loc == Routes.register) {
+            return null;
           }
-          return authPages.contains(loc) ? null : Routes.login;
+          return Routes.login;
 
         case AuthStatus.needsOnboarding:
           return loc == Routes.onboarding ? null : Routes.onboarding;
 
         case AuthStatus.authenticated:
           if (isAdmin) {
-            // Administrator: Redirects straight to Admin Dashboard
-            final isUserRoute = loc == Routes.home ||
-                loc == Routes.requests ||
-                loc == Routes.donate ||
-                loc == Routes.you;
-            if (loc == Routes.splash ||
+            // Administrator: Must never be redirected to normal donor/user dashboard.
+            // Any attempt to access donor/user routes, auth pages, or access-denied redirects to Admin Dashboard.
+            if (loc == Routes.adminNoAccess ||
+                loc == Routes.adminLogin ||
                 loc == Routes.login ||
                 loc == Routes.register ||
-                loc == Routes.adminLogin ||
-                loc == Routes.adminNoAccess ||
+                loc == Routes.splash ||
                 loc == Routes.onboarding ||
-                isUserRoute) {
+                !loc.startsWith('/admin')) {
               return Routes.adminDashboard;
             }
             return null;
           } else {
             // Standard User: Redirects to User Home Dashboard; never access /admin
+            if (loc == Routes.adminNoAccess) {
+              return null;
+            }
             if (loc.startsWith('/admin')) {
               return Routes.adminNoAccess;
             }
             if (loc == Routes.splash ||
-                authPages.contains(loc) ||
+                loc == Routes.login ||
+                loc == Routes.register ||
                 loc == Routes.adminLogin ||
+                loc == '/sign-in' ||
                 loc == Routes.onboarding) {
               return Routes.home;
             }
@@ -213,6 +209,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       // ---- Admin Authentication & Gateways ----
       GoRoute(
         path: Routes.adminLogin,
+        redirect: (_, _) => Routes.login,
+      ),
+      GoRoute(
+        path: '/sign-in',
         redirect: (_, _) => Routes.login,
       ),
       GoRoute(

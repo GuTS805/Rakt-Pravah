@@ -52,7 +52,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Couldn\'t sign in. Check your connection.');
+        setState(() => _error = 'Unable to connect to the server. Please try again.');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -116,9 +116,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         hintText: 'you@example.com',
                         prefixIcon: Icon(Icons.email_outlined),
                       ),
-                      validator: (v) => _looksLikeEmail((v ?? '').trim())
-                          ? null
-                          : 'Enter a valid email address',
+                      validator: (v) {
+                        final trimmed = (v ?? '').trim();
+                        if (trimmed.isEmpty) {
+                          return 'Please enter your ID/email.';
+                        }
+                        if (!_looksLikeEmail(trimmed)) {
+                          return 'Please enter a valid ID/email.';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     Text('Password', style: context.text.titleSmall),
@@ -145,7 +152,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                       validator: (v) =>
-                          (v ?? '').isEmpty ? 'Enter your password' : null,
+                          (v ?? '').isEmpty ? 'Please enter your password.' : null,
                       onFieldSubmitted: (_) => _submit(),
                     ),
                     Align(

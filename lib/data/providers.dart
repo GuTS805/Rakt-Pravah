@@ -37,10 +37,14 @@ class AuthController extends Notifier<AuthState> {
   /// locally), so a returning user skips straight past Login.
   Future<void> finishStartup() async {
     if (state.status != AuthStatus.unknown) return;
-    final user = await _backend.restoreSession();
-    state = user == null
-        ? const AuthState(AuthStatus.unauthenticated)
-        : AuthState(AuthStatus.authenticated, user);
+    try {
+      final user = await _backend.restoreSession();
+      state = user == null
+          ? const AuthState(AuthStatus.unauthenticated)
+          : AuthState(AuthStatus.authenticated, user);
+    } catch (_) {
+      state = const AuthState(AuthStatus.unauthenticated);
+    }
   }
 
   Future<void> register({
