@@ -369,6 +369,7 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
                   partnerName: partnerName,
                   partnerPhone: partnerPhone,
                   partnerBloodGroup: partnerBloodGroup,
+                  partnerPhoto: isDonor ? req.requesterPhoto : firstDonor?.photoUrl,
                   isDonor: isDonor,
                   transitStatus: effectiveTransitStatus,
                   distanceKm: currentDistance,

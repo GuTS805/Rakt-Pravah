@@ -67,6 +67,8 @@ class Avatar extends StatelessWidget {
     this.photoUrl,
     this.size = 40,
     this.onTap,
+    this.showCameraBadge = false,
+    this.onCameraTap,
   });
 
   final String initials;
@@ -74,12 +76,20 @@ class Avatar extends StatelessWidget {
   final String? photoUrl;
   final double size;
   final VoidCallback? onTap;
+  final bool showCameraBadge;
+  final VoidCallback? onCameraTap;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final url = photoUrl?.trim();
-    final avatar = Container(
+
+    // Check whether photo is passed directly or as a base64 string in photoUrl
+    final isHttpUrl = url != null &&
+        (url.startsWith('http://') || url.startsWith('https://'));
+    final effectiveBase64 = photo ?? (url != null && !isHttpUrl ? url : null);
+
+    Widget avatar = Container(
       height: size,
       width: size,
       alignment: Alignment.center,
@@ -103,9 +113,9 @@ class Avatar extends StatelessWidget {
               ),
             ),
           ),
-          if (photo != null)
-            MemoryPhoto(photo: photo!)
-          else if (url != null && url.isNotEmpty)
+          if (effectiveBase64 != null && effectiveBase64.isNotEmpty)
+            MemoryPhoto(photo: effectiveBase64)
+          else if (isHttpUrl)
             Image.network(
               url,
               fit: BoxFit.cover,
@@ -114,7 +124,61 @@ class Avatar extends StatelessWidget {
         ],
       ),
     );
-    if (onTap == null) return avatar;
-    return InkResponse(onTap: onTap, radius: size * 0.7, child: avatar);
+
+    final effectiveOnTap = onTap ?? onCameraTap;
+    if (effectiveOnTap != null) {
+      avatar = InkWell(
+        onTap: effectiveOnTap,
+        customBorder: const CircleBorder(),
+        child: avatar,
+      );
+    }
+
+    if (!showCameraBadge) return avatar;
+
+    final badgeSize = (size * 0.34).clamp(22.0, 36.0);
+    final iconSize = (badgeSize * 0.58).clamp(13.0, 20.0);
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(child: avatar),
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Tooltip(
+              message: 'Change photo',
+              child: Material(
+                color: c.brand,
+                shape: const CircleBorder(),
+                elevation: 3,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: onCameraTap ?? effectiveOnTap,
+                  child: Container(
+                    width: badgeSize,
+                    height: badgeSize,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: c.surface, width: 2),
+                    ),
+                    child: Icon(
+                      Icons.camera_alt_rounded,
+                      size: iconSize,
+                      color: c.onBrand,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

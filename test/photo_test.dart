@@ -186,12 +186,21 @@ void main() {
     Future<void> choose(
       WidgetTester tester,
       String opener,
-      String option,
-    ) async {
+      String option, {
+      bool confirm = true,
+    }) async {
       await tester.tap(find.text(opener));
       await tester.pumpAndSettle();
       await tester.tap(find.text(option));
       await tester.pumpAndSettle();
+      if (find.text('Save Photo').evaluate().isNotEmpty) {
+        if (confirm) {
+          await tester.tap(find.text('Save Photo'));
+        } else {
+          await tester.tap(find.text('Cancel'));
+        }
+        await tester.pumpAndSettle();
+      }
     }
 
     testWidgets('offers to add a photo when there is none', (tester) async {
@@ -213,10 +222,37 @@ void main() {
       await tester.tap(find.text('Choose from gallery'));
       await tester.pumpAndSettle();
 
+      expect(find.text('Preview Profile Photo'), findsOneWidget);
+      expect(find.text('Save Photo'), findsOneWidget);
+      expect(find.text('Cancel'), findsOneWidget);
+
+      await tester.tap(find.text('Save Photo'));
+      await tester.pumpAndSettle();
+
       expect(picker.asked, [PhotoSource.gallery]);
       expect(backend.currentUser!.photo, _png);
       expect(container.read(currentUserProvider)!.photo, _png);
       expect(find.text('Change photo'), findsOneWidget);
+    });
+
+    testWidgets('cancelling the preview dialog leaves photo unchanged', (
+      tester,
+    ) async {
+      await open(tester);
+      picker.next = _png;
+
+      await tester.tap(find.text('Add photo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Choose from gallery'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Preview Profile Photo'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(backend.currentUser!.photo, isNull);
+      expect(container.read(currentUserProvider)!.photo, isNull);
+      expect(find.text('Add photo'), findsOneWidget);
     });
 
     testWidgets('the camera is offered too', (tester) async {
@@ -281,6 +317,41 @@ void main() {
       );
 
       expect(created.requesterPhoto, _png);
+    });
+  });
+
+  group('file size and format constraints', () {
+    test('rejects files larger than 5 MB', () {
+      final oversized = List<int>.filled(5 * 1024 * 1024 + 1, 0xFF);
+      expect(Photos.prepare(oversized), isNull);
+    });
+
+    test('validates supported image extensions and magic bytes', () {
+      expect(Photos.isSupportedExtension('photo.jpg'), isTrue);
+      expect(Photos.isSupportedExtension('profile.jpeg'), isTrue);
+      expect(Photos.isSupportedExtension('avatar.png'), isTrue);
+      expect(Photos.isSupportedExtension('image.webp'), isTrue);
+      expect(Photos.isSupportedExtension('document.pdf'), isFalse);
+      expect(Photos.isSupportedExtension('script.js'), isFalse);
+
+      // JPEG header
+      expect(Photos.isSupportedBytes([0xFF, 0xD8, 0xFF, 0xE0]), isTrue);
+      // PNG header
+      expect(
+        Photos.isSupportedBytes([
+          0x89,
+          0x50,
+          0x4E,
+          0x47,
+          0x0D,
+          0x0A,
+          0x1A,
+          0x0A,
+        ]),
+        isTrue,
+      );
+      // Random bytes
+      expect(Photos.isSupportedBytes([0x00, 0x01, 0x02, 0x03]), isFalse);
     });
   });
 }

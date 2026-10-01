@@ -5,6 +5,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/widgets/avatar.dart';
 import '../../core/widgets/states.dart';
 import '../../data/models/models.dart';
 import '../../data/providers.dart';
@@ -62,9 +63,55 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final me = ref.watch(currentUserProvider);
     final async = ref.watch(chatProvider(widget.requestId));
+    final req = ref.watch(requestProvider(widget.requestId)).valueOrNull;
+
+    final isDonor = me != null && req != null && req.requesterId != me.id;
+    final partnerName = isDonor
+        ? req.requesterName
+        : (req?.acceptedDonors.firstOrNull?.name ?? 'Coordination');
+    final partnerPhoto = isDonor
+        ? req.requesterPhoto
+        : req?.acceptedDonors.firstOrNull?.photoUrl;
+    final partnerInitials = Fmt.initials(partnerName);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Chat')),
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            Avatar(
+              initials: partnerInitials,
+              photo: partnerPhoto,
+              photoUrl: partnerPhoto,
+              size: 36,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    partnerName,
+                    style: context.text.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'Direct chat',
+                    style: context.text.bodySmall?.copyWith(
+                      color: context.colors.textTertiary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
       body: Column(
         children: [
           Expanded(
@@ -91,7 +138,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   itemCount: messages.length,
                   itemBuilder: (context, i) {
                     final m = messages[i];
-                    return _Bubble(message: m, mine: m.senderId == me?.id);
+                    final mine = m.senderId == me?.id;
+                    return _Bubble(
+                      message: m,
+                      mine: mine,
+                      avatarPhoto: mine ? me?.photo : partnerPhoto,
+                      avatarInitials:
+                          mine ? (me?.initials ?? 'Me') : partnerInitials,
+                    );
                   },
                 );
               },
@@ -105,22 +159,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.message, required this.mine});
+  const _Bubble({
+    required this.message,
+    required this.mine,
+    this.avatarPhoto,
+    required this.avatarInitials,
+  });
+
   final ChatMessage message;
   final bool mine;
+  final String? avatarPhoto;
+  final String avatarInitials;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final bg = mine ? c.brand : c.surface;
     final fg = mine ? c.onBrand : c.textPrimary;
+    final avatar = Avatar(
+      initials: avatarInitials,
+      photo: avatarPhoto,
+      photoUrl: avatarPhoto,
+      size: 28,
+    );
+
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         mainAxisAlignment: mine
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          if (!mine) ...[
+            avatar,
+            const SizedBox(width: AppSpacing.xs),
+          ],
           Flexible(
             child: Container(
               padding: const EdgeInsets.symmetric(

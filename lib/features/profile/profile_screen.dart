@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/avatar.dart';
 import '../../core/widgets/badges.dart';
+import '../../core/widgets/profile_photo_sheet.dart';
 import '../../data/providers.dart';
 import '../../shared/settings_widgets.dart';
 
@@ -48,7 +49,16 @@ class ProfileScreen extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  Avatar(initials: user.initials, photo: user.photo, size: 56),
+                  Avatar(
+                    initials: user.initials,
+                    photo: user.photo,
+                    size: 64,
+                    showCameraBadge: true,
+                    onCameraTap: () => showProfilePhotoOptions(
+                      context: context,
+                      ref: ref,
+                    ),
+                  ),
                   const SizedBox(width: AppSpacing.lg),
                   Expanded(
                     child: Column(

@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/avatar.dart';
 import '../../core/widgets/blood_group_picker.dart';
 import '../../core/widgets/buttons.dart';
+import '../../core/widgets/profile_photo_sheet.dart';
 import '../../data/models/enums.dart';
 import '../../data/providers.dart';
 import '../../shared/profile_fields.dart';
@@ -62,7 +63,21 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         // Backed out, or the picture was too big to keep after shrinking.
         return;
       }
-      await ref.read(authControllerProvider.notifier).setPhoto(photo);
+      if (!mounted) return;
+      final user = ref.read(currentUserProvider)!;
+      final confirmed = await showPhotoPreviewDialog(
+        context: context,
+        photoBase64: photo,
+        initials: user.initials,
+      );
+      if (confirmed == true && mounted) {
+        await ref.read(authControllerProvider.notifier).setPhoto(photo);
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Profile photo updated.')),
+        );
+      }
+    } on PhotoValidationException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Could not add that photo. Try again.')),
@@ -76,6 +91,11 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     setState(() => _photoBusy = true);
     try {
       await ref.read(authControllerProvider.notifier).setPhoto(null);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile photo removed.')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _photoBusy = false);
     }
@@ -92,6 +112,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
               title: const Text('Take a photo'),
+              subtitle: const Text('Use camera to take a portrait'),
               onTap: () {
                 Navigator.pop(sheet);
                 _choosePhoto(PhotoSource.camera);
@@ -100,6 +121,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('Choose from gallery'),
+              subtitle: const Text('JPG, JPEG, PNG, or WEBP (up to 5 MB)'),
               onTap: () {
                 Navigator.pop(sheet);
                 _choosePhoto(PhotoSource.gallery);
@@ -115,6 +137,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                   'Remove photo',
                   style: TextStyle(color: context.colors.danger),
                 ),
+                subtitle: const Text('Return to initials avatar'),
                 onTap: () {
                   Navigator.pop(sheet);
                   _removePhoto();
@@ -170,7 +193,15 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             Center(
               child: Column(
                 children: [
-                  Avatar(initials: user.initials, photo: user.photo, size: 96),
+                  Avatar(
+                    initials: user.initials,
+                    photo: user.photo,
+                    size: 96,
+                    showCameraBadge: true,
+                    onCameraTap: _photoBusy
+                        ? null
+                        : () => _photoOptions(hasPhoto),
+                  ),
                   const SizedBox(height: AppSpacing.sm),
                   TextButton(
                     onPressed: _photoBusy

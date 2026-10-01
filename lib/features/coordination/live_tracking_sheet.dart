@@ -18,6 +18,7 @@ class LiveTrackingSheet extends StatelessWidget {
     required this.partnerName,
     this.partnerPhone,
     this.partnerBloodGroup,
+    this.partnerPhoto,
     required this.isDonor,
     required this.transitStatus,
     required this.distanceKm,
@@ -32,6 +33,7 @@ class LiveTrackingSheet extends StatelessWidget {
   final String partnerName;
   final String? partnerPhone;
   final BloodGroup? partnerBloodGroup;
+  final String? partnerPhoto;
   final bool isDonor;
   final DonorTransitStatus transitStatus;
   final double distanceKm;
@@ -305,7 +307,12 @@ class LiveTrackingSheet extends StatelessWidget {
               // Partner Strip (Donor or Requester card)
               Row(
                 children: [
-                  Avatar(initials: _initials(partnerName), size: 46),
+                  Avatar(
+                    initials: _initials(partnerName),
+                    photo: partnerPhoto,
+                    photoUrl: partnerPhoto,
+                    size: 46,
+                  ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(

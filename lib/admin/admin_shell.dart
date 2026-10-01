@@ -6,6 +6,7 @@ import '../core/router/routes.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/app_typography.dart';
+import '../core/widgets/avatar.dart';
 import '../data/models/models.dart';
 import '../data/providers.dart';
 import '../shared/brand_mark.dart';
@@ -161,24 +162,12 @@ class AdminShell extends ConsumerWidget {
         padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(
           children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: c.brand.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  (user?.name.isNotEmpty == true ? user!.name[0] : '?')
-                      .toUpperCase(),
-                  style: AppTypography.mono(
-                    size: 13,
-                    weight: FontWeight.w700,
-                    color: c.brand,
-                  ),
-                ),
-              ),
+            Avatar(
+              initials: user != null && user.name.isNotEmpty
+                  ? user.initials
+                  : '?',
+              photo: user?.photo,
+              size: 34,
             ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(

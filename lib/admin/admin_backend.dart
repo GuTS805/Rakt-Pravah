@@ -397,6 +397,7 @@ class AdminUser {
     required this.emailVerified,
     this.isActive = true,
     this.approved = true,
+    this.photo,
     this.email,
     this.city,
     this.donorAvailability,
@@ -414,6 +415,7 @@ class AdminUser {
 
   /// Missing on accounts that predate approval, which count as approved.
   final bool approved;
+  final String? photo;
   final String? email;
   final String? city;
   final DonorAvailability? donorAvailability;
@@ -443,6 +445,7 @@ class AdminUser {
       isActive:
           (m['isActive'] as bool?) ?? (!(m['disabled'] as bool? ?? false)),
       approved: m['approved'] as bool? ?? true,
+      photo: m['photo'] as String?,
       // Firebase owns the real claim; the doc only mirrors that an address
       // exists, so this is "has a verified address on file", not authority.
       emailVerified: (m['email'] as String?) != null,

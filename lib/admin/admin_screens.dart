@@ -9,6 +9,7 @@ import '../core/theme/app_spacing.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/app_typography.dart';
 import '../core/utils/formatters.dart';
+import '../core/widgets/avatar.dart';
 import '../data/models/models.dart';
 import 'admin_backend.dart';
 import 'admin_providers.dart';
@@ -1828,6 +1829,12 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
           return AlertDialog(
             title: Row(
               children: [
+                Avatar(
+                  initials: Fmt.initials(user.name),
+                  photo: user.photo,
+                  size: 42,
+                ),
+                const SizedBox(width: AppSpacing.sm),
                 BloodGroupBadge(user.bloodGroup),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
@@ -2012,22 +2019,34 @@ class _UserRow extends ConsumerWidget {
         children: [
           AdminCell(
             flex: 3,
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Row(
               children: [
-                Text(
-                  user.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.text.titleSmall,
+                Avatar(
+                  initials: Fmt.initials(user.name),
+                  photo: user.photo,
+                  size: 32,
                 ),
-                if (user.city != null)
-                  Text(
-                    user.city!,
-                    style: context.text.bodySmall?.copyWith(
-                      color: c.textTertiary,
-                    ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.titleSmall,
+                      ),
+                      if (user.city != null)
+                        Text(
+                          user.city!,
+                          style: context.text.bodySmall?.copyWith(
+                            color: c.textTertiary,
+                          ),
+                        ),
+                    ],
                   ),
+                ),
               ],
             ),
           ),
@@ -2132,6 +2151,12 @@ class _UserMobileCard extends StatelessWidget {
               Expanded(
                 child: Row(
                   children: [
+                    Avatar(
+                      initials: Fmt.initials(user.name),
+                      photo: user.photo,
+                      size: 34,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
                     BloodGroupBadge(user.bloodGroup),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(

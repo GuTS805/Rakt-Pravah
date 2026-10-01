@@ -513,6 +513,8 @@ class BloodRequest {
     List<StatusEvent>? timeline,
     Map<String, DonorPing>? donorLiveLocations,
     DonorPing? requesterLiveLocation,
+    String? requesterPhoto,
+    bool clearRequesterPhoto = false,
   }) {
     return BloodRequest(
       id: id,
@@ -543,7 +545,9 @@ class BloodRequest {
       donorLiveLocations: donorLiveLocations ?? this.donorLiveLocations,
       requesterLiveLocation:
           requesterLiveLocation ?? this.requesterLiveLocation,
-      requesterPhoto: requesterPhoto,
+      requesterPhoto: clearRequesterPhoto
+          ? null
+          : (requesterPhoto ?? this.requesterPhoto),
     );
   }
 }

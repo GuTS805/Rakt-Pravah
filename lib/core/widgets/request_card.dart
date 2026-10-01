@@ -33,9 +33,13 @@ class RequestCard extends ConsumerWidget {
         request.patientName;
     final patientGroup = request.patientBloodGroup;
 
+    final currentUser = ref.watch(currentUserProvider);
+    final isMe = currentUser != null && currentUser.id == request.requesterId;
+    final effectivePhoto = isMe ? currentUser.photo : request.requesterPhoto;
+
     return ProfileCard(
-      requesterName: request.requesterName,
-      requesterPhoto: request.requesterPhoto,
+      requesterName: isMe ? currentUser.name : request.requesterName,
+      requesterPhoto: effectivePhoto,
       userId: Fmt.userId(request.requesterId),
       subtitle: 'Requesting for ${patientName ?? 'a patient'}',
       aside: Fmt.relative(request.createdAt),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:geolocator/geolocator.dart' show LocationPermission;
 
@@ -597,6 +598,22 @@ class FakeBackend implements Backend {
 
   @override
   Future<void> setProfilePhoto(String? photo) async {
+    if (photo != null) {
+      if (photo.length > 60000) {
+        throw ArgumentError('Photo data exceeds maximum allowed size.');
+      }
+      try {
+        final decoded = base64Decode(photo);
+        if (decoded.length > Photos.maxFileSizeBytes) {
+          throw ArgumentError('Photo file size exceeds 5 MB limit.');
+        }
+        if (!Photos.isSupportedBytes(decoded)) {
+          throw ArgumentError('Unsupported image format. Use JPG, PNG, or WEBP.');
+        }
+      } on FormatException {
+        throw ArgumentError('Invalid photo data: not a valid base64 payload.');
+      }
+    }
     final user = currentUser!;
     currentUser = UserProfile(
       id: user.id,
@@ -614,6 +631,16 @@ class FakeBackend implements Backend {
       photo: photo,
       approved: user.approved,
     );
+
+    final currentRequests = _requests.value;
+    final updated = [
+      for (final r in currentRequests)
+        if (r.requesterId == user.id)
+          r.copyWith(requesterPhoto: photo)
+        else
+          r,
+    ];
+    _requests.value = updated;
   }
 
   @override

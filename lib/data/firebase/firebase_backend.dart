@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 
+import '../../core/services/photo_picker.dart';
 import '../backend.dart';
 import '../models/models.dart';
 
@@ -165,6 +167,22 @@ class FirebaseBackend implements Backend {
 
   @override
   Future<void> setProfilePhoto(String? photo) async {
+    if (photo != null) {
+      if (photo.length > 60000) {
+        throw ArgumentError('Photo data exceeds maximum allowed size.');
+      }
+      try {
+        final decoded = base64Decode(photo);
+        if (decoded.length > Photos.maxFileSizeBytes) {
+          throw ArgumentError('Photo file size exceeds 5 MB limit.');
+        }
+        if (!Photos.isSupportedBytes(decoded)) {
+          throw ArgumentError('Unsupported image format. Use JPG, PNG, or WEBP.');
+        }
+      } on FormatException {
+        throw ArgumentError('Invalid photo data: not a valid base64 payload.');
+      }
+    }
     await _users.doc(uid).set({'photo': photo}, fs.SetOptions(merge: true));
     final user = currentUser!;
     currentUser = UserProfile(
@@ -183,6 +201,16 @@ class FirebaseBackend implements Backend {
       photo: photo,
       approved: user.approved,
     );
+
+    // Propagate updated photo across any blood requests authored by this user
+    try {
+      final snap = await _requests.where('requesterId', isEqualTo: uid).get();
+      for (final doc in snap.docs) {
+        await doc.reference.update({'requesterPhoto': photo});
+      }
+    } catch (_) {
+      // Non-critical background sync
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -1102,6 +1130,7 @@ class FirebaseBackend implements Backend {
           isVerified: true,
           isDonorModeOn: donorProfile.isOn,
           acceptedAt: now,
+          photoUrl: currentUser!.photo,
         ),
       ];
       final timeline = List<Map<String, dynamic>>.from(
