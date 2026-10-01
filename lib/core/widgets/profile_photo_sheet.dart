@@ -90,9 +90,16 @@ Future<bool?> showPhotoPreviewDialog({
                   children: [
                     Icon(Icons.check_circle_rounded, size: 14, color: c.success),
                     const SizedBox(width: 6),
-                    Text(
-                      'Square cropped • Auto-compressed • Under 5 MB',
-                      style: AppTypography.mono(size: 11, color: c.textSecondary),
+                    // Wraps rather than overflowing on a narrow dialog.
+                    Flexible(
+                      child: Text(
+                        'Square cropped • Auto-compressed • Under 5 MB',
+                        textAlign: TextAlign.center,
+                        style: AppTypography.mono(
+                          size: 11,
+                          color: c.textSecondary,
+                        ),
+                      ),
                     ),
                   ],
                 ),

@@ -54,33 +54,24 @@ class ProfileScreen extends ConsumerWidget {
                     photo: user.photo,
                     size: 64,
                     showCameraBadge: true,
-                    onCameraTap: () => showProfilePhotoOptions(
-                      context: context,
-                      ref: ref,
-                    ),
+                    onCameraTap: () =>
+                        showProfilePhotoOptions(context: context, ref: ref),
                   ),
                   const SizedBox(width: AppSpacing.lg),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                user.name,
-                                style: context.text.titleLarge,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            VerificationBadge(
-                              verified: user.email != null,
-                              dense: true,
-                            ),
-                          ],
+                        Text(
+                          user.name,
+                          style: context.text.titleLarge,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
+                        if (user.email != null) ...[
+                          const SizedBox(height: 4),
+                          const VerificationBadge(verified: true, dense: true),
+                        ],
                         const SizedBox(height: 4),
                         Text(user.phone, style: context.text.bodyMedium),
                         if (user.placeLabel != null) ...[
