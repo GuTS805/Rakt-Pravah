@@ -6,41 +6,52 @@ import '../theme/app_typography.dart';
 import '../utils/formatters.dart';
 import 'avatar.dart';
 
-/// The frame shared by the request cards and the invitation cards: the left
-/// 30% is the person asking, the right 70% is everything about the request.
-/// Putting the same frame on what you sent and what you received is what lets
-/// the two lists read as one thing.
+/// The frame shared by the request cards and the invitation cards. The person
+/// asking is a round photo on the left with their name, who the request is
+/// for and their id beside it; everything else about the request sits in
+/// [body] underneath, across the full width. Putting the same frame on what
+/// you sent and what you received is what lets the two lists read as one
+/// thing.
 ///
-/// The left side is the requester's photo, filling the whole 30%. Someone who
-/// hasn't added one, or a request made before they did, shows their initials
-/// there instead.
+/// Someone who hasn't added a photo, or a request made before they did, shows
+/// their initials in the circle instead.
 class ProfileCard extends StatelessWidget {
   const ProfileCard({
     super.key,
     required this.requesterName,
-    required this.details,
+    required this.userId,
+    required this.body,
+    this.subtitle,
     this.requesterPhoto,
+    this.aside,
     this.footer,
     this.accent,
     this.onTap,
   });
 
-  /// Widths are a ratio, not a fixed size, so the split holds on every screen.
-  static const photoFlex = 3;
-  static const detailsFlex = 7;
+  static const avatarSize = 76.0;
 
   static const photoKey = ValueKey('profile-card-photo');
   static const detailsKey = ValueKey('profile-card-details');
 
   final String requesterName;
 
+  /// The requester's short id, from [Fmt.userId].
+  final String userId;
+
+  /// Under the name: who the request is for, or why that isn't shown yet.
+  final String? subtitle;
+
   /// Base64 JPEG, or null for initials.
   final String? requesterPhoto;
 
-  /// Goes in the right 70%.
-  final Widget details;
+  /// Sits at the right end of the name line, usually how long ago.
+  final String? aside;
 
-  /// Full-width row under both halves, e.g. Accept and Decline.
+  /// Everything below the header, full width.
+  final Widget body;
+
+  /// Full-width row under the body, e.g. Accept and Decline.
   final Widget? footer;
 
   /// Urgency colour for the thin bar down the left edge.
@@ -75,31 +86,33 @@ class ProfileCard extends StatelessWidget {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                  Padding(
+                    key: detailsKey,
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          flex: photoFlex,
-                          child: ColoredBox(
-                            key: photoKey,
-                            color: c.surfaceMuted,
-                            child: requesterPhoto == null
-                                ? _Initials(name: requesterName)
-                                : _Photo(
-                                    photo: requesterPhoto!,
-                                    name: requesterName,
-                                  ),
-                          ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _Photo(
+                              key: photoKey,
+                              photo: requesterPhoto,
+                              name: requesterName,
+                            ),
+                            const SizedBox(width: AppSpacing.lg),
+                            Expanded(
+                              child: _Headline(
+                                name: requesterName,
+                                subtitle: subtitle,
+                                userId: userId,
+                                aside: aside,
+                              ),
+                            ),
+                          ],
                         ),
-                        Expanded(
-                          flex: detailsFlex,
-                          child: Padding(
-                            key: detailsKey,
-                            padding: const EdgeInsets.all(AppSpacing.lg),
-                            child: details,
-                          ),
-                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        body,
                       ],
                     ),
                   ),
@@ -127,93 +140,42 @@ class ProfileCard extends StatelessWidget {
   }
 }
 
-class _Initials extends StatelessWidget {
-  const _Initials({required this.name});
+/// A round photo with a soft red ring, or the initials when there is none.
+class _Photo extends StatelessWidget {
+  const _Photo({super.key, required this.photo, required this.name});
+  final String? photo;
   final String name;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Avatar(initials: Fmt.initials(name), size: 52),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: context.text.labelMedium?.copyWith(color: c.textSecondary),
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: c.brand.withValues(alpha: 0.25), width: 1.5),
+      ),
+      child: Avatar(
+        initials: Fmt.initials(name),
+        photo: photo,
+        size: ProfileCard.avatarSize - 9,
       ),
     );
   }
 }
 
-/// The photo fills the space; the name sits on a dark band along the bottom so
-/// it stays readable on any picture.
-class _Photo extends StatelessWidget {
-  const _Photo({required this.photo, required this.name});
-  final String photo;
-  final String name;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        MemoryPhoto(photo: photo),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: AppSpacing.xs,
-            ),
-            color: Colors.black.withValues(alpha: 0.55),
-            child: Text(
-              name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: context.text.labelMedium?.copyWith(color: Colors.white),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// The top of the details column: who the patient is, then the requester's id
-/// with something small beside it, usually how long ago it was asked.
-class CardHeadline extends StatelessWidget {
-  const CardHeadline({
-    super.key,
-    required this.title,
+/// Requester name with the time at the far end, who it is for, then the id.
+class _Headline extends StatelessWidget {
+  const _Headline({
+    required this.name,
     required this.userId,
-    this.caption,
+    this.subtitle,
     this.aside,
   });
 
-  /// The patient's name, or a stand-in when it isn't the viewer's to see yet.
-  final String title;
-
-  /// The requester's short id, from [Fmt.userId].
+  final String name;
   final String userId;
-
-  /// Explains a stand-in title, e.g. why the name isn't shown.
-  final String? caption;
-
-  /// Sits at the right end of the id line.
+  final String? subtitle;
   final String? aside;
 
   @override
@@ -222,32 +184,45 @@ class CardHeadline extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: context.text.titleMedium,
-        ),
-        const SizedBox(height: 2),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'ID $userId',
-              style: AppTypography.mono(size: 12, color: c.textTertiary),
+            Expanded(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.text.titleMedium,
+              ),
             ),
             if (aside != null) ...[
-              const Spacer(),
-              Text(
-                aside!,
-                style: context.text.bodySmall?.copyWith(color: c.textTertiary),
+              const SizedBox(width: AppSpacing.sm),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  aside!,
+                  style: context.text.bodySmall?.copyWith(
+                    color: c.textTertiary,
+                  ),
+                ),
               ),
             ],
           ],
         ),
-        if (caption != null) ...[
+        if (subtitle != null) ...[
           const SizedBox(height: 2),
-          Text(caption!, style: context.text.bodySmall),
+          Text(
+            subtitle!,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: context.text.bodyMedium?.copyWith(color: c.textSecondary),
+          ),
         ],
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'ID $userId',
+          style: AppTypography.mono(size: 12, color: c.textTertiary),
+        ),
       ],
     );
   }

@@ -189,9 +189,29 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
     }
   }
 
+  /// Sets the hospital's state and city from an address such as
+  /// "Sivanchetti Gardens, Bengaluru, Karnataka", when both are recognised.
+  void _destFromLabel(String label) {
+    final parts = label.split(',').map((p) => p.trim()).toList();
+    final state = parts.lastWhere(indianStates.contains, orElse: () => '');
+    if (state.isEmpty) return;
+    final city = (indianCitiesByState[state] ?? const <String>[])
+        .where(parts.contains)
+        .firstOrNull;
+    if (city == null) return;
+    _destState = state;
+    _destCity = city;
+  }
+
   Future<void> _next() async {
     if (_step < _steps.length - 1) {
       if (_step == 1) {
+        // The hospital is most likely where the request is made from, so
+        // start from the place the request is actually in (the detected
+        // address), not the saved profile town, which may be another state.
+        if (_destState == null && _source == _LocationSource.current) {
+          _destFromLabel(_location.text);
+        }
         _destState ??= _selectedState;
         if (_destCity == null && _selectedCity != null) {
           _destCity = _selectedCity;

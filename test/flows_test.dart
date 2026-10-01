@@ -168,21 +168,25 @@ void main() {
     Finder inDetails(Finder f) =>
         find.descendant(of: find.byKey(ProfileCard.detailsKey), matching: f);
 
-    testWidgets('the requester takes the left 30% and the details the right '
-        '70%', (tester) async {
-      await show(tester, RequestCard(request: _request()));
-
-      final photo = tester.getSize(find.byKey(ProfileCard.photoKey)).width;
-      final details = tester.getSize(find.byKey(ProfileCard.detailsKey)).width;
-      expect(photo / (photo + details), closeTo(0.3, 0.001));
-    });
-
-    testWidgets('the requester is shown on the left, with their initials', (
+    testWidgets('the requester is a round photo on the left of the name', (
       tester,
     ) async {
       await show(tester, RequestCard(request: _request()));
 
-      expect(inPhoto(find.text('Alok Sharma')), findsOneWidget);
+      final photo = tester.getRect(find.byKey(ProfileCard.photoKey));
+      expect(photo.width, photo.height, reason: 'it is a circle');
+      expect(
+        tester.getRect(find.text('Alok Sharma')).left,
+        greaterThan(photo.right),
+      );
+    });
+
+    testWidgets('without a photo the requester shows their initials', (
+      tester,
+    ) async {
+      await show(tester, RequestCard(request: _request()));
+
+      expect(inDetails(find.text('Alok Sharma')), findsOneWidget);
       expect(inPhoto(find.text('AS')), findsOneWidget);
     });
 
@@ -193,7 +197,7 @@ void main() {
         ..patientNames['r1'] = 'Sita Devi';
       await show(tester, RequestCard(request: _request()), backend: backend);
 
-      expect(inDetails(find.text('Sita Devi')), findsOneWidget);
+      expect(inDetails(find.text('Requesting for Sita Devi')), findsOneWidget);
       expect(inDetails(find.text('ID RP-U1')), findsOneWidget);
       expect(inDetails(find.text('City Hospital')), findsOneWidget);
       expect(inDetails(find.text('MG Road')), findsOneWidget);
@@ -206,7 +210,7 @@ void main() {
     ) async {
       await show(tester, InvitationCard(invitation: _invitation()));
 
-      expect(inPhoto(find.text('Ravi Kumar')), findsOneWidget);
+      expect(inDetails(find.text('Ravi Kumar')), findsOneWidget);
       expect(inDetails(find.text('ID RP-RDTENC')), findsOneWidget);
       expect(inDetails(find.text('City Hospital')), findsOneWidget);
       expect(inDetails(find.text('2.4 km')), findsOneWidget);
@@ -242,7 +246,7 @@ void main() {
         backend: backend,
       );
 
-      expect(inDetails(find.text('Sita Devi')), findsOneWidget);
+      expect(inDetails(find.text('Requesting for Sita Devi')), findsOneWidget);
       expect(find.text('Name shown after you accept'), findsNothing);
       expect(find.text('You accepted this request'), findsOneWidget);
     });
@@ -264,7 +268,7 @@ void main() {
       expect(
         accept.right - decline.left,
         greaterThan(card * 0.4),
-        reason: 'the buttons sit under both halves, not inside the 70%',
+        reason: 'the buttons run across the card',
       );
     });
   });
@@ -543,6 +547,46 @@ void main() {
 
       expect(tester.takeException(), isNull, reason: 'no overflow');
       final units = tester.getSize(find.text('2 units'));
+      expect(units.width, greaterThan(50), reason: 'not one letter per line');
+      expect(units.height, lessThan(40));
+    });
+  });
+
+  group('invitation detail', () {
+    testWidgets('a request open to every group still lays out on a phone', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 2.625;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final inv = Invitation(
+        id: 'r9',
+        requestId: 'r9',
+        requesterId: 'RDTEnCpXsUTImKqDY8iEY93Lgwg2',
+        requesterName: 'Ravi Kumar',
+        bloodGroups: BloodGroup.values.toList(),
+        units: 1,
+        urgency: Urgency.urgent,
+        distanceKm: 2.0,
+        status: InvitationStatus.pending,
+        destinationName: 'City Hospital',
+        destinationArea: 'MG Road',
+        createdAt: DateTime.now(),
+        expiresAt: DateTime.now().add(const Duration(hours: 5)),
+        patientBloodGroup: BloodGroup.abPos,
+      );
+      await tester.pumpWidget(
+        _app(
+          backend: FakeBackend(user: _user(), invitations: [inv]),
+          user: _user(),
+          screen: const InvitationDetailScreen(invitationId: 'r9'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull, reason: 'no overflow');
+      final units = tester.getSize(find.text('1 unit'));
       expect(units.width, greaterThan(50), reason: 'not one letter per line');
       expect(units.height, lessThan(40));
     });

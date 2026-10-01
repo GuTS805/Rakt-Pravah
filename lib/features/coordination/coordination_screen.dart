@@ -379,7 +379,11 @@ class _DonorViewOfRequester extends ConsumerWidget {
               // Requester identity row
               Row(
                 children: [
-                  Avatar(initials: _initials(request.requesterName), size: 50),
+                  Avatar(
+                    initials: _initials(request.requesterName),
+                    photo: request.requesterPhoto,
+                    size: 50,
+                  ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(

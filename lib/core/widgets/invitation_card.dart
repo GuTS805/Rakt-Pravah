@@ -12,8 +12,8 @@ import 'buttons.dart';
 import 'profile_card.dart';
 
 /// A request somebody else made that you could help with. Same frame as the
-/// request cards: the left 30% is the person asking, the right 70% is the
-/// patient and the details.
+/// request cards: the person asking is the round photo and name on top, the
+/// patient and the details are below.
 ///
 /// The patient's name is held back until the donor accepts. Everyone can see
 /// a request, because that is how donors find one, but the name is only for
@@ -54,6 +54,13 @@ class InvitationCard extends ConsumerWidget {
     return ProfileCard(
       requesterName: inv.requesterName,
       requesterPhoto: inv.requesterPhoto,
+      userId: Fmt.userId(inv.requesterId),
+      subtitle: patientName != null
+          ? 'Requesting for $patientName'
+          : accepted
+          ? null
+          : 'Name shown after you accept',
+      aside: Fmt.relative(inv.createdAt),
       accent: urgencyStyle(context, inv.urgency).color,
       onTap: onTap,
       footer: showActions
@@ -76,24 +83,16 @@ class InvitationCard extends ConsumerWidget {
               ],
             )
           : null,
-      details: Column(
+      body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CardHeadline(
-            title: patientName ?? 'Patient',
-            userId: Fmt.userId(inv.requesterId),
-            aside: Fmt.relative(inv.createdAt),
-            caption: patientName == null && !accepted
-                ? 'Name shown after you accept'
-                : null,
-          ),
-          const SizedBox(height: AppSpacing.md),
           Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.xs,
             children: [
               BloodGroupBadges(inv.bloodGroups, maxVisible: 2),
+              Container(width: 1, height: 22, color: c.border),
               Text(Fmt.units(inv.units), style: context.text.titleSmall),
             ],
           ),

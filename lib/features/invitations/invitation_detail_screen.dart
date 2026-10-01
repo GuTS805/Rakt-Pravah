@@ -75,33 +75,29 @@ class _InvitationDetailScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        BloodGroupBadges(
-                          inv.bloodGroups,
-                          large: true,
-                          maxVisible: 3,
-                        ),
-                        const SizedBox(width: AppSpacing.md),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                Fmt.units(inv.units),
-                                style: context.text.headlineSmall,
-                              ),
-                              if ((inv.unitsRemaining ?? 0) > 0 &&
-                                  inv.units > 1)
-                                Text(
-                                  '${inv.unitsRemaining} still without a donor',
-                                  style: context.text.bodySmall,
-                                ),
-                            ],
+                          child: BloodGroupBadges(
+                            inv.bloodGroups,
+                            large: true,
+                            maxVisible: 3,
                           ),
                         ),
+                        const SizedBox(width: AppSpacing.md),
                         UrgencyBadge(inv.urgency),
                       ],
                     ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      Fmt.units(inv.units),
+                      style: context.text.headlineSmall,
+                    ),
+                    if ((inv.unitsRemaining ?? 0) > 0 && inv.units > 1)
+                      Text(
+                        '${inv.unitsRemaining} still without a donor',
+                        style: context.text.bodySmall,
+                      ),
                     if (inv.patientBloodGroup != null) ...[
                       const SizedBox(height: AppSpacing.md),
                       Text(

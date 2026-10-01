@@ -123,16 +123,17 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
-    testWidgets('the requester photo fills the left 30%', (tester) async {
+    testWidgets('the requester photo is shown in the round avatar', (
+      tester,
+    ) async {
       await show(tester, _request(photo: _png));
 
       expect(_inPhotoCell(find.byType(MemoryPhoto)), findsOneWidget);
-      expect(_inPhotoCell(find.byType(Avatar)), findsNothing);
-      expect(_inPhotoCell(find.text('Alok Sharma')), findsOneWidget);
+      expect(find.text('Alok Sharma'), findsOneWidget);
 
-      final cell = tester.getSize(find.byKey(ProfileCard.photoKey));
       final photo = tester.getSize(find.byType(MemoryPhoto));
-      expect(photo, cell, reason: 'the photo covers the whole left side');
+      expect(photo.width, photo.height);
+      expect(photo.width, greaterThan(50));
     });
 
     testWidgets('without a photo the initials stand in', (tester) async {
@@ -148,7 +149,8 @@ void main() {
       await show(tester, _request(photo: '%%% not base64 %%%'));
 
       expect(tester.takeException(), isNull);
-      expect(_inPhotoCell(find.text('Alok Sharma')), findsOneWidget);
+      expect(_inPhotoCell(find.text('AS')), findsOneWidget);
+      expect(find.text('Alok Sharma'), findsOneWidget);
     });
   });
 

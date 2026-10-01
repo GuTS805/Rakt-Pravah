@@ -10,9 +10,10 @@ import '../utils/formatters.dart';
 import 'badges.dart';
 import 'profile_card.dart';
 
-/// One blood request you asked for. Used in My Requests and history. The left
-/// 30% is you as the requester, the right 70% is the patient and the details;
-/// urgency is echoed as a bar down the left edge for at-a-glance triage.
+/// One blood request you asked for. Used in My Requests and history. Your
+/// round photo and name head the card, with who it is for beside them and the
+/// details below; urgency is echoed as a bar down the left edge for
+/// at-a-glance triage.
 class RequestCard extends ConsumerWidget {
   const RequestCard({super.key, required this.request, this.onTap});
 
@@ -35,23 +36,21 @@ class RequestCard extends ConsumerWidget {
     return ProfileCard(
       requesterName: request.requesterName,
       requesterPhoto: request.requesterPhoto,
+      userId: Fmt.userId(request.requesterId),
+      subtitle: 'Requesting for ${patientName ?? 'a patient'}',
+      aside: Fmt.relative(request.createdAt),
       accent: accent,
       onTap: onTap,
-      details: Column(
+      body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CardHeadline(
-            title: patientName ?? 'Patient',
-            userId: Fmt.userId(request.requesterId),
-            aside: Fmt.relative(request.createdAt),
-          ),
-          const SizedBox(height: AppSpacing.md),
           Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.xs,
             children: [
               BloodGroupBadges(request.bloodGroups, maxVisible: 2),
+              Container(width: 1, height: 22, color: c.border),
               Text(Fmt.units(request.units), style: context.text.titleSmall),
             ],
           ),
