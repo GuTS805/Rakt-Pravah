@@ -52,7 +52,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Unable to connect to the server. Please try again.');
+        setState(
+          () => _error = 'Unable to connect to the server. Please try again.',
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -151,8 +153,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               setState(() => _showPassword = !_showPassword),
                         ),
                       ),
-                      validator: (v) =>
-                          (v ?? '').isEmpty ? 'Please enter your password.' : null,
+                      validator: (v) => (v ?? '').isEmpty
+                          ? 'Please enter your password.'
+                          : null,
                       onFieldSubmitted: (_) => _submit(),
                     ),
                     Align(

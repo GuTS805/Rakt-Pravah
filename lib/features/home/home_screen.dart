@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
+import '../../core/services/approval_gate.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/theme/semantics.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/app_card.dart';
+import '../../core/widgets/approval_banner.dart';
 import '../../core/widgets/badges.dart';
 import '../../data/models/models.dart';
 import '../../data/providers.dart';
@@ -100,6 +102,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xxl),
 
+                if (!ref.watch(canActValueProvider)) ...[
+                  const ApprovalBanner(),
+                  const SizedBox(height: AppSpacing.lg),
+                ],
+
                 // If the one-shot auto-prompt on first load was missed, denied,
                 // or blocked, this stays visible so there's always an obvious
                 // way to grant location — never a silent dead end.
@@ -121,7 +128,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 _EmergencyCard(
                   compact: activeRequest != null,
-                  onTap: () => context.push(Routes.createRequest),
+                  onTap: () {
+                    if (requireApproval(context, ref)) {
+                      context.push(Routes.createRequest);
+                    }
+                  },
                 ),
                 const SizedBox(height: AppSpacing.lg),
 

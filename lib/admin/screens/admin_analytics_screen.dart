@@ -44,7 +44,8 @@ class AdminAnalyticsScreen extends ConsumerWidget {
               ),
               AdminStatCard(
                 icon: Icons.volunteer_activism_rounded,
-                value: '${users.where((u) => u.donorAvailability != null).length}',
+                value:
+                    '${users.where((u) => u.donorAvailability != null).length}',
                 label: 'Registered Donors',
                 color: c.success,
               ),
@@ -56,7 +57,8 @@ class AdminAnalyticsScreen extends ConsumerWidget {
               ),
               AdminStatCard(
                 icon: Icons.check_circle_rounded,
-                value: '${requests.where((r) => r.status == RequestStatus.fulfilled).length}',
+                value:
+                    '${requests.where((r) => r.status == RequestStatus.fulfilled).length}',
                 label: 'Fulfilled',
                 color: c.success,
               ),
@@ -102,9 +104,7 @@ class AdminAnalyticsScreen extends ConsumerWidget {
                         _BarRow(
                           label: group.label,
                           value: requests
-                              .where(
-                                (r) => r.bloodGroups.contains(group),
-                              )
+                              .where((r) => r.bloodGroups.contains(group))
                               .length,
                           total: requests.length,
                           color: c.info,
@@ -129,18 +129,14 @@ class AdminAnalyticsScreen extends ConsumerWidget {
                   for (final status in RequestStatus.values)
                     _StatusStat(
                       status: status.label,
-                      count: requests
-                          .where((r) => r.status == status)
-                          .length,
+                      count: requests.where((r) => r.status == status).length,
                       total: requests.length,
                       color: switch (status) {
                         RequestStatus.fulfilled => c.success,
                         RequestStatus.coordinating ||
-                        RequestStatus.donorAccepted =>
-                          c.info,
+                        RequestStatus.donorAccepted => c.info,
                         RequestStatus.searching ||
-                        RequestStatus.created =>
-                          c.warning,
+                        RequestStatus.created => c.warning,
                         RequestStatus.removedByAdmin => c.danger,
                         _ => c.textTertiary,
                       },
@@ -405,10 +401,7 @@ class _StatusStat extends StatelessWidget {
               color: color,
             ),
           ),
-          Text(
-            status,
-            style: context.text.titleSmall,
-          ),
+          Text(status, style: context.text.titleSmall),
           Text(
             '${pct.toStringAsFixed(1)}%',
             style: context.text.bodySmall?.copyWith(
@@ -441,15 +434,10 @@ class _AnalyticRow extends StatelessWidget {
           Container(
             width: 10,
             height: 10,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(label, style: context.text.bodySmall),
-          ),
+          Expanded(child: Text(label, style: context.text.bodySmall)),
           Text(
             '$value',
             style: AppTypography.mono(

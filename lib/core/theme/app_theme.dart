@@ -104,7 +104,9 @@ abstract class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: c.surface,
         surfaceTintColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(borderRadius: AppRadius.modalRadius),
+        shape: const RoundedRectangleBorder(
+          borderRadius: AppRadius.modalRadius,
+        ),
       ),
       splashColor: c.brand.withValues(alpha: 0.06),
       highlightColor: c.brand.withValues(alpha: 0.04),

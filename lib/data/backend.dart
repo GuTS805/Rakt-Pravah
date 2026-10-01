@@ -65,6 +65,15 @@ abstract class Backend {
     required String city,
   });
 
+  /// Sets, or with null removes, the signed-in user's profile photo: a small
+  /// base64 JPEG kept on their profile. Requests made afterwards carry a copy.
+  Future<void> setProfilePhoto(String? photo);
+
+  /// Whether this account may ask for blood or donate right now. False only
+  /// while the operators' approval switch is on and this account hasn't been
+  /// approved yet; live, so approval takes effect without restarting the app.
+  Stream<bool> get canActStream;
+
   Future<void> signOut();
 
   /// Signs in with an email and password. Throws [SignInFailure] when those

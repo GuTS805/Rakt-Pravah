@@ -23,6 +23,23 @@ abstract class Fmt {
     return '${d.inDays} d left';
   }
 
+  /// A short, readable id for an account, e.g. "RP-RDTENC". The real id is a
+  /// 28-character Firebase uid nobody can read out over the phone; this is
+  /// its first six characters, enough to tell two people apart on a card.
+  static String userId(String uid) {
+    final head = uid.length < 6 ? uid : uid.substring(0, 6);
+    return 'RP-${head.toUpperCase()}';
+  }
+
+  /// One or two letters standing in for a person's photo.
+  static String initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
+        .toUpperCase();
+  }
+
   /// Clock time, e.g. "14:32".
   static String clock(DateTime t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';

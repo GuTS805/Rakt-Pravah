@@ -15,11 +15,7 @@ import 'admin_shell.dart';
 /// A container that makes tables horizontally scrollable on narrow viewports
 /// without ever allowing page-level horizontal overflow or column squishing.
 class AdminTableScroll extends StatelessWidget {
-  const AdminTableScroll({
-    super.key,
-    required this.child,
-    this.minWidth = 680,
-  });
+  const AdminTableScroll({super.key, required this.child, this.minWidth = 680});
 
   final Widget child;
   final double minWidth;
@@ -139,11 +135,7 @@ class RequestStatusPill extends StatelessWidget {
         c.successSubtle,
         Icons.check_circle_rounded,
       ),
-      RequestStatus.coordinating => (
-        c.info,
-        c.infoSubtle,
-        Icons.forum_rounded,
-      ),
+      RequestStatus.coordinating => (c.info, c.infoSubtle, Icons.forum_rounded),
       RequestStatus.donorAccepted => (
         c.success,
         c.successSubtle,
@@ -275,13 +267,15 @@ class AdminRequestTable extends StatelessWidget {
                       const SizedBox(height: AppSpacing.sm),
                       Text(
                         r.requesterName,
-                        style: context.text.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w600),
+                        style: context.text.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       Text(
                         r.destinationName,
-                        style: context.text.bodySmall
-                            ?.copyWith(color: c.textTertiary),
+                        style: context.text.bodySmall?.copyWith(
+                          color: c.textTertiary,
+                        ),
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Row(
@@ -353,8 +347,9 @@ class AdminRequestTable extends StatelessWidget {
                               ),
                               child: Text(
                                 'Remove',
-                                style: context.text.labelSmall
-                                    ?.copyWith(color: c.danger),
+                                style: context.text.labelSmall?.copyWith(
+                                  color: c.danger,
+                                ),
                               ),
                             ),
                         ],
@@ -487,8 +482,7 @@ class AdminRequestTable extends StatelessWidget {
                                     onPressed: () => onRemove!(r),
                                     child: Text(
                                       'Remove',
-                                      style:
-                                          context.text.labelMedium?.copyWith(
+                                      style: context.text.labelMedium?.copyWith(
                                         color: c.danger,
                                       ),
                                     ),
@@ -534,7 +528,11 @@ class AdminSearchBar extends StatelessWidget {
         style: context.text.bodySmall,
         decoration: InputDecoration(
           hintText: hint,
-          prefixIcon: Icon(Icons.search_rounded, size: 18, color: c.textTertiary),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            size: 18,
+            color: c.textTertiary,
+          ),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md,
             vertical: AppSpacing.sm,
@@ -638,8 +636,9 @@ class AdminStatCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   description!,
-                  style:
-                      context.text.bodySmall?.copyWith(color: c.textTertiary),
+                  style: context.text.bodySmall?.copyWith(
+                    color: c.textTertiary,
+                  ),
                 ),
               ],
             ],
@@ -755,10 +754,7 @@ Future<bool> showAdminConfirmDialog(
       final c = context.colors;
       return AlertDialog(
         title: Text(title),
-        content: Text(
-          message,
-          style: context.text.bodyMedium,
-        ),
+        content: Text(message, style: context.text.bodyMedium),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -782,7 +778,11 @@ Future<bool> showAdminConfirmDialog(
 // Toast / Snackbar helper
 // ---------------------------------------------------------------------------
 
-void showAdminToast(BuildContext context, String message, {bool isError = false}) {
+void showAdminToast(
+  BuildContext context,
+  String message, {
+  bool isError = false,
+}) {
   final c = context.colors;
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
@@ -847,8 +847,9 @@ class AdminActivityItem extends StatelessWidget {
                   detail,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style:
-                      context.text.bodySmall?.copyWith(color: c.textSecondary),
+                  style: context.text.bodySmall?.copyWith(
+                    color: c.textSecondary,
+                  ),
                 ),
               ],
             ),

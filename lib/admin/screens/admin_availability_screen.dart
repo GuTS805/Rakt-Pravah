@@ -37,8 +37,7 @@ class _AdminAvailabilityScreenState
 
     return AdminPage(
       title: 'Blood & Platelet Availability',
-      subtitle:
-          'Monitor regional component inventory, reserve balances, and donor readiness.',
+      subtitle: 'Monitor regional component inventory, reserve balances, and donor readiness.',
       actions: [
         Wrap(
           spacing: AppSpacing.sm,
@@ -152,8 +151,8 @@ class _AdminAvailabilityScreenState
     final (statusLabel, statusColor, statusBg) = balance < 0
         ? ('Deficit', c.danger, c.dangerSubtle)
         : balance == 0
-            ? ('Balanced', c.warning, c.warningSubtle)
-            : ('Adequate', c.success, c.successSubtle);
+        ? ('Balanced', c.warning, c.warningSubtle)
+        : ('Adequate', c.success, c.successSubtle);
 
     return Container(
       decoration: BoxDecoration(
@@ -165,10 +164,7 @@ class _AdminAvailabilityScreenState
       ),
       child: Row(
         children: [
-          AdminCell(
-            flex: 2,
-            Row(children: [BloodGroupBadge(group)]),
-          ),
+          AdminCell(flex: 2, Row(children: [BloodGroupBadge(group)])),
           AdminCell(
             flex: 2,
             Text(
@@ -200,11 +196,7 @@ class _AdminAvailabilityScreenState
           ),
           AdminCell(
             flex: 2,
-            StatusPill(
-              statusLabel,
-              fg: statusColor,
-              bg: statusBg,
-            ),
+            StatusPill(statusLabel, fg: statusColor, bg: statusBg),
           ),
         ],
       ),

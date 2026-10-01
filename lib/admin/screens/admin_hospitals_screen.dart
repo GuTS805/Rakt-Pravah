@@ -15,8 +15,9 @@ import '../admin_widgets.dart';
 
 /// Provider for hospitals (reads from `hospitals` Firestore collection).
 /// The collection may not exist yet — this reads an empty list gracefully.
-final adminHospitalsProvider =
-    StreamProvider.autoDispose<List<AdminHospital>>((ref) {
+final adminHospitalsProvider = StreamProvider.autoDispose<List<AdminHospital>>((
+  ref,
+) {
   final admin = ref.watch(adminBackendProvider);
   if (admin == null) return Stream.value(const []);
   return admin.hospitals;
@@ -61,8 +62,7 @@ class _AdminHospitalsScreenState extends ConsumerState<AdminHospitalsScreen> {
           message: 'Could not read: $e',
         ),
         data: (hospitals) {
-          final verified =
-              hospitals.where((h) => h.isVerified).length;
+          final verified = hospitals.where((h) => h.isVerified).length;
 
           var shown = switch (_filter) {
             'verified' => hospitals.where((h) => h.isVerified).toList(),
@@ -149,7 +149,7 @@ class _AdminHospitalsScreenState extends ConsumerState<AdminHospitalsScreen> {
                         icon: Icons.local_hospital_rounded,
                         message: hospitals.isEmpty
                             ? 'No hospitals registered yet. Add a hospital '
-                                'using the button above.'
+                                  'using the button above.'
                             : 'No hospitals match this filter.',
                       )
                     : AdminTableScroll(
@@ -164,8 +164,7 @@ class _AdminHospitalsScreenState extends ConsumerState<AdminHospitalsScreen> {
                               ('Status', 2),
                               ('Actions', 2),
                             ]),
-                            for (final h in shown)
-                              _HospitalRow(hospital: h),
+                            for (final h in shown) _HospitalRow(hospital: h),
                           ],
                         ),
                       ),
@@ -298,11 +297,7 @@ class _HospitalRow extends ConsumerWidget {
           ),
           AdminCell(
             flex: 2,
-            StatusPill(
-              hospital.type,
-              fg: c.info,
-              bg: c.infoSubtle,
-            ),
+            StatusPill(hospital.type, fg: c.info, bg: c.infoSubtle),
           ),
           AdminCell(
             flex: 2,
@@ -329,10 +324,7 @@ class _HospitalRow extends ConsumerWidget {
                         final admin = ref.read(adminBackendProvider);
                         await admin?.verifyHospital(hospital.id);
                         if (context.mounted) {
-                          showAdminToast(
-                            context,
-                            '${hospital.name} verified.',
-                          );
+                          showAdminToast(context, '${hospital.name} verified.');
                         }
                       },
                     ),
@@ -340,11 +332,7 @@ class _HospitalRow extends ConsumerWidget {
                 Tooltip(
                   message: 'Delete hospital',
                   child: IconButton(
-                    icon: Icon(
-                      Icons.delete_rounded,
-                      size: 18,
-                      color: c.danger,
-                    ),
+                    icon: Icon(Icons.delete_rounded, size: 18, color: c.danger),
                     onPressed: () async {
                       final confirmed = await showAdminConfirmDialog(
                         context,

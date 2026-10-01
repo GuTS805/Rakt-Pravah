@@ -38,6 +38,8 @@ class UserProfile {
     this.city,
     this.lastDonation,
     this.isAdmin = false,
+    this.photo,
+    this.approved = true,
   });
 
   final String id;
@@ -45,6 +47,14 @@ class UserProfile {
   final BloodGroup bloodGroup;
   final String phone;
   final String? email;
+
+  /// A small JPEG, base64-encoded (see `Photos`). Null until the user adds one.
+  final String? photo;
+
+  /// Whether an operator has cleared this account. New accounts start
+  /// unapproved; accounts that predate approval have no such field and count
+  /// as approved. It only matters while the console's approval switch is on.
+  final bool approved;
 
   /// Collected at registration. Nullable only because accounts created before
   /// these fields existed don't have them — donor actions send those users to
@@ -100,6 +110,8 @@ class UserProfile {
     String? city,
     DateTime? lastDonation,
     bool? isAdmin,
+    String? photo,
+    bool? approved,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -114,6 +126,8 @@ class UserProfile {
       city: city ?? this.city,
       lastDonation: lastDonation ?? this.lastDonation,
       isAdmin: isAdmin ?? this.isAdmin,
+      photo: photo ?? this.photo,
+      approved: approved ?? this.approved,
     );
   }
 }
@@ -126,7 +140,7 @@ class DonorProfile {
     this.notifyPush = true,
     this.notifyCritical = false,
     this.locationGranted = false,
-    this.maxDistanceKm = 15,
+    this.maxDistanceKm = 30,
     this.pausedUntil,
     this.totalDonations = 0,
     this.lastDonation,
@@ -149,8 +163,7 @@ class DonorProfile {
   static const cooldownDuration = Duration(days: 90);
 
   /// The next eligible donation date (3 months / 90 days after last donation).
-  DateTime? get nextEligibleDonationDate =>
-      lastDonation?.add(cooldownDuration);
+  DateTime? get nextEligibleDonationDate => lastDonation?.add(cooldownDuration);
 
   DateTime? get cooldownEndsAt => nextEligibleDonationDate;
 
@@ -187,7 +200,9 @@ class DonorProfile {
       maxDistanceKm: maxDistanceKm ?? this.maxDistanceKm,
       pausedUntil: pausedUntil ?? this.pausedUntil,
       totalDonations: totalDonations ?? this.totalDonations,
-      lastDonation: clearLastDonation ? null : (lastDonation ?? this.lastDonation),
+      lastDonation: clearLastDonation
+          ? null
+          : (lastDonation ?? this.lastDonation),
     );
   }
 }
@@ -256,8 +271,7 @@ class MatchedDonor {
   final bool isDonorModeOn;
 
   /// Approximate travel time in minutes based on distance (~30 km/h urban speed).
-  int get estimatedTravelMinutes =>
-      (distanceKm / 0.5).round().clamp(2, 180);
+  int get estimatedTravelMinutes => (distanceKm / 0.5).round().clamp(2, 180);
 }
 
 /// A donor who has committed to one unit of a request. A request needing
@@ -398,11 +412,16 @@ class BloodRequest {
     this.timeline = const [],
     this.donorLiveLocations = const {},
     this.requesterLiveLocation,
+    this.requesterPhoto,
   });
 
   final String id;
   final String requesterId;
   final String requesterName;
+
+  /// The requester's photo as it was when they asked, copied onto the request
+  /// because other people can't read the requester's profile.
+  final String? requesterPhoto;
 
   /// Every blood group this request is open to — a patient can usually be
   /// helped by more than one compatible donor type, not just an exact match.
@@ -524,6 +543,7 @@ class BloodRequest {
       donorLiveLocations: donorLiveLocations ?? this.donorLiveLocations,
       requesterLiveLocation:
           requesterLiveLocation ?? this.requesterLiveLocation,
+      requesterPhoto: requesterPhoto,
     );
   }
 }
@@ -534,6 +554,8 @@ class Invitation {
   const Invitation({
     required this.id,
     required this.requestId,
+    required this.requesterId,
+    required this.requesterName,
     required this.bloodGroups,
     required this.units,
     required this.urgency,
@@ -546,10 +568,18 @@ class Invitation {
     this.patientBloodGroup,
     this.requestStatus = RequestStatus.searching,
     this.unitsRemaining,
+    this.requesterPhoto,
   });
 
   final String id;
   final String requestId;
+
+  /// Who is asking. Both are already public on the request, since every
+  /// signed-in user can read requests to find ones they can help with; the
+  /// requester's phone number is not, and never travels with this.
+  final String requesterId;
+  final String requesterName;
+  final String? requesterPhoto;
   final List<BloodGroup> bloodGroups;
   final int units;
   final Urgency urgency;
@@ -580,6 +610,9 @@ class Invitation {
   Invitation copyWith({InvitationStatus? status}) => Invitation(
     id: id,
     requestId: requestId,
+    requesterId: requesterId,
+    requesterName: requesterName,
+    requesterPhoto: requesterPhoto,
     bloodGroups: bloodGroups,
     units: units,
     urgency: urgency,

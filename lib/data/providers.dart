@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/services/location_service.dart';
+import '../core/services/photo_picker.dart';
 import 'backend.dart';
 import 'firebase/firebase_backend.dart';
 import 'models/models.dart';
@@ -99,6 +100,13 @@ class AuthController extends Notifier<AuthState> {
       city: city,
     );
     this.state = AuthState(AuthStatus.authenticated, _backend.currentUser);
+  }
+
+  /// Sets, or with null removes, the profile photo.
+  Future<void> setPhoto(String? photo) async {
+    if (state.user == null) return;
+    await _backend.setProfilePhoto(photo);
+    state = AuthState(AuthStatus.authenticated, _backend.currentUser);
   }
 
   /// Signs in with an email and password, in the app and in the console
@@ -247,12 +255,13 @@ final activeRequestProvider = Provider<BloodRequest?>((ref) {
 // ---------------------------------------------------------------------------
 final invitationsProvider = StreamProvider<List<Invitation>>((ref) {
   final backend = ref.watch(backendProvider);
-  // The backend builds its queries from Donor Mode and position at the moment
-  // of subscribing, so resubscribe whenever either changes. Without this,
-  // switching Donor Mode off kept requests coming until the app restarted.
+  // The backend builds its queries from Donor Mode, the range and position at
+  // the moment of subscribing, so resubscribe whenever any of them changes.
+  // Without this, switching Donor Mode off kept requests coming until the app
+  // restarted, and a new range did nothing until a request next changed.
   ref.watch(
     donorProfileValueProvider.select(
-      (d) => (d.availability, d.bloodGroup, d.isInCooldown),
+      (d) => (d.availability, d.bloodGroup, d.isInCooldown, d.maxDistanceKm),
     ),
   );
   ref.watch(deviceLocationProvider.select((l) => l.point));
@@ -263,6 +272,23 @@ final invitationsProvider = StreamProvider<List<Invitation>>((ref) {
 final pendingInvitationsProvider = Provider<List<Invitation>>((ref) {
   final all = ref.watch(invitationsProvider).valueOrNull ?? const [];
   return all.where((i) => i.status == InvitationStatus.pending).toList();
+});
+
+/// How many requests are still being worked on for this person: the ones they
+/// asked for that aren't finished, plus the ones they agreed to give blood for
+/// that aren't finished. Shown on the Requests tab so it's visible from
+/// anywhere in the app.
+final processingCountProvider = Provider<int>((ref) {
+  final mine = ref.watch(myRequestsProvider).valueOrNull ?? const [];
+  final invites = ref.watch(invitationsProvider).valueOrNull ?? const [];
+  final asking = mine.where((r) => r.status.isActive).length;
+  final giving = invites
+      .where(
+        (i) =>
+            i.status == InvitationStatus.accepted && i.requestStatus.isActive,
+      )
+      .length;
+  return asking + giving;
 });
 
 /// The donation the user is in the middle of, if any — drives the "active
@@ -389,8 +415,28 @@ final chatProvider = StreamProvider.family<List<ChatMessage>, String>((
 // ---------------------------------------------------------------------------
 // Matched & Nearby Donors
 // ---------------------------------------------------------------------------
-final nearbyDonorsProvider =
-    StreamProvider.family<List<MatchedDonor>, String>((ref, requestId) {
+final nearbyDonorsProvider = StreamProvider.family<List<MatchedDonor>, String>((
+  ref,
+  requestId,
+) {
   final backend = ref.watch(backendProvider);
   return backend.nearbyDonorsStream(requestId);
 });
+
+/// Whether this account may ask for blood or donate. Live: an operator's
+/// approval reaches the open app.
+final canActProvider = StreamProvider<bool>((ref) {
+  if (ref.watch(currentUserProvider) == null) return const Stream.empty();
+  return ref.watch(backendProvider).canActStream;
+});
+
+/// [canActProvider] as a plain answer. True until the stream says otherwise:
+/// the security rules are the real enforcement, so a slow first read shouldn't
+/// flash a warning at someone who is allowed.
+final canActValueProvider = Provider<bool>(
+  (ref) => ref.watch(canActProvider).valueOrNull ?? true,
+);
+
+/// Camera and gallery, behind a provider so tests can hand back a picture
+/// without a device.
+final photoPickerProvider = Provider<PhotoPicker>((ref) => const PhotoPicker());

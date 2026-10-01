@@ -32,8 +32,9 @@ class AdminDashboardScreen extends ConsumerWidget {
     final audit = ref.watch(adminAuditProvider).valueOrNull ?? const [];
 
     final availableDonors = users.where((u) => u.isDonorOn).length;
-    final pendingVerification =
-        users.where((u) => u.email == null && !u.isAdmin).length;
+    final pendingVerification = users
+        .where((u) => u.email == null && !u.isAdmin)
+        .length;
     final emergencyCount = (async.valueOrNull ?? const [])
         .where(
           (r) =>
@@ -154,7 +155,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                               minimumSize: const Size.fromHeight(40),
                             ),
                             onPressed: () => context.go(Routes.adminEmergency),
-                            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                            icon: const Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 16,
+                            ),
                             label: const Text('View Emergencies'),
                           ),
                         ],
@@ -209,7 +213,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                             minimumSize: const Size(44, 40),
                           ),
                           onPressed: () => context.go(Routes.adminEmergency),
-                          icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                          icon: const Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 16,
+                          ),
                           label: const Text('View Emergencies'),
                         ),
                       ],
@@ -231,7 +238,11 @@ class AdminDashboardScreen extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.check_circle_rounded, size: 18, color: c.success),
+                    Icon(
+                      Icons.check_circle_rounded,
+                      size: 18,
+                      color: c.success,
+                    ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
@@ -422,12 +433,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                               AdminActivityItem(
                                 icon: _auditIcon(audit[i].action),
                                 action: _auditLabel(audit[i].action),
-                                detail:
-                                    audit[i].detail ?? audit[i].targetId,
+                                detail: audit[i].detail ?? audit[i].targetId,
                                 time: Fmt.relative(audit[i].at),
                                 color: _auditColor(c, audit[i].action),
-                                isLast:
-                                    i == 7 || i == audit.length - 1,
+                                isLast: i == 7 || i == audit.length - 1,
                               ),
                           ],
                         ),
@@ -477,8 +486,11 @@ class AdminDashboardScreen extends ConsumerWidget {
                     padding: const EdgeInsets.all(AppSpacing.md),
                     child: Row(
                       children: [
-                        Icon(Icons.info_outline_rounded,
-                            size: 14, color: c.textTertiary),
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 14,
+                          color: c.textTertiary,
+                        ),
                         const SizedBox(width: AppSpacing.xs),
                         Expanded(
                           child: Text(
@@ -522,7 +534,8 @@ class AdminDashboardScreen extends ConsumerWidget {
                           value: stats.total > 0
                               ? '${((stats.fulfilled / stats.total) * 100).toStringAsFixed(1)}%'
                               : '—',
-                          subtitle: '${stats.fulfilled} of ${stats.total} resolved',
+                          subtitle:
+                              '${stats.fulfilled} of ${stats.total} resolved',
                           tone: c.success,
                           width: isCompact ? double.infinity : 200,
                         ),
@@ -557,40 +570,40 @@ class AdminDashboardScreen extends ConsumerWidget {
   }
 
   IconData _auditIcon(String action) => switch (action) {
-        'request.remove' => Icons.delete_rounded,
-        'user.grantAdmin' => Icons.admin_panel_settings_rounded,
-        'user.revokeAdmin' => Icons.person_off_rounded,
-        'user.activate' => Icons.check_circle_outline_rounded,
-        'user.deactivate' => Icons.block_rounded,
-        'report.resolve' => Icons.flag_rounded,
-        'user.verify' => Icons.verified_rounded,
-        'user.suspend' => Icons.block_rounded,
-        'hospital.verify' => Icons.local_hospital_rounded,
-        _ => Icons.history_rounded,
-      };
+    'request.remove' => Icons.delete_rounded,
+    'user.grantAdmin' => Icons.admin_panel_settings_rounded,
+    'user.revokeAdmin' => Icons.person_off_rounded,
+    'user.activate' => Icons.check_circle_outline_rounded,
+    'user.deactivate' => Icons.block_rounded,
+    'report.resolve' => Icons.flag_rounded,
+    'user.verify' => Icons.verified_rounded,
+    'user.suspend' => Icons.block_rounded,
+    'hospital.verify' => Icons.local_hospital_rounded,
+    _ => Icons.history_rounded,
+  };
 
   String _auditLabel(String action) => switch (action) {
-        'request.remove' => 'Request removed',
-        'user.grantAdmin' => 'Admin granted',
-        'user.revokeAdmin' => 'Admin revoked',
-        'user.activate' => 'Account activated',
-        'user.deactivate' => 'Account deactivated',
-        'report.resolve' => 'Report resolved',
-        'user.verify' => 'User verified',
-        'user.suspend' => 'User suspended',
-        'hospital.verify' => 'Hospital verified',
-        _ => action,
-      };
+    'request.remove' => 'Request removed',
+    'user.grantAdmin' => 'Admin granted',
+    'user.revokeAdmin' => 'Admin revoked',
+    'user.activate' => 'Account activated',
+    'user.deactivate' => 'Account deactivated',
+    'report.resolve' => 'Report resolved',
+    'user.verify' => 'User verified',
+    'user.suspend' => 'User suspended',
+    'hospital.verify' => 'Hospital verified',
+    _ => action,
+  };
 
   Color _auditColor(AppColors c, String action) => switch (action) {
-        'request.remove' => c.danger,
-        'user.grantAdmin' => c.success,
-        'user.revokeAdmin' => c.warning,
-        'user.activate' => c.success,
-        'user.deactivate' => c.danger,
-        'report.resolve' => c.info,
-        _ => c.info,
-      };
+    'request.remove' => c.danger,
+    'user.grantAdmin' => c.success,
+    'user.revokeAdmin' => c.warning,
+    'user.activate' => c.success,
+    'user.deactivate' => c.danger,
+    'report.resolve' => c.info,
+    _ => c.info,
+  };
 }
 
 class _DashboardMetricPill extends StatelessWidget {
@@ -622,7 +635,10 @@ class _DashboardMetricPill extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: context.text.labelSmall?.copyWith(color: c.textSecondary)),
+          Text(
+            title,
+            style: context.text.labelSmall?.copyWith(color: c.textSecondary),
+          ),
           const SizedBox(height: 4),
           Text(
             value,
@@ -633,7 +649,13 @@ class _DashboardMetricPill extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2),
-          Text(subtitle, style: context.text.bodySmall?.copyWith(color: c.textTertiary, fontSize: 11)),
+          Text(
+            subtitle,
+            style: context.text.bodySmall?.copyWith(
+              color: c.textTertiary,
+              fontSize: 11,
+            ),
+          ),
         ],
       ),
     );
@@ -663,8 +685,7 @@ class _BloodGroupTable extends StatelessWidget {
             ('Active Demands', 2),
             ('Emergency Need', 2),
           ]),
-          for (final group in BloodGroup.values)
-            _buildRow(context, group, c),
+          for (final group in BloodGroup.values) _buildRow(context, group, c),
         ],
       ),
     );
@@ -678,17 +699,21 @@ class _BloodGroupTable extends StatelessWidget {
         .where((r) => r.isOpen && r.bloodGroups.contains(group))
         .length;
     final criticalNeed = requests
-        .where((r) =>
-            r.isOpen &&
-            r.urgency == Urgency.critical &&
-            r.bloodGroups.contains(group))
+        .where(
+          (r) =>
+              r.isOpen &&
+              r.urgency == Urgency.critical &&
+              r.bloodGroups.contains(group),
+        )
         .length;
 
     final String stateLabel;
     final Color stateFg;
     final Color stateBg;
 
-    if (criticalNeed > 0 || (availableDonors == 0 && activeDemands > 0) || availableDonors < 2) {
+    if (criticalNeed > 0 ||
+        (availableDonors == 0 && activeDemands > 0) ||
+        availableDonors < 2) {
       stateLabel = 'CRITICAL';
       stateFg = c.danger;
       stateBg = c.dangerSubtle;
@@ -712,21 +737,10 @@ class _BloodGroupTable extends StatelessWidget {
       ),
       child: Row(
         children: [
+          Expanded(flex: 2, child: Row(children: [BloodGroupBadge(group)])),
           Expanded(
             flex: 2,
-            child: Row(
-              children: [
-                BloodGroupBadge(group),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: StatusPill(
-              stateLabel,
-              fg: stateFg,
-              bg: stateBg,
-            ),
+            child: StatusPill(stateLabel, fg: stateFg, bg: stateBg),
           ),
           Expanded(
             flex: 2,
@@ -743,10 +757,7 @@ class _BloodGroupTable extends StatelessWidget {
             flex: 2,
             child: Text(
               '$activeDemands',
-              style: AppTypography.mono(
-                size: 13,
-                color: c.info,
-              ),
+              style: AppTypography.mono(size: 13, color: c.info),
             ),
           ),
           Expanded(
@@ -882,8 +893,7 @@ class _AdminEmergencyScreenState extends ConsumerState<AdminEmergencyScreen> {
 
     return AdminPage(
       title: 'Emergency Monitoring',
-      subtitle:
-          'Real-time operational monitoring of critical blood requests and hospital response.',
+      subtitle: 'Real-time operational monitoring of critical blood requests and hospital response.',
       actions: [
         AdminSearchBar(
           hint: 'Search emergency cases...',
@@ -906,14 +916,14 @@ class _AdminEmergencyScreenState extends ConsumerState<AdminEmergencyScreen> {
               .toList();
 
           final activeList = emergencies.where((r) => r.isOpen).toList();
-          final criticalCount =
-              activeList.where((r) => r.urgency == Urgency.critical).length;
-          final highCount =
-              activeList.where((r) => r.urgency == Urgency.urgent).length;
-          final unmatchedCount =
-              activeList.where((r) => r.isUnmatched).length;
-          final resolvedList =
-              emergencies.where((r) => !r.isOpen).toList();
+          final criticalCount = activeList
+              .where((r) => r.urgency == Urgency.critical)
+              .length;
+          final highCount = activeList
+              .where((r) => r.urgency == Urgency.urgent)
+              .length;
+          final unmatchedCount = activeList.where((r) => r.isUnmatched).length;
+          final resolvedList = emergencies.where((r) => !r.isOpen).toList();
 
           var shown = switch (_statusFilter) {
             'active' => activeList,
@@ -1005,8 +1015,9 @@ class _AdminEmergencyScreenState extends ConsumerState<AdminEmergencyScreen> {
                   const SizedBox(width: AppSpacing.sm),
                   Text(
                     'Priority:',
-                    style: context.text.labelSmall
-                        ?.copyWith(color: c.textSecondary),
+                    style: context.text.labelSmall?.copyWith(
+                      color: c.textSecondary,
+                    ),
                   ),
                   AdminFilterChip(
                     label: 'All Priorities',
@@ -1021,10 +1032,9 @@ class _AdminEmergencyScreenState extends ConsumerState<AdminEmergencyScreen> {
                         .length,
                     selected: _urgencyFilter == Urgency.critical,
                     onTap: () => setState(
-                      () => _urgencyFilter =
-                          _urgencyFilter == Urgency.critical
-                              ? null
-                              : Urgency.critical,
+                      () => _urgencyFilter = _urgencyFilter == Urgency.critical
+                          ? null
+                          : Urgency.critical,
                     ),
                   ),
                   AdminFilterChip(
@@ -1034,10 +1044,9 @@ class _AdminEmergencyScreenState extends ConsumerState<AdminEmergencyScreen> {
                         .length,
                     selected: _urgencyFilter == Urgency.urgent,
                     onTap: () => setState(
-                      () => _urgencyFilter =
-                          _urgencyFilter == Urgency.urgent
-                              ? null
-                              : Urgency.urgent,
+                      () => _urgencyFilter = _urgencyFilter == Urgency.urgent
+                          ? null
+                          : Urgency.urgent,
                     ),
                   ),
                   AdminFilterChip(
@@ -1047,10 +1056,9 @@ class _AdminEmergencyScreenState extends ConsumerState<AdminEmergencyScreen> {
                         .length,
                     selected: _urgencyFilter == Urgency.routine,
                     onTap: () => setState(
-                      () => _urgencyFilter =
-                          _urgencyFilter == Urgency.routine
-                              ? null
-                              : Urgency.routine,
+                      () => _urgencyFilter = _urgencyFilter == Urgency.routine
+                          ? null
+                          : Urgency.routine,
                     ),
                   ),
                 ],
@@ -1277,18 +1285,10 @@ class _AdminEmergencyScreenState extends ConsumerState<AdminEmergencyScreen> {
             width: 140,
             child: Text(
               label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 12),
-            ),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
         ],
       ),
     );
@@ -1298,23 +1298,23 @@ class _AdminEmergencyScreenState extends ConsumerState<AdminEmergencyScreen> {
 Widget _emergencyPriorityBadge(AppColors c, Urgency urgency) {
   final (label, bg, fg, icon) = switch (urgency) {
     Urgency.critical => (
-        'CRITICAL',
-        c.dangerSubtle,
-        c.danger,
-        Icons.warning_amber_rounded
-      ),
+      'CRITICAL',
+      c.dangerSubtle,
+      c.danger,
+      Icons.warning_amber_rounded,
+    ),
     Urgency.urgent => (
-        'HIGH',
-        c.warningSubtle,
-        c.warning,
-        Icons.priority_high_rounded
-      ),
+      'HIGH',
+      c.warningSubtle,
+      c.warning,
+      Icons.priority_high_rounded,
+    ),
     Urgency.routine => (
-        'NORMAL',
-        c.infoSubtle,
-        c.info,
-        Icons.info_outline_rounded
-      ),
+      'NORMAL',
+      c.infoSubtle,
+      c.info,
+      Icons.info_outline_rounded,
+    ),
   };
 
   return Container(
@@ -1428,10 +1428,7 @@ class _EmergencyTableRow extends StatelessWidget {
               ],
             ),
           ),
-          AdminCell(
-            flex: 2,
-            RequestStatusPill(request.status),
-          ),
+          AdminCell(flex: 2, RequestStatusPill(request.status)),
           AdminCell(
             flex: 1,
             Text(
@@ -1642,7 +1639,7 @@ class _EmergencyMobileCard extends StatelessWidget {
 // Users Screen (Section 8 User Management)
 // ---------------------------------------------------------------------------
 
-enum _UserFilter { all, donors, seekers, admins, inactive }
+enum _UserFilter { all, donors, seekers, admins, inactive, waiting }
 
 class AdminUsersScreen extends ConsumerStatefulWidget {
   const AdminUsersScreen({super.key});
@@ -1662,8 +1659,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
 
     return AdminPage(
       title: 'Users',
-      subtitle:
-          'Registered users, donor profiles, verification status, and administrative access.',
+      subtitle: 'Registered users, donor profiles, verification status, and administrative access.',
       actions: [
         AdminSearchBar(
           hint: 'Search users...',
@@ -1685,6 +1681,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
               users.where((u) => u.donorAvailability == null).toList(),
             _UserFilter.admins => users.where((u) => u.isAdmin).toList(),
             _UserFilter.inactive => users.where((u) => !u.isActive).toList(),
+            _UserFilter.waiting => users.where((u) => !u.approved).toList(),
           };
 
           if (_search.isNotEmpty) {
@@ -1703,6 +1700,13 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _ApprovalPanel(
+                waiting: [
+                  for (final u in users)
+                    if (!u.approved) u.id,
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xl),
               Wrap(
                 spacing: AppSpacing.sm,
                 runSpacing: AppSpacing.sm,
@@ -1741,6 +1745,12 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                     selected: _filter == _UserFilter.inactive,
                     onTap: () => setState(() => _filter = _UserFilter.inactive),
                   ),
+                  AdminFilterChip(
+                    label: 'Waiting',
+                    count: users.where((u) => !u.approved).length,
+                    selected: _filter == _UserFilter.waiting,
+                    onTap: () => setState(() => _filter = _UserFilter.waiting),
+                  ),
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
@@ -1751,6 +1761,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                   _UserFilter.seekers => 'Blood seekers',
                   _UserFilter.admins => 'System Administrators',
                   _UserFilter.inactive => 'Inactive Accounts',
+                  _UserFilter.waiting => 'Waiting for approval',
                 },
                 trailing: Text(
                   '${shown.length}',
@@ -1878,8 +1889,8 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                       user.isInCooldown
                           ? 'In Cooldown'
                           : user.isDonorOn
-                              ? 'Available (Mode ON)'
-                              : 'Off / Seek Only',
+                          ? 'Available (Mode ON)'
+                          : 'Off / Seek Only',
                     ),
                     if (user.lastDonation != null)
                       _userField(
@@ -1888,6 +1899,17 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                       ),
                     _userField('Total Donations', '${user.totalDonations}'),
                     const Divider(height: AppSpacing.xl),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Approved to request and donate',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        _ApprovalToggle(user: user),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1959,18 +1981,10 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
             width: 140,
             child: Text(
               label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 12),
-            ),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
         ],
       ),
     );
@@ -2017,10 +2031,7 @@ class _UserRow extends ConsumerWidget {
               ],
             ),
           ),
-          AdminCell(
-            flex: 1,
-            BloodGroupBadge(user.bloodGroup),
-          ),
+          AdminCell(flex: 1, BloodGroupBadge(user.bloodGroup)),
           AdminCell(
             flex: 2,
             Text(
@@ -2045,14 +2056,14 @@ class _UserRow extends ConsumerWidget {
               user.isInCooldown
                   ? 'Cooldown'
                   : user.isDonorOn
-                      ? 'Available'
-                      : 'Off',
+                  ? 'Available'
+                  : 'Off',
               style: context.text.bodySmall?.copyWith(
                 color: user.isInCooldown
                     ? c.warning
                     : user.isDonorOn
-                        ? c.success
-                        : c.textTertiary,
+                    ? c.success
+                    : c.textTertiary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -2096,10 +2107,7 @@ class _UserRow extends ConsumerWidget {
 }
 
 class _UserMobileCard extends StatelessWidget {
-  const _UserMobileCard({
-    required this.user,
-    required this.onViewProfile,
-  });
+  const _UserMobileCard({required this.user, required this.onViewProfile});
 
   final AdminUser user;
   final VoidCallback onViewProfile;
@@ -2187,16 +2195,16 @@ class _UserMobileCard extends StatelessWidget {
                     user.isInCooldown
                         ? 'Cooldown'
                         : user.isDonorOn
-                            ? 'Available'
-                            : 'Off',
+                        ? 'Available'
+                        : 'Off',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: user.isInCooldown
                           ? c.warning
                           : user.isDonorOn
-                              ? c.success
-                              : c.textTertiary,
+                          ? c.success
+                          : c.textTertiary,
                     ),
                   ),
                 ],
@@ -2224,6 +2232,143 @@ class _UserMobileCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// The operators' switch for approval, and the one-click way to clear everyone
+/// who registered while it was off.
+class _ApprovalPanel extends ConsumerStatefulWidget {
+  const _ApprovalPanel({required this.waiting});
+
+  /// Ids of accounts not yet approved.
+  final List<String> waiting;
+
+  @override
+  ConsumerState<_ApprovalPanel> createState() => _ApprovalPanelState();
+}
+
+class _ApprovalPanelState extends ConsumerState<_ApprovalPanel> {
+  bool _busy = false;
+
+  Future<void> _run(Future<Object?> Function(AdminBackend admin) action) async {
+    final admin = ref.read(adminBackendProvider);
+    if (admin == null) return;
+    setState(() => _busy = true);
+    try {
+      await action(admin);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final on = ref.watch(adminRequireApprovalProvider).valueOrNull ?? false;
+    final waiting = widget.waiting.length;
+
+    return AdminPanel(
+      title: 'Approval',
+      trailing: Text(
+        '$waiting waiting',
+        style: AppTypography.mono(
+          size: 12,
+          color: waiting > 0 ? c.warning : c.textTertiary,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Wrap(
+          spacing: AppSpacing.lg,
+          runSpacing: AppSpacing.md,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          alignment: WrapAlignment.spaceBetween,
+          children: [
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Require approval for new accounts',
+                    style: context.text.titleSmall,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    on
+                        ? 'On. An account that is not approved can look around '
+                              'but cannot request blood or donate.'
+                        : 'Off. Anyone with an account can request blood and '
+                              'donate.',
+                    style: context.text.bodySmall?.copyWith(
+                      color: c.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (waiting > 0) ...[
+                  OutlinedButton(
+                    onPressed: _busy
+                        ? null
+                        : () =>
+                              _run((a) => a.approveAllWaiting(widget.waiting)),
+                    child: Text('Approve all $waiting'),
+                  ),
+                  const SizedBox(width: AppSpacing.lg),
+                ],
+                Switch(
+                  value: on,
+                  onChanged: _busy
+                      ? null
+                      : (v) => _run((a) => a.setRequireApproval(v)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ApprovalToggle extends ConsumerStatefulWidget {
+  const _ApprovalToggle({required this.user});
+  final AdminUser user;
+
+  @override
+  ConsumerState<_ApprovalToggle> createState() => _ApprovalToggleState();
+}
+
+class _ApprovalToggleState extends ConsumerState<_ApprovalToggle> {
+  bool _busy = false;
+  late bool _value = widget.user.approved;
+
+  Future<void> _toggle(bool next) async {
+    final admin = ref.read(adminBackendProvider);
+    if (admin == null) return;
+    setState(() => _busy = true);
+    try {
+      await admin.setApproved(widget.user.id, next);
+      _value = next;
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_busy) {
+      return const SizedBox(
+        height: 16,
+        width: 16,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+    return Switch(value: _value, onChanged: _toggle);
   }
 }
 
@@ -2286,8 +2431,7 @@ class _AdminDonorsScreenState extends ConsumerState<AdminDonorsScreen> {
 
     return AdminPage(
       title: 'Donor Network',
-      subtitle:
-          'Admin-level donor management, availability status, and distribution.',
+      subtitle: 'Admin-level donor management, availability status, and distribution.',
       actions: [
         AdminSearchBar(
           hint: 'Search donors...',
@@ -2301,14 +2445,11 @@ class _AdminDonorsScreenState extends ConsumerState<AdminDonorsScreen> {
           message: 'Could not read: $e',
         ),
         data: (users) {
-          var donors =
-              users.where((u) => u.donorAvailability != null).toList();
+          var donors = users.where((u) => u.donorAvailability != null).toList();
 
           // Apply group filter
           if (_groupFilter != null) {
-            donors = donors
-                .where((d) => d.bloodGroup == _groupFilter)
-                .toList();
+            donors = donors.where((d) => d.bloodGroup == _groupFilter).toList();
           }
 
           // Apply availability filter
@@ -2345,12 +2486,14 @@ class _AdminDonorsScreenState extends ConsumerState<AdminDonorsScreen> {
             donors.sort((a, b) => a.name.compareTo(b.name));
           }
 
-          final totalDonors =
-              users.where((u) => u.donorAvailability != null).length;
+          final totalDonors = users
+              .where((u) => u.donorAvailability != null)
+              .length;
           final availableCount = users.where((u) => u.isDonorOn).length;
           final cooldownCount = users.where((u) => u.isInCooldown).length;
-          final offCount =
-              users.where((u) => u.donorAvailability != null && !u.isDonorOn).length;
+          final offCount = users
+              .where((u) => u.donorAvailability != null && !u.isDonorOn)
+              .length;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2456,8 +2599,9 @@ class _AdminDonorsScreenState extends ConsumerState<AdminDonorsScreen> {
                   children: [
                     Text(
                       'Sort: ',
-                      style: context.text.labelSmall
-                          ?.copyWith(color: c.textTertiary),
+                      style: context.text.labelSmall?.copyWith(
+                        color: c.textTertiary,
+                      ),
                     ),
                     DropdownButton<String>(
                       value: _sortBy,
@@ -2587,8 +2731,8 @@ class _AdminDonorsScreenState extends ConsumerState<AdminDonorsScreen> {
                   donor.isInCooldown
                       ? 'In Cooldown (Eligible soon)'
                       : donor.isDonorOn
-                          ? 'Available for dispatch'
-                          : 'Donor Mode Paused / Off',
+                      ? 'Available for dispatch'
+                      : 'Donor Mode Paused / Off',
                 ),
                 _donorField(
                   'Last Donation Date',
@@ -2596,7 +2740,10 @@ class _AdminDonorsScreenState extends ConsumerState<AdminDonorsScreen> {
                       ? '${Fmt.date(donor.lastDonation!)} (${Fmt.relative(donor.lastDonation!)})'
                       : 'Never donated yet',
                 ),
-                _donorField('Total Donations Recorded', '${donor.totalDonations}'),
+                _donorField(
+                  'Total Donations Recorded',
+                  '${donor.totalDonations}',
+                ),
                 _donorField(
                   'Account Status',
                   donor.isActive ? 'Active' : 'Deactivated',
@@ -2625,18 +2772,10 @@ class _AdminDonorsScreenState extends ConsumerState<AdminDonorsScreen> {
             width: 150,
             child: Text(
               label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 12),
-            ),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
         ],
       ),
     );
@@ -2671,10 +2810,7 @@ class _DonorRow extends StatelessWidget {
               style: context.text.titleSmall,
             ),
           ),
-          AdminCell(
-            BloodGroupBadge(donor.bloodGroup),
-            flex: 2,
-          ),
+          AdminCell(BloodGroupBadge(donor.bloodGroup), flex: 2),
           AdminCell(
             flex: 2,
             Text(
@@ -2688,18 +2824,18 @@ class _DonorRow extends StatelessWidget {
               donor.isInCooldown
                   ? 'Cooldown'
                   : donor.isDonorOn
-                      ? 'Available'
-                      : 'Off',
+                  ? 'Available'
+                  : 'Off',
               fg: donor.isInCooldown
                   ? c.warning
                   : donor.isDonorOn
-                      ? c.success
-                      : c.textTertiary,
+                  ? c.success
+                  : c.textTertiary,
               bg: donor.isInCooldown
                   ? c.warningSubtle
                   : donor.isDonorOn
-                      ? c.successSubtle
-                      : c.surfaceMuted,
+                  ? c.successSubtle
+                  : c.surfaceMuted,
             ),
           ),
           AdminCell(
@@ -2788,18 +2924,18 @@ class _DonorMobileCard extends StatelessWidget {
                 donor.isInCooldown
                     ? 'Cooldown'
                     : donor.isDonorOn
-                        ? 'Available'
-                        : 'Off',
+                    ? 'Available'
+                    : 'Off',
                 fg: donor.isInCooldown
                     ? c.warning
                     : donor.isDonorOn
-                        ? c.success
-                        : c.textTertiary,
+                    ? c.success
+                    : c.textTertiary,
                 bg: donor.isInCooldown
                     ? c.warningSubtle
                     : donor.isDonorOn
-                        ? c.successSubtle
-                        : c.surfaceMuted,
+                    ? c.successSubtle
+                    : c.surfaceMuted,
               ),
             ],
           ),
@@ -2858,8 +2994,7 @@ class AdminReportsScreen extends ConsumerWidget {
 
     return AdminPage(
       title: 'Administrative Reports',
-      subtitle:
-          'Download operational CSV reports and monitor user abuse and problem reports.',
+      subtitle: 'Download operational CSV reports and monitor user abuse and problem reports.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2879,29 +3014,25 @@ class AdminReportsScreen extends ConsumerWidget {
                 final reports = [
                   _ReportDefinition(
                     title: 'User Registry Report',
-                    description:
-                        'Complete user list with contact, role, and verification data.',
+                    description: 'Complete user list with contact, role, and verification data.',
                     icon: Icons.people_outline_rounded,
                     onExport: () => _exportUsersCsv(context, users),
                   ),
                   _ReportDefinition(
                     title: 'Donor Network Report',
-                    description:
-                        'Registered donors, availability state, and donation counts.',
+                    description: 'Registered donors, availability state, and donation counts.',
                     icon: Icons.volunteer_activism_outlined,
                     onExport: () => _exportDonorsCsv(context, users),
                   ),
                   _ReportDefinition(
                     title: 'Emergency Request Report',
-                    description:
-                        'All urgent & critical emergency cases, destination, and status.',
+                    description: 'All urgent & critical emergency cases, destination, and status.',
                     icon: Icons.emergency_outlined,
                     onExport: () => _exportEmergencyCsv(context, requests),
                   ),
                   _ReportDefinition(
                     title: 'Blood Group Distribution Report',
-                    description:
-                        'System-wide supply & demand breakdown per blood group.',
+                    description: 'System-wide supply & demand breakdown per blood group.',
                     icon: Icons.water_drop_outlined,
                     onExport: () =>
                         _exportBloodGroupCsv(context, users, requests),
@@ -2916,8 +3047,7 @@ class AdminReportsScreen extends ConsumerWidget {
                   ),
                   _ReportDefinition(
                     title: 'Monthly System Report',
-                    description:
-                        'High-level monthly operational and throughput summary.',
+                    description: 'High-level monthly operational and throughput summary.',
                     icon: Icons.summarize_outlined,
                     onExport: () =>
                         _exportMonthlyReportCsv(context, users, requests),
@@ -2988,8 +3118,9 @@ class AdminReportsScreen extends ConsumerWidget {
                             for (final r in reports)
                               Container(
                                 decoration: BoxDecoration(
-                                  border:
-                                      Border(top: BorderSide(color: c.border)),
+                                  border: Border(
+                                    top: BorderSide(color: c.border),
+                                  ),
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: AppSpacing.lg,
@@ -3023,8 +3154,8 @@ class AdminReportsScreen extends ConsumerWidget {
                                         r.targetRequestId != null
                                             ? 'Request ${r.targetRequestId}'
                                             : r.targetUserId != null
-                                                ? 'User ${r.targetUserId}'
-                                                : '—',
+                                            ? 'User ${r.targetUserId}'
+                                            : '—',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: AppTypography.mono(
@@ -3090,7 +3221,9 @@ class AdminReportsScreen extends ConsumerWidget {
     List<List<String>> rows,
   ) {
     final csvString = rows
-        .map((r) => r.map((cell) => '"${cell.replaceAll('"', '""')}"').join(','))
+        .map(
+          (r) => r.map((cell) => '"${cell.replaceAll('"', '""')}"').join(','),
+        )
         .join('\n');
 
     showDialog<void>(
@@ -3117,10 +3250,7 @@ class AdminReportsScreen extends ConsumerWidget {
                   borderRadius: AppRadius.control,
                 ),
                 child: SingleChildScrollView(
-                  child: Text(
-                    csvString,
-                    style: AppTypography.mono(size: 11),
-                  ),
+                  child: Text(csvString, style: AppTypography.mono(size: 11)),
                 ),
               ),
             ],
@@ -3132,9 +3262,7 @@ class AdminReportsScreen extends ConsumerWidget {
             child: const Text('Close'),
           ),
           FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: ctx.colors.brand,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: ctx.colors.brand),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: csvString));
               Navigator.of(ctx).pop();
@@ -3221,8 +3349,7 @@ class AdminReportsScreen extends ConsumerWidget {
   ) {
     final emergency = requests
         .where(
-          (r) =>
-              r.urgency == Urgency.critical || r.urgency == Urgency.urgent,
+          (r) => r.urgency == Urgency.critical || r.urgency == Urgency.urgent,
         )
         .toList();
     final rows = <List<String>>[
@@ -3285,8 +3412,9 @@ class AdminReportsScreen extends ConsumerWidget {
     List<AdminUser> users,
     List<AdminRequest> requests,
   ) {
-    final completed =
-        requests.where((r) => r.status == RequestStatus.fulfilled).toList();
+    final completed = requests
+        .where((r) => r.status == RequestStatus.fulfilled)
+        .toList();
     final rows = <List<String>>[
       [
         'Request ID',
@@ -3316,8 +3444,9 @@ class AdminReportsScreen extends ConsumerWidget {
   ) {
     final now = DateTime.now();
     final monthStart = DateTime(now.year, now.month, 1);
-    final thisMonthRequests =
-        requests.where((r) => r.createdAt.isAfter(monthStart)).toList();
+    final thisMonthRequests = requests
+        .where((r) => r.createdAt.isAfter(monthStart))
+        .toList();
 
     final rows = <List<String>>[
       ['Metric', 'Value'],
@@ -3327,7 +3456,10 @@ class AdminReportsScreen extends ConsumerWidget {
         'Total Donors Configured',
         '${users.where((u) => u.donorAvailability != null).length}',
       ],
-      ['Total Active Donors (Now)', '${users.where((u) => u.isDonorOn).length}'],
+      [
+        'Total Active Donors (Now)',
+        '${users.where((u) => u.isDonorOn).length}',
+      ],
       ['New Requests (This Month)', '${thisMonthRequests.length}'],
       [
         'Fulfilled Requests (This Month)',
@@ -3357,10 +3489,7 @@ class _ReportDefinition {
 }
 
 class _ReportCard extends StatelessWidget {
-  const _ReportCard({
-    required this.definition,
-    required this.isMobile,
-  });
+  const _ReportCard({required this.definition, required this.isMobile});
 
   final _ReportDefinition definition;
   final bool isMobile;
@@ -3670,9 +3799,7 @@ class AdminHealthScreen extends ConsumerWidget {
     final inCooldown = users.where((u) => u.isInCooldown).length;
     final verified = users.where((u) => u.email != null).length;
     final longUnmatched = requests
-        .where(
-          (r) => r.isUnmatched && r.age > const Duration(minutes: 30),
-        )
+        .where((r) => r.isUnmatched && r.age > const Duration(minutes: 30))
         .length;
 
     return AdminPage(

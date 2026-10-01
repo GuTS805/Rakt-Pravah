@@ -70,9 +70,7 @@ class _AdminDonationsScreenState extends ConsumerState<AdminDonationsScreen> {
                 .where(
                   (r) =>
                       r.requesterName.toLowerCase().contains(_search) ||
-                      (r.acceptedDonorName
-                              ?.toLowerCase()
-                              .contains(_search) ??
+                      (r.acceptedDonorName?.toLowerCase().contains(_search) ??
                           false),
                 )
                 .toList();
@@ -169,8 +167,7 @@ class _AdminDonationsScreenState extends ConsumerState<AdminDonationsScreen> {
                         icon: Icons.check_rounded,
                         count: all
                             .where(
-                              (r) =>
-                                  r.status == RequestStatus.donorAccepted,
+                              (r) => r.status == RequestStatus.donorAccepted,
                             )
                             .length,
                         color: c.info,
@@ -181,8 +178,7 @@ class _AdminDonationsScreenState extends ConsumerState<AdminDonationsScreen> {
                         icon: Icons.handshake_rounded,
                         count: all
                             .where(
-                              (r) =>
-                                  r.status == RequestStatus.coordinating,
+                              (r) => r.status == RequestStatus.coordinating,
                             )
                             .length,
                         color: c.info,
@@ -215,10 +211,8 @@ class _AdminDonationsScreenState extends ConsumerState<AdminDonationsScreen> {
                     ? AdminEmpty(
                         icon: Icons.bloodtype_rounded,
                         message: switch (_tab) {
-                          'active' =>
-                            'No active donations right now.',
-                          'completed' =>
-                            'No completed donations yet.',
+                          'active' => 'No active donations right now.',
+                          'completed' => 'No completed donations yet.',
                           _ => 'No donation history.',
                         },
                       )
@@ -234,94 +228,95 @@ class _AdminDonationsScreenState extends ConsumerState<AdminDonationsScreen> {
                               ('Status', 2),
                               ('Created', 2),
                             ]),
-                          for (final r in shown)
-                            Container(
-                              decoration: BoxDecoration(
-                                border:
-                                    Border(top: BorderSide(color: c.border)),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.lg,
-                                vertical: AppSpacing.md,
-                              ),
-                              child: Row(
-                                children: [
-                                  AdminCell(
-                                    flex: 3,
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          r.requesterName,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: context.text.titleSmall,
-                                        ),
-                                        Text(
-                                          r.destinationName,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: context.text.bodySmall
-                                              ?.copyWith(
-                                            color: c.textTertiary,
+                            for (final r in shown)
+                              Container(
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    top: BorderSide(color: c.border),
+                                  ),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.lg,
+                                  vertical: AppSpacing.md,
+                                ),
+                                child: Row(
+                                  children: [
+                                    AdminCell(
+                                      flex: 3,
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            r.requesterName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: context.text.titleSmall,
                                           ),
+                                          Text(
+                                            r.destinationName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: context.text.bodySmall
+                                                ?.copyWith(
+                                                  color: c.textTertiary,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    AdminCell(
+                                      flex: 3,
+                                      Text(
+                                        r.acceptedDonorName ?? '—',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: context.text.bodySmall?.copyWith(
+                                          color: r.acceptedDonorName == null
+                                              ? c.textTertiary
+                                              : c.textPrimary,
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                  AdminCell(
-                                    flex: 3,
-                                    Text(
-                                      r.acceptedDonorName ?? '—',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: context.text.bodySmall?.copyWith(
-                                        color: r.acceptedDonorName == null
-                                            ? c.textTertiary
-                                            : c.textPrimary,
                                       ),
                                     ),
-                                  ),
-                                  AdminCell(
-                                    flex: 2,
-                                    Wrap(
-                                      spacing: 4,
-                                      children: [
-                                        for (final g in r.bloodGroups)
-                                          BloodGroupBadge(g, size: 11),
-                                      ],
-                                    ),
-                                  ),
-                                  AdminCell(
-                                    Text(
-                                      '${r.units}',
-                                      style: AppTypography.mono(
-                                        size: 12.5,
-                                        color: c.textPrimary,
+                                    AdminCell(
+                                      flex: 2,
+                                      Wrap(
+                                        spacing: 4,
+                                        children: [
+                                          for (final g in r.bloodGroups)
+                                            BloodGroupBadge(g, size: 11),
+                                        ],
                                       ),
                                     ),
-                                  ),
-                                  AdminCell(
-                                    flex: 2,
-                                    RequestStatusPill(r.status),
-                                  ),
-                                  AdminCell(
-                                    flex: 2,
-                                    Text(
-                                      Fmt.relative(r.createdAt),
-                                      style: AppTypography.mono(
-                                        size: 12,
-                                        color: c.textSecondary,
+                                    AdminCell(
+                                      Text(
+                                        '${r.units}',
+                                        style: AppTypography.mono(
+                                          size: 12.5,
+                                          color: c.textPrimary,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    AdminCell(
+                                      flex: 2,
+                                      RequestStatusPill(r.status),
+                                    ),
+                                    AdminCell(
+                                      flex: 2,
+                                      Text(
+                                        Fmt.relative(r.createdAt),
+                                        style: AppTypography.mono(
+                                          size: 12,
+                                          color: c.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
               ),
             ],
           );
@@ -385,11 +380,7 @@ class _LifecycleArrow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-      child: Icon(
-        Icons.arrow_forward_rounded,
-        size: 16,
-        color: c.textTertiary,
-      ),
+      child: Icon(Icons.arrow_forward_rounded, size: 16, color: c.textTertiary),
     );
   }
 }

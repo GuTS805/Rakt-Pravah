@@ -53,255 +53,288 @@ void main() {
       requestLocationLabel: 'Guwahati, Assam',
     );
 
-    testWidgets('Before acceptance, private requester contact info is NOT revealed to donor',
-        (tester) async {
-      tester.view.physicalSize = const Size(1200, 2000);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() => tester.view.resetPhysicalSize());
+    testWidgets(
+      'Before acceptance, private requester contact info is NOT revealed to donor',
+      (tester) async {
+        tester.view.physicalSize = const Size(1200, 2000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
 
-      final invitation = Invitation(
-        id: 'inv-1',
-        requestId: req.id,
-        bloodGroups: req.bloodGroups,
-        units: req.units,
-        urgency: req.urgency,
-        distanceKm: 3.2,
-        status: InvitationStatus.pending,
-        destinationName: req.destination.name,
-        destinationArea: 'Guwahati',
-        createdAt: DateTime.now(),
-        patientBloodGroup: req.patientBloodGroup,
-      );
+        final invitation = Invitation(
+          id: 'inv-1',
+          requestId: req.id,
+          requesterId: req.requesterId,
+          requesterName: req.requesterName,
+          bloodGroups: req.bloodGroups,
+          units: req.units,
+          urgency: req.urgency,
+          distanceKm: 3.2,
+          status: InvitationStatus.pending,
+          destinationName: req.destination.name,
+          destinationArea: 'Guwahati',
+          createdAt: DateTime.now(),
+          patientBloodGroup: req.patientBloodGroup,
+        );
 
-      final fakeBackend = FakeBackend(
-        user: donor,
-        invitations: [invitation],
-        requests: [req],
-      );
+        final fakeBackend = FakeBackend(
+          user: donor,
+          invitations: [invitation],
+          requests: [req],
+        );
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            backendProvider.overrideWithValue(fakeBackend),
-            invitationsProvider.overrideWith((ref) => Stream.value([invitation])),
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              backendProvider.overrideWithValue(fakeBackend),
+              invitationsProvider.overrideWith(
+                (ref) => Stream.value([invitation]),
+              ),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.dark(),
+              home: const InvitationDetailScreen(invitationId: 'inv-1'),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Before acceptance: Phone number is completely hidden
+        expect(find.text('+91 98765 11111'), findsNothing);
+        expect(find.text('Vikram Sen'), findsNothing);
+        expect(find.text('Sunil Sen'), findsNothing);
+        expect(
+          find.text('Patient in ICU 3rd floor, ask for ward 304'),
+          findsNothing,
+        );
+
+        // Privacy guarantee note is shown
+        expect(
+          find.textContaining(
+            'The requester\'s contact details stay private until you accept',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'After donor accepts, Donor can see Requester/Patient details on CoordinationScreen',
+      (tester) async {
+        tester.view.physicalSize = const Size(1200, 2000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        final acceptedReq = req.copyWith(
+          status: RequestStatus.donorAccepted,
+          acceptedDonors: [
+            AcceptedDonor(
+              id: donor.id,
+              name: donor.name,
+              bloodGroup: donor.bloodGroup,
+              bloodType: req.bloodType,
+              phone: donor.phone,
+              distanceKm: 3.2,
+              status: 'Accepted',
+              transitStatus: DonorTransitStatus.accepted,
+              isVerified: true,
+              isDonorModeOn: true,
+              acceptedAt: DateTime.now(),
+            ),
           ],
-          child: MaterialApp(
-            theme: AppTheme.dark(),
-            home: const InvitationDetailScreen(invitationId: 'inv-1'),
+        );
+
+        // Logged in as donor
+        final fakeBackend = FakeBackend(user: donor, requests: [acceptedReq]);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              backendProvider.overrideWithValue(fakeBackend),
+              currentUserProvider.overrideWith((ref) => donor),
+              requestProvider(acceptedReq.id)
+                  .overrideWith((ref) => Stream.value(acceptedReq)),
+              patientNameProvider(acceptedReq.id)
+                  .overrideWith((ref) => Stream.value('Sunil Sen')),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.dark(),
+              home: CoordinationScreen(requestId: acceptedReq.id),
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      // Before acceptance: Phone number is completely hidden
-      expect(find.text('+91 98765 11111'), findsNothing);
-      expect(find.text('Vikram Sen'), findsNothing);
-      expect(find.text('Sunil Sen'), findsNothing);
-      expect(find.text('Patient in ICU 3rd floor, ask for ward 304'), findsNothing);
+        // Mutual connection banner
+        expect(find.text('Mutual Connection Active'), findsOneWidget);
 
-      // Privacy guarantee note is shown
-      expect(
-        find.textContaining('The requester\'s contact details stay private until you accept'),
-        findsOneWidget,
-      );
-    });
+        // Donor can see Requester/Patient:
+        // 1. Requester name
+        expect(find.text('Vikram Sen'), findsOneWidget);
+        expect(find.text('Requester'), findsOneWidget);
 
-    testWidgets('After donor accepts, Donor can see Requester/Patient details on CoordinationScreen',
-        (tester) async {
-      tester.view.physicalSize = const Size(1200, 2000);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() => tester.view.resetPhysicalSize());
+        // 2. Patient name
+        expect(find.text('Sunil Sen'), findsOneWidget);
 
-      final acceptedReq = req.copyWith(
-        status: RequestStatus.donorAccepted,
-        acceptedDonors: [
-          AcceptedDonor(
-            id: donor.id,
-            name: donor.name,
-            bloodGroup: donor.bloodGroup,
-            bloodType: req.bloodType,
-            phone: donor.phone,
-            distanceKm: 3.2,
-            status: 'Accepted',
-            transitStatus: DonorTransitStatus.accepted,
-            isVerified: true,
-            isDonorModeOn: true,
-            acceptedAt: DateTime.now(),
-          ),
-        ],
-      );
+        // 3. Required blood group & Blood type
+        expect(find.text('A+'), findsWidgets);
+        expect(find.text('Platelets'), findsOneWidget);
 
-      // Logged in as donor
-      final fakeBackend = FakeBackend(user: donor, requests: [acceptedReq]);
+        // 4. Units required
+        expect(find.text('1 unit required'), findsOneWidget);
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            backendProvider.overrideWithValue(fakeBackend),
-            currentUserProvider.overrideWith((ref) => donor),
-            requestProvider(acceptedReq.id).overrideWith((ref) => Stream.value(acceptedReq)),
-            patientNameProvider(acceptedReq.id).overrideWith((ref) => Stream.value('Sunil Sen')),
+        // 5. Urgency
+        expect(find.text('Urgent'), findsOneWidget);
+
+        // 6. Hospital name & address & location
+        expect(find.text('Apollo Hospital'), findsWidgets);
+        expect(find.text('GS Road, Guwahati, Assam 781005'), findsWidgets);
+        expect(find.text('Guwahati, Assam'), findsOneWidget);
+
+        // 7. Requester's phone number
+        expect(find.text('+91 98765 11111'), findsOneWidget);
+        expect(find.text('Shared on Accept'), findsOneWidget);
+
+        // 8. Additional notes
+        expect(
+          find.text('Patient in ICU 3rd floor, ask for ward 304'),
+          findsOneWidget,
+        );
+
+        // 9. Call button, Chat button, Navigate button
+        expect(find.widgetWithText(ElevatedButton, 'Call'), findsOneWidget);
+        expect(find.text('Chat'), findsWidgets);
+        expect(find.text('Navigate'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'After donor accepts, Requester can see Donor details on RequestDetailScreen',
+      (tester) async {
+        tester.view.physicalSize = const Size(1200, 2000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        final acceptedReq = req.copyWith(
+          status: RequestStatus.donorAccepted,
+          acceptedDonors: [
+            AcceptedDonor(
+              id: donor.id,
+              name: donor.name,
+              bloodGroup: donor.bloodGroup,
+              bloodType: req.bloodType,
+              phone: donor.phone,
+              distanceKm: 2.8,
+              status: 'Accepted',
+              transitStatus: DonorTransitStatus.accepted,
+              isVerified: true,
+              isDonorModeOn: true,
+              acceptedAt: DateTime.now(),
+            ),
           ],
-          child: MaterialApp(
-            theme: AppTheme.dark(),
-            home: CoordinationScreen(requestId: acceptedReq.id),
+        );
+
+        // Logged in as requester
+        final fakeBackend = FakeBackend(
+          user: requester,
+          requests: [acceptedReq],
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              backendProvider.overrideWithValue(fakeBackend),
+              currentUserProvider.overrideWith((ref) => requester),
+              requestProvider(acceptedReq.id)
+                  .overrideWith((ref) => Stream.value(acceptedReq)),
+              patientNameProvider(acceptedReq.id)
+                  .overrideWith((ref) => Stream.value('Sunil Sen')),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.dark(),
+              home: RequestDetailScreen(requestId: acceptedReq.id),
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
 
-      // Mutual connection banner
-      expect(find.text('Mutual Connection Active'), findsOneWidget);
+        // Requester can see Donor:
+        // 1. Name
+        expect(find.text('Rahul Sharma'), findsOneWidget);
 
-      // Donor can see Requester/Patient:
-      // 1. Requester name
-      expect(find.text('Vikram Sen'), findsOneWidget);
-      expect(find.text('Requester'), findsOneWidget);
+        // 2. Blood group & blood type
+        expect(find.text('A+'), findsWidgets);
+        expect(find.text('Platelets'), findsOneWidget);
 
-      // 2. Patient name
-      expect(find.text('Sunil Sen'), findsOneWidget);
+        // 3. Verification status & Availability status
+        expect(find.text('Verified'), findsOneWidget);
+        expect(find.text('Available · Donor Mode ON'), findsOneWidget);
 
-      // 3. Required blood group & Blood type
-      expect(find.text('A+'), findsWidgets);
-      expect(find.text('Platelets'), findsOneWidget);
+        // 4. Phone number (revealed after acceptance)
+        expect(find.text('+91 98765 43210'), findsOneWidget);
 
-      // 4. Units required
-      expect(find.text('1 unit required'), findsOneWidget);
+        // 5. Distance and travel ETA
+        expect(find.textContaining('km away'), findsWidgets);
+        expect(find.textContaining('min travel'), findsWidgets);
 
-      // 5. Urgency
-      expect(find.text('Urgent'), findsOneWidget);
+        // 6. Action buttons: Call, Chat, Track Live
+        expect(find.widgetWithText(OutlinedButton, 'Call'), findsOneWidget);
+        expect(find.widgetWithText(OutlinedButton, 'Chat'), findsOneWidget);
+        expect(find.text('Track Donor (Live)'), findsOneWidget);
+      },
+    );
 
-      // 6. Hospital name & address & location
-      expect(find.text('Apollo Hospital'), findsWidgets);
-      expect(find.text('GS Road, Guwahati, Assam 781005'), findsWidgets);
-      expect(find.text('Guwahati, Assam'), findsOneWidget);
+    testWidgets(
+      'Full Lifecycle: Request -> Accept -> Connected -> Donation Completed -> Closed',
+      (tester) async {
+        tester.view.physicalSize = const Size(1200, 2000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
 
-      // 7. Requester's phone number
-      expect(find.text('+91 98765 11111'), findsOneWidget);
-      expect(find.text('Shared on Accept'), findsOneWidget);
-
-      // 8. Additional notes
-      expect(find.text('Patient in ICU 3rd floor, ask for ward 304'), findsOneWidget);
-
-      // 9. Call button, Chat button, Navigate button
-      expect(find.widgetWithText(ElevatedButton, 'Call'), findsOneWidget);
-      expect(find.text('Chat'), findsWidgets);
-      expect(find.text('Navigate'), findsOneWidget);
-    });
-
-    testWidgets('After donor accepts, Requester can see Donor details on RequestDetailScreen',
-        (tester) async {
-      tester.view.physicalSize = const Size(1200, 2000);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() => tester.view.resetPhysicalSize());
-
-      final acceptedReq = req.copyWith(
-        status: RequestStatus.donorAccepted,
-        acceptedDonors: [
-          AcceptedDonor(
-            id: donor.id,
-            name: donor.name,
-            bloodGroup: donor.bloodGroup,
-            bloodType: req.bloodType,
-            phone: donor.phone,
-            distanceKm: 2.8,
-            status: 'Accepted',
-            transitStatus: DonorTransitStatus.accepted,
-            isVerified: true,
-            isDonorModeOn: true,
-            acceptedAt: DateTime.now(),
-          ),
-        ],
-      );
-
-      // Logged in as requester
-      final fakeBackend = FakeBackend(user: requester, requests: [acceptedReq]);
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            backendProvider.overrideWithValue(fakeBackend),
-            currentUserProvider.overrideWith((ref) => requester),
-            requestProvider(acceptedReq.id).overrideWith((ref) => Stream.value(acceptedReq)),
-            patientNameProvider(acceptedReq.id).overrideWith((ref) => Stream.value('Sunil Sen')),
+        final completedReq = req.copyWith(
+          status: RequestStatus.fulfilled,
+          acceptedDonors: [
+            AcceptedDonor(
+              id: donor.id,
+              name: donor.name,
+              bloodGroup: donor.bloodGroup,
+              phone: donor.phone,
+              distanceKm: 2.8,
+              acceptedAt: DateTime.now().subtract(const Duration(hours: 1)),
+            ),
           ],
-          child: MaterialApp(
-            theme: AppTheme.dark(),
-            home: RequestDetailScreen(requestId: acceptedReq.id),
+        );
+
+        final fakeBackend = FakeBackend(user: donor, requests: [completedReq]);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              backendProvider.overrideWithValue(fakeBackend),
+              currentUserProvider.overrideWith((ref) => donor),
+              requestProvider(completedReq.id)
+                  .overrideWith((ref) => Stream.value(completedReq)),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.dark(),
+              home: CoordinationScreen(requestId: completedReq.id),
+            ),
           ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
+        );
+        await tester.pumpAndSettle();
 
-      // Requester can see Donor:
-      // 1. Name
-      expect(find.text('Rahul Sharma'), findsOneWidget);
-
-      // 2. Blood group & blood type
-      expect(find.text('A+'), findsWidgets);
-      expect(find.text('Platelets'), findsOneWidget);
-
-      // 3. Verification status & Availability status
-      expect(find.text('Verified'), findsOneWidget);
-      expect(find.text('Available · Donor Mode ON'), findsOneWidget);
-
-      // 4. Phone number (revealed after acceptance)
-      expect(find.text('+91 98765 43210'), findsOneWidget);
-
-      // 5. Distance and travel ETA
-      expect(find.textContaining('km away'), findsWidgets);
-      expect(find.textContaining('min travel'), findsWidgets);
-
-      // 6. Action buttons: Call, Chat, Track Live
-      expect(find.widgetWithText(OutlinedButton, 'Call'), findsOneWidget);
-      expect(find.widgetWithText(OutlinedButton, 'Chat'), findsOneWidget);
-      expect(find.text('Track Donor (Live)'), findsOneWidget);
-    });
-
-    testWidgets('Full Lifecycle: Request -> Accept -> Connected -> Donation Completed -> Closed',
-        (tester) async {
-      tester.view.physicalSize = const Size(1200, 2000);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() => tester.view.resetPhysicalSize());
-
-      final completedReq = req.copyWith(
-        status: RequestStatus.fulfilled,
-        acceptedDonors: [
-          AcceptedDonor(
-            id: donor.id,
-            name: donor.name,
-            bloodGroup: donor.bloodGroup,
-            phone: donor.phone,
-            distanceKm: 2.8,
-            acceptedAt: DateTime.now().subtract(const Duration(hours: 1)),
+        // Closed session message
+        expect(
+          find.text('Donation Completed · Connection Closed'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining(
+            'Blood donation was completed. Tracking & coordination closed.',
           ),
-        ],
-      );
-
-      final fakeBackend = FakeBackend(user: donor, requests: [completedReq]);
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            backendProvider.overrideWithValue(fakeBackend),
-            currentUserProvider.overrideWith((ref) => donor),
-            requestProvider(completedReq.id).overrideWith((ref) => Stream.value(completedReq)),
-          ],
-          child: MaterialApp(
-            theme: AppTheme.dark(),
-            home: CoordinationScreen(requestId: completedReq.id),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Closed session message
-      expect(find.text('Donation Completed · Connection Closed'), findsOneWidget);
-      expect(
-        find.textContaining('Blood donation was completed. Tracking & coordination closed.'),
-        findsOneWidget,
-      );
-    });
+          findsOneWidget,
+        );
+      },
+    );
   });
 }

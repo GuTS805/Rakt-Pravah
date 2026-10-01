@@ -271,15 +271,15 @@ class _ConnectionHeader extends StatelessWidget {
         color: isFulfilled
             ? c.successSubtle
             : isTerminal
-                ? c.surfaceMuted
-                : c.successSubtle,
+            ? c.surfaceMuted
+            : c.successSubtle,
         borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(
           color: isFulfilled
               ? c.success.withValues(alpha: 0.4)
               : isTerminal
-                  ? c.border
-                  : c.success.withValues(alpha: 0.4),
+              ? c.border
+              : c.success.withValues(alpha: 0.4),
         ),
       ),
       child: Row(
@@ -288,14 +288,14 @@ class _ConnectionHeader extends StatelessWidget {
             isFulfilled
                 ? Icons.check_circle_rounded
                 : isTerminal
-                    ? Icons.lock_outline_rounded
-                    : Icons.handshake_rounded,
+                ? Icons.lock_outline_rounded
+                : Icons.handshake_rounded,
             size: 20,
             color: isFulfilled
                 ? c.success
                 : isTerminal
-                    ? c.textTertiary
-                    : c.success,
+                ? c.textTertiary
+                : c.success,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -306,23 +306,23 @@ class _ConnectionHeader extends StatelessWidget {
                   isFulfilled
                       ? 'Donation Completed · Connection Closed'
                       : isTerminal
-                          ? '${request.status.label} · Connection Closed'
-                          : 'Mutual Connection Active',
+                      ? '${request.status.label} · Connection Closed'
+                      : 'Mutual Connection Active',
                   style: context.text.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: isFulfilled
                         ? c.success
                         : isTerminal
-                            ? c.textSecondary
-                            : c.success,
+                        ? c.textSecondary
+                        : c.success,
                   ),
                 ),
                 Text(
                   isFulfilled
                       ? 'Blood donation was completed. Tracking & coordination closed.'
                       : isTerminal
-                          ? 'This request is closed.'
-                          : 'Requester & Donor connected. Contact details & tracking shared.',
+                      ? 'This request is closed.'
+                      : 'Requester & Donor connected. Contact details & tracking shared.',
                   style: context.text.bodySmall?.copyWith(
                     fontSize: 11,
                     color: c.textSecondary,
@@ -401,7 +401,9 @@ class _DonorViewOfRequester extends ConsumerWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: c.brandSubtle,
-                                borderRadius: BorderRadius.circular(AppRadius.pill),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.pill,
+                                ),
                               ),
                               child: Text(
                                 'Requester',
@@ -420,7 +422,9 @@ class _DonorViewOfRequester extends ConsumerWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: c.successSubtle,
-                                borderRadius: BorderRadius.circular(AppRadius.pill),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.pill,
+                                ),
                               ),
                               child: Text(
                                 'Verified Requester',
@@ -443,7 +447,10 @@ class _DonorViewOfRequester extends ConsumerWidget {
 
               // Requester's Phone Number (Revealed after acceptance)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: c.surfaceMuted,
                   borderRadius: BorderRadius.circular(AppRadius.md),
@@ -472,7 +479,10 @@ class _DonorViewOfRequester extends ConsumerWidget {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: c.successSubtle,
                         borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -498,7 +508,8 @@ class _DonorViewOfRequester extends ConsumerWidget {
                   Expanded(
                     flex: 4,
                     child: ElevatedButton.icon(
-                      onPressed: (request.phone != null && request.phone!.isNotEmpty)
+                      onPressed:
+                          (request.phone != null && request.phone!.isNotEmpty)
                           ? onCall
                           : null,
                       icon: const Icon(Icons.phone_rounded, size: 16),
@@ -522,7 +533,10 @@ class _DonorViewOfRequester extends ConsumerWidget {
                       icon: Icon(Icons.forum_rounded, size: 16, color: c.brand),
                       label: Text(
                         'Chat',
-                        style: TextStyle(color: c.brand, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                          color: c.brand,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: c.brand.withValues(alpha: 0.5)),
@@ -563,7 +577,9 @@ class _DonorViewOfRequester extends ConsumerWidget {
             children: [
               Text(
                 'Patient & Medical Details',
-                style: context.text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                style: context.text.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               const Divider(height: 1),
@@ -574,7 +590,9 @@ class _DonorViewOfRequester extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Text(
                     'Patient Name: ',
-                    style: context.text.bodyMedium?.copyWith(color: c.textSecondary),
+                    style: context.text.bodyMedium?.copyWith(
+                      color: c.textSecondary,
+                    ),
                   ),
                   Text(
                     patientName ?? 'Needed',
@@ -593,7 +611,10 @@ class _DonorViewOfRequester extends ConsumerWidget {
                   if (patientBloodGroup != null)
                     BloodGroupBadge(patientBloodGroup),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: c.surfaceMuted,
                       borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -602,7 +623,11 @@ class _DonorViewOfRequester extends ConsumerWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.water_drop_rounded, size: 12, color: c.brand),
+                        Icon(
+                          Icons.water_drop_rounded,
+                          size: 12,
+                          color: c.brand,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           request.bloodType,
@@ -614,7 +639,10 @@ class _DonorViewOfRequester extends ConsumerWidget {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: c.surfaceMuted,
                       borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -648,7 +676,9 @@ class _DonorViewOfRequester extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       'Hospital / Destination',
-                      style: context.text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                      style: context.text.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
@@ -658,22 +688,32 @@ class _DonorViewOfRequester extends ConsumerWidget {
               const SizedBox(height: AppSpacing.sm),
               Text(
                 request.destination.name,
-                style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                style: context.text.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
                 request.destination.address,
-                style: context.text.bodyMedium?.copyWith(color: c.textSecondary),
+                style: context.text.bodyMedium?.copyWith(
+                  color: c.textSecondary,
+                ),
               ),
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Icon(Icons.location_on_outlined, size: 14, color: c.textTertiary),
+                  Icon(
+                    Icons.location_on_outlined,
+                    size: 14,
+                    color: c.textTertiary,
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       request.requestLocationLabel,
-                      style: context.text.bodySmall?.copyWith(color: c.textTertiary),
+                      style: context.text.bodySmall?.copyWith(
+                        color: c.textTertiary,
+                      ),
                     ),
                   ),
                 ],
@@ -682,14 +722,19 @@ class _DonorViewOfRequester extends ConsumerWidget {
                   request.destination.wardOrContact!.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: c.surfaceMuted,
                     borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
                   child: Text(
                     request.destination.wardOrContact!,
-                    style: context.text.bodySmall?.copyWith(color: c.textSecondary),
+                    style: context.text.bodySmall?.copyWith(
+                      color: c.textSecondary,
+                    ),
                   ),
                 ),
               ],
@@ -710,15 +755,14 @@ class _DonorViewOfRequester extends ConsumerWidget {
                     const SizedBox(width: 6),
                     Text(
                       'Additional Notes',
-                      style: context.text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                      style: context.text.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                Text(
-                  request.notes!,
-                  style: context.text.bodyMedium,
-                ),
+                Text(request.notes!, style: context.text.bodyMedium),
               ],
             ),
           ),

@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/photo_picker.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/avatar.dart';
 import '../../core/widgets/blood_group_picker.dart';
 import '../../core/widgets/buttons.dart';
 import '../../data/models/enums.dart';
@@ -26,6 +29,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   DateTime? _dateOfBirth;
   Gender? _gender;
   bool _busy = false;
+  bool _photoBusy = false;
 
   @override
   void initState() {
@@ -47,6 +51,79 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _state.dispose();
     _city.dispose();
     super.dispose();
+  }
+
+  Future<void> _choosePhoto(PhotoSource source) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _photoBusy = true);
+    try {
+      final photo = await ref.read(photoPickerProvider).pick(source);
+      if (photo == null) {
+        // Backed out, or the picture was too big to keep after shrinking.
+        return;
+      }
+      await ref.read(authControllerProvider.notifier).setPhoto(photo);
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not add that photo. Try again.')),
+      );
+    } finally {
+      if (mounted) setState(() => _photoBusy = false);
+    }
+  }
+
+  Future<void> _removePhoto() async {
+    setState(() => _photoBusy = true);
+    try {
+      await ref.read(authControllerProvider.notifier).setPhoto(null);
+    } finally {
+      if (mounted) setState(() => _photoBusy = false);
+    }
+  }
+
+  void _photoOptions(bool hasPhoto) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () {
+                Navigator.pop(sheet);
+                _choosePhoto(PhotoSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () {
+                Navigator.pop(sheet);
+                _choosePhoto(PhotoSource.gallery);
+              },
+            ),
+            if (hasPhoto)
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline_rounded,
+                  color: context.colors.danger,
+                ),
+                title: Text(
+                  'Remove photo',
+                  style: TextStyle(color: context.colors.danger),
+                ),
+                onTap: () {
+                  Navigator.pop(sheet);
+                  _removePhoto();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _save() async {
@@ -81,6 +158,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(currentUserProvider)!;
+    final hasPhoto = user.photo != null;
     return Scaffold(
       appBar: AppBar(title: const Text('Edit profile')),
       body: Form(
@@ -88,6 +167,21 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
+            Center(
+              child: Column(
+                children: [
+                  Avatar(initials: user.initials, photo: user.photo, size: 96),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextButton(
+                    onPressed: _photoBusy
+                        ? null
+                        : () => _photoOptions(hasPhoto),
+                    child: Text(hasPhoto ? 'Change photo' : 'Add photo'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
             const FieldLabel('Full name'),
             TextFormField(
               controller: _name,

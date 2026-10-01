@@ -55,13 +55,7 @@ const Map<String, List<String>> indianCitiesByState = {
     'Eluru',
     'Vizianagaram',
   ],
-  'Arunachal Pradesh': [
-    'Itanagar',
-    'Naharlagun',
-    'Pasighat',
-    'Tawang',
-    'Ziro',
-  ],
+  'Arunachal Pradesh': ['Itanagar', 'Naharlagun', 'Pasighat', 'Tawang', 'Ziro'],
   'Assam': [
     'Guwahati',
     'Silchar',
@@ -99,11 +93,7 @@ const Map<String, List<String>> indianCitiesByState = {
     'Raigarh',
     'Ambikapur',
   ],
-  'Dadra and Nagar Haveli and Daman and Diu': [
-    'Daman',
-    'Diu',
-    'Silvassa',
-  ],
+  'Dadra and Nagar Haveli and Daman and Diu': ['Daman', 'Diu', 'Silvassa'],
   'Delhi': [
     'New Delhi',
     'Central Delhi',
@@ -115,13 +105,7 @@ const Map<String, List<String>> indianCitiesByState = {
     'Rohini',
     'Connaught Place',
   ],
-  'Goa': [
-    'Panaji',
-    'Margao',
-    'Vasco da Gama',
-    'Mapusa',
-    'Ponda',
-  ],
+  'Goa': ['Panaji', 'Margao', 'Vasco da Gama', 'Mapusa', 'Ponda'],
   'Gujarat': [
     'Ahmedabad',
     'Surat',
@@ -207,15 +191,8 @@ const Map<String, List<String>> indianCitiesByState = {
     'Kottayam',
     'Malappuram',
   ],
-  'Ladakh': [
-    'Leh',
-    'Kargil',
-  ],
-  'Lakshadweep': [
-    'Kavaratti',
-    'Agatti',
-    'Amini',
-  ],
+  'Ladakh': ['Leh', 'Kargil'],
+  'Lakshadweep': ['Kavaratti', 'Agatti', 'Amini'],
   'Madhya Pradesh': [
     'Bhopal',
     'Indore',
@@ -249,27 +226,10 @@ const Map<String, List<String>> indianCitiesByState = {
     'Akola',
     'Latur',
   ],
-  'Manipur': [
-    'Imphal',
-    'Churachandpur',
-    'Thoubal',
-    'Kakching',
-  ],
-  'Meghalaya': [
-    'Shillong',
-    'Tura',
-    'Jowai',
-  ],
-  'Mizoram': [
-    'Aizawl',
-    'Lunglei',
-    'Champhai',
-  ],
-  'Nagaland': [
-    'Kohima',
-    'Dimapur',
-    'Mokokchung',
-  ],
+  'Manipur': ['Imphal', 'Churachandpur', 'Thoubal', 'Kakching'],
+  'Meghalaya': ['Shillong', 'Tura', 'Jowai'],
+  'Mizoram': ['Aizawl', 'Lunglei', 'Champhai'],
+  'Nagaland': ['Kohima', 'Dimapur', 'Mokokchung'],
   'Odisha': [
     'Bhubaneswar',
     'Cuttack',
@@ -281,12 +241,7 @@ const Map<String, List<String>> indianCitiesByState = {
     'Bhadrak',
     'Baripada',
   ],
-  'Puducherry': [
-    'Puducherry',
-    'Karaikal',
-    'Mahe',
-    'Yanam',
-  ],
+  'Puducherry': ['Puducherry', 'Karaikal', 'Mahe', 'Yanam'],
   'Punjab': [
     'Ludhiana',
     'Amritsar',
@@ -312,11 +267,7 @@ const Map<String, List<String>> indianCitiesByState = {
     'Bharatpur',
     'Pali',
   ],
-  'Sikkim': [
-    'Gangtok',
-    'Namchi',
-    'Geyzing',
-  ],
+  'Sikkim': ['Gangtok', 'Namchi', 'Geyzing'],
   'Tamil Nadu': [
     'Chennai',
     'Coimbatore',
@@ -342,11 +293,7 @@ const Map<String, List<String>> indianCitiesByState = {
     'Mahbubnagar',
     'Nalgonda',
   ],
-  'Tripura': [
-    'Agartala',
-    'Dharmanagar',
-    'Udaipur',
-  ],
+  'Tripura': ['Agartala', 'Dharmanagar', 'Udaipur'],
   'Uttar Pradesh': [
     'Lucknow',
     'Kanpur',

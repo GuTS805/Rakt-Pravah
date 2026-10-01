@@ -24,31 +24,67 @@ const _mainSections = [
 ];
 
 const _operationsSections = [
-  AdminSection(Routes.adminEmergency, 'Emergency Monitoring', Icons.emergency_rounded),
-  AdminSection(Routes.adminAvailability, 'Blood Availability', Icons.water_drop_rounded),
+  AdminSection(
+    Routes.adminEmergency,
+    'Emergency Monitoring',
+    Icons.emergency_rounded,
+  ),
+  AdminSection(
+    Routes.adminAvailability,
+    'Blood Availability',
+    Icons.water_drop_rounded,
+  ),
   AdminSection(Routes.adminLiveMap, 'Live Map', Icons.map_rounded),
-  AdminSection(Routes.adminRequests, 'Requests Overview', Icons.receipt_long_rounded),
+  AdminSection(
+    Routes.adminRequests,
+    'Requests Overview',
+    Icons.receipt_long_rounded,
+  ),
   AdminSection(Routes.adminDonations, 'Donations', Icons.bloodtype_rounded),
   AdminSection(Routes.adminConnections, 'Connections', Icons.handshake_rounded),
 ];
 
 const _peopleSections = [
   AdminSection(Routes.adminUsers, 'User Management', Icons.people_alt_rounded),
-  AdminSection(Routes.adminDonors, 'Donor Network', Icons.volunteer_activism_rounded),
-  AdminSection(Routes.adminVerification, 'Donor Verification', Icons.verified_user_rounded),
-  AdminSection(Routes.adminHospitals, 'Hospitals', Icons.local_hospital_rounded),
+  AdminSection(
+    Routes.adminDonors,
+    'Donor Network',
+    Icons.volunteer_activism_rounded,
+  ),
+  AdminSection(
+    Routes.adminVerification,
+    'Donor Verification',
+    Icons.verified_user_rounded,
+  ),
+  AdminSection(
+    Routes.adminHospitals,
+    'Hospitals',
+    Icons.local_hospital_rounded,
+  ),
 ];
 
 const _insightsSections = [
   AdminSection(Routes.adminAnalytics, 'Analytics', Icons.analytics_rounded),
-  AdminSection(Routes.adminAudit, 'Activity & Audit Logs', Icons.fact_check_rounded),
+  AdminSection(
+    Routes.adminAudit,
+    'Activity & Audit Logs',
+    Icons.fact_check_rounded,
+  ),
   AdminSection(Routes.adminReports, 'Reports', Icons.summarize_rounded),
-  AdminSection(Routes.adminNotifications, 'Notifications', Icons.notifications_rounded),
+  AdminSection(
+    Routes.adminNotifications,
+    'Notifications',
+    Icons.notifications_rounded,
+  ),
   AdminSection(Routes.adminModeration, 'Moderation', Icons.gavel_rounded),
 ];
 
 const _systemSections = [
-  AdminSection(Routes.adminHealth, 'System Health', Icons.monitor_heart_rounded),
+  AdminSection(
+    Routes.adminHealth,
+    'System Health',
+    Icons.monitor_heart_rounded,
+  ),
   AdminSection(Routes.adminSettings, 'Settings', Icons.settings_rounded),
 ];
 
@@ -70,7 +106,8 @@ class AdminShell extends ConsumerWidget {
     Widget navItem(AdminSection section, {int? badge, VoidCallback? onNav}) {
       final selected = section.path == Routes.adminDashboard
           ? (location == '/' || location == Routes.adminDashboard)
-          : (location == section.path || location.startsWith('${section.path}/'));
+          : (location == section.path ||
+                location.startsWith('${section.path}/'));
       return _NavItem(
         section: section,
         selected: selected,
@@ -133,7 +170,8 @@ class AdminShell extends ConsumerWidget {
               ),
               child: Center(
                 child: Text(
-                  (user?.name.isNotEmpty == true ? user!.name[0] : '?').toUpperCase(),
+                  (user?.name.isNotEmpty == true ? user!.name[0] : '?')
+                      .toUpperCase(),
                   style: AppTypography.mono(
                     size: 13,
                     weight: FontWeight.w700,
@@ -166,7 +204,8 @@ class AdminShell extends ConsumerWidget {
             IconButton(
               tooltip: 'Sign out',
               icon: const Icon(Icons.logout_rounded, size: 18),
-              onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+              onPressed: () =>
+                  ref.read(authControllerProvider.notifier).logout(),
             ),
           ],
         ),
@@ -334,8 +373,7 @@ class AdminShell extends ConsumerWidget {
   }
 
   int _emergencyCount(WidgetRef ref) {
-    final requests =
-        ref.watch(adminRequestsProvider).valueOrNull ?? const [];
+    final requests = ref.watch(adminRequestsProvider).valueOrNull ?? const [];
     return requests
         .where(
           (r) =>

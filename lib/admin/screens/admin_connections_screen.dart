@@ -49,8 +49,9 @@ class _AdminConnectionsScreenState
           message: 'Could not read: $e',
         ),
         data: (all) {
-          final connected =
-              all.where((r) => r.acceptedDonorIds.isNotEmpty).toList();
+          final connected = all
+              .where((r) => r.acceptedDonorIds.isNotEmpty)
+              .toList();
           final active = connected.where((r) => r.isOpen).toList();
           final completed = connected
               .where((r) => r.status == RequestStatus.fulfilled)
@@ -67,9 +68,7 @@ class _AdminConnectionsScreenState
                 .where(
                   (r) =>
                       r.requesterName.toLowerCase().contains(_search) ||
-                      (r.acceptedDonorName
-                              ?.toLowerCase()
-                              .contains(_search) ??
+                      (r.acceptedDonorName?.toLowerCase().contains(_search) ??
                           false),
                 )
                 .toList();
@@ -90,10 +89,7 @@ class _AdminConnectionsScreenState
                   ),
                   AdminMetric(
                     value: connected
-                        .where(
-                          (r) =>
-                              r.status == RequestStatus.coordinating,
-                        )
+                        .where((r) => r.status == RequestStatus.coordinating)
                         .length,
                     label: 'Coordinating',
                     hint: 'Contact shared, in progress',
@@ -158,8 +154,7 @@ class _AdminConnectionsScreenState
                               ('Location', 2),
                               ('Created', 2),
                             ]),
-                            for (final r in shown)
-                              _ConnectionRow(request: r),
+                            for (final r in shown) _ConnectionRow(request: r),
                           ],
                         ),
                       ),
@@ -223,9 +218,7 @@ class _ConnectionRow extends StatelessWidget {
                     request.acceptedDonorName ?? '—',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.text.titleSmall?.copyWith(
-                      color: c.success,
-                    ),
+                    style: context.text.titleSmall?.copyWith(color: c.success),
                   ),
                 ),
               ],
@@ -241,10 +234,7 @@ class _ConnectionRow extends StatelessWidget {
               ],
             ),
           ),
-          AdminCell(
-            flex: 2,
-            RequestStatusPill(request.status),
-          ),
+          AdminCell(flex: 2, RequestStatusPill(request.status)),
           AdminCell(
             Text(
               '${request.acceptedDonorIds.length}',

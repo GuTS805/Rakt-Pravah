@@ -69,12 +69,17 @@ class FirebaseBackend implements Backend {
     bool tokenIsAdmin = false;
     try {
       final tokenResult = await user.getIdTokenResult();
-      tokenIsAdmin = tokenResult.claims?['admin'] == true ||
+      tokenIsAdmin =
+          tokenResult.claims?['admin'] == true ||
           tokenResult.claims?['role']?.toString().toLowerCase() == 'admin';
     } catch (_) {}
     final doc = await _users.doc(user.uid).get();
     if (!doc.exists) return null;
-    return _applyProfileDoc(doc.data()!, userId: user.uid, tokenIsAdmin: tokenIsAdmin);
+    return _applyProfileDoc(
+      doc.data()!,
+      userId: user.uid,
+      tokenIsAdmin: tokenIsAdmin,
+    );
   }
 
   @override
@@ -102,6 +107,9 @@ class FirebaseBackend implements Backend {
       'city': city,
       'email': email,
       'isAdmin': false,
+      // Every new account starts unapproved; the rules refuse anything else.
+      // Whether that holds anyone back is the operators' switch.
+      'approved': false,
       'lastDonation': null,
       'donor': _donorToMap(
         DonorProfile(
@@ -149,8 +157,32 @@ class FirebaseBackend implements Backend {
       city: city,
       lastDonation: currentUser!.lastDonation,
       isAdmin: currentUser!.isAdmin,
+      photo: currentUser!.photo,
+      approved: currentUser!.approved,
     );
     donorProfile = donorProfile.copyWith(bloodGroup: bloodGroup);
+  }
+
+  @override
+  Future<void> setProfilePhoto(String? photo) async {
+    await _users.doc(uid).set({'photo': photo}, fs.SetOptions(merge: true));
+    final user = currentUser!;
+    currentUser = UserProfile(
+      id: user.id,
+      name: user.name,
+      bloodGroup: user.bloodGroup,
+      phone: user.phone,
+      email: user.email,
+      dateOfBirth: user.dateOfBirth,
+      gender: user.gender,
+      country: user.country,
+      state: user.state,
+      city: user.city,
+      lastDonation: user.lastDonation,
+      isAdmin: user.isAdmin,
+      photo: photo,
+      approved: user.approved,
+    );
   }
 
   // ---------------------------------------------------------------------
@@ -240,8 +272,7 @@ class FirebaseBackend implements Backend {
         'invalid-email' ||
         'user-not-found' ||
         'wrong-password' ||
-        'invalid-credential' =>
-          'Invalid ID or password.',
+        'invalid-credential' => 'Invalid ID or password.',
         'user-disabled' => 'This account has been disabled.',
         'too-many-requests' =>
           'Too many attempts. Wait a few minutes and try again.',
@@ -254,7 +285,9 @@ class FirebaseBackend implements Backend {
     } catch (e, st) {
       // ignore: avoid_print
       print('Unexpected auth exception: $e\n$st');
-      throw const SignInFailure('Unable to connect to the server. Please try again.');
+      throw const SignInFailure(
+        'Unable to connect to the server. Please try again.',
+      );
     }
 
     final fbUser = credential.user!;
@@ -264,7 +297,8 @@ class FirebaseBackend implements Backend {
     bool tokenIsAdmin = false;
     try {
       final tokenResult = await fbUser.getIdTokenResult();
-      tokenIsAdmin = tokenResult.claims?['admin'] == true ||
+      tokenIsAdmin =
+          tokenResult.claims?['admin'] == true ||
           tokenResult.claims?['role']?.toString().toLowerCase() == 'admin';
     } catch (_) {}
 
@@ -298,6 +332,9 @@ class FirebaseBackend implements Backend {
         'email': email,
         'isAdmin': isDesignatedAdmin,
         'role': isDesignatedAdmin ? 'admin' : 'user',
+        // The rules only let a profile be created unapproved; admins pass
+        // the approval check regardless.
+        'approved': false,
         'lastDonation': null,
       };
       await _users.doc(userId).set(data, fs.SetOptions(merge: true));
@@ -331,12 +368,16 @@ class FirebaseBackend implements Backend {
     final email = data['email'] as String?;
     final roleStr = data['role'] as String?;
     final isDesignatedAdmin = _isDesignatedAdminEmail(email);
-    final isAdminFromDb = (data['isAdmin'] as bool? ?? false) ||
+    final isAdminFromDb =
+        (data['isAdmin'] as bool? ?? false) ||
         (roleStr?.toLowerCase() == 'admin');
     final isAdmin = tokenIsAdmin || isAdminFromDb || isDesignatedAdmin;
 
     final user = UserProfile(
-      id: userId ?? _auth.currentUser?.uid ?? (data['id'] as String? ?? 'user_id'),
+      id:
+          userId ??
+          _auth.currentUser?.uid ??
+          (data['id'] as String? ?? 'user_id'),
       name: (data['name'] as String?)?.isNotEmpty == true
           ? (data['name'] as String)
           : (email?.split('@').first ?? 'User'),
@@ -357,6 +398,8 @@ class FirebaseBackend implements Backend {
       city: data['city'] as String?,
       lastDonation: (data['lastDonation'] as fs.Timestamp?)?.toDate(),
       isAdmin: isAdmin,
+      photo: data['photo'] as String?,
+      approved: data['approved'] as bool? ?? true,
     );
     currentUser = user;
     donorProfile = _donorFromMap(
@@ -364,6 +407,55 @@ class FirebaseBackend implements Backend {
       user.bloodGroup,
     );
     return user;
+  }
+
+  @override
+  Stream<bool> get canActStream {
+    final config = _db.collection('config').doc('app');
+    final me = _users.doc(uid);
+    late final StreamController<bool> out;
+    final subs = <StreamSubscription<dynamic>>[];
+    bool? gateOn;
+    bool? approved;
+    var admin = false;
+
+    void emit() {
+      if (gateOn == null || approved == null) return;
+      out.add(!gateOn! || approved! || admin);
+    }
+
+    out = StreamController<bool>(
+      onListen: () {
+        subs.add(
+          config.snapshots().listen(
+            (doc) {
+              gateOn = doc.data()?['requireApproval'] == true;
+              emit();
+            },
+            onError: (_) {
+              // No readable config means no switch: don't hold anyone back.
+              gateOn = false;
+              emit();
+            },
+          ),
+        );
+        subs.add(
+          me.snapshots().listen((doc) {
+            final data = doc.data();
+            // A missing field is an account from before approval existed.
+            approved = data?['approved'] as bool? ?? true;
+            admin = data?['isAdmin'] == true;
+            emit();
+          }, onError: out.addError),
+        );
+      },
+      onCancel: () async {
+        for (final s in subs) {
+          await s.cancel();
+        }
+      },
+    );
+    return out.stream;
   }
 
   @override
@@ -483,7 +575,7 @@ class FirebaseBackend implements Backend {
       notifyPush: m['notifyPush'] as bool? ?? true,
       notifyCritical: m['notifyCritical'] as bool? ?? false,
       locationGranted: m['locationGranted'] as bool? ?? false,
-      maxDistanceKm: (m['maxDistanceKm'] as num?)?.toDouble() ?? 15,
+      maxDistanceKm: (m['maxDistanceKm'] as num?)?.toDouble() ?? 30,
       pausedUntil: (m['pausedUntil'] as fs.Timestamp?)?.toDate(),
       totalDonations: m['totalDonations'] as int? ?? 0,
       lastDonation: (m['lastDonation'] as fs.Timestamp?)?.toDate(),
@@ -564,6 +656,9 @@ class FirebaseBackend implements Backend {
     final data = <String, dynamic>{
       'requesterId': uid,
       'requesterName': currentUser!.name,
+      // Profiles aren't readable by other users, so the photo the card shows
+      // is a copy taken now. Requests made before a photo was added have none.
+      'requesterPhoto': currentUser!.photo,
       // The patient's name is not in here: every signed-in user can read
       // these documents, because that's how donors find requests at all. It
       // lives in the private subcollection written below instead.
@@ -667,9 +762,11 @@ class FirebaseBackend implements Backend {
           if (!profile.isOn || profile.isInCooldown) continue;
         }
 
-        final isCompatible = req.bloodGroups.contains(bloodGroup) ||
+        final isCompatible =
+            req.bloodGroups.contains(bloodGroup) ||
             (req.patientBloodGroup != null &&
-                donorsCompatibleWith(req.patientBloodGroup!).contains(bloodGroup));
+                donorsCompatibleWith(req.patientBloodGroup!)
+                    .contains(bloodGroup));
         if (!isCompatible && !isAccepted) continue;
 
         final donorLocation = _pointFromMap(data['location'] as Map?);
@@ -736,9 +833,7 @@ class FirebaseBackend implements Backend {
 
   @override
   Future<void> expandSearchRadius(String requestId, double newRadiusKm) async {
-    await _requests.doc(requestId).update({
-      'searchRadiusKm': newRadiusKm,
-    });
+    await _requests.doc(requestId).update({'searchRadiusKm': newRadiusKm});
   }
 
   @override
@@ -985,7 +1080,8 @@ class FirebaseBackend implements Backend {
       if (donors.any((d) => d.id == uid)) return;
 
       final now = DateTime.now();
-      final destPoint = _pointFromMap((data['destination'] as Map?)?['location'] as Map?) ??
+      final destPoint =
+          _pointFromMap((data['destination'] as Map?)?['location'] as Map?) ??
           _pointFromMap(data['requestLocation'] as Map?);
       double? dist;
       if (myLocation != null && destPoint != null) {
@@ -1068,6 +1164,9 @@ class FirebaseBackend implements Backend {
     return Invitation(
       id: id,
       requestId: id,
+      requesterId: data['requesterId'] as String? ?? '',
+      requesterName: data['requesterName'] as String? ?? 'Someone',
+      requesterPhoto: data['requesterPhoto'] as String?,
       bloodGroups: _parseBloodGroups(data['bloodGroups']),
       units: data['units'] as int,
       urgency: Urgency.values.byNameOr(
@@ -1178,19 +1277,19 @@ class FirebaseBackend implements Backend {
     DonorTransitStatus status,
   ) async {
     final ref = _requests.doc(requestId);
-    await ref.update({
-      'donorLiveLocations.$uid.transitStatus': status.name,
-    });
+    await ref.update({'donorLiveLocations.$uid.transitStatus': status.name});
     final snap = await ref.get();
     if (snap.exists) {
       final timeline = List<Map<String, dynamic>>.from(
         (snap.data()!['timeline'] as List?) ?? const [],
       );
-      timeline.add(_eventToMap(
-        RequestStatus.coordinating,
-        DateTime.now(),
-        'Donor status: ${status.label}',
-      ));
+      timeline.add(
+        _eventToMap(
+          RequestStatus.coordinating,
+          DateTime.now(),
+          'Donor status: ${status.label}',
+        ),
+      );
       await ref.update({'timeline': timeline});
     }
   }
@@ -1227,6 +1326,7 @@ class FirebaseBackend implements Backend {
       id: doc.id,
       requesterId: data['requesterId'] as String,
       requesterName: data['requesterName'] as String,
+      requesterPhoto: data['requesterPhoto'] as String?,
       // Only requests created before the name moved still carry it here.
       patientName: data['patientName'] as String?,
       patientBloodGroup: patientGroup == null
@@ -1345,8 +1445,8 @@ class FirebaseBackend implements Backend {
                 (entry.value as Map)['transitStatus'] as String?,
                 DonorTransitStatus.onTheWay,
               ),
-              headingDegrees:
-                  ((entry.value as Map)['heading'] as num?)?.toDouble(),
+              headingDegrees: ((entry.value as Map)['heading'] as num?)
+                  ?.toDouble(),
             ),
       };
     }

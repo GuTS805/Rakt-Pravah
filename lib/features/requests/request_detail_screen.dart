@@ -137,15 +137,18 @@ class _AcceptedDonorsSectionState extends State<_AcceptedDonorsSection> {
 
     if (sorted.isEmpty) return const SizedBox.shrink();
 
-    final selectedId = _selectedDonorId != null &&
-            sorted.any((d) => d.id == _selectedDonorId)
+    final selectedId =
+        _selectedDonorId != null && sorted.any((d) => d.id == _selectedDonorId)
         ? _selectedDonorId!
         : sorted.first.id;
 
-    final primaryDonor =
-        sorted.firstWhere((d) => d.id == selectedId, orElse: () => sorted.first);
-    final alternativeDonors =
-        sorted.where((d) => d.id != primaryDonor.id).toList();
+    final primaryDonor = sorted.firstWhere(
+      (d) => d.id == selectedId,
+      orElse: () => sorted.first,
+    );
+    final alternativeDonors = sorted
+        .where((d) => d.id != primaryDonor.id)
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,9 +161,7 @@ class _AcceptedDonorsSectionState extends State<_AcceptedDonorsSection> {
               decoration: BoxDecoration(
                 color: c.successSubtle,
                 borderRadius: BorderRadius.circular(AppRadius.pill),
-                border: Border.all(
-                  color: c.success.withValues(alpha: 0.25),
-                ),
+                border: Border.all(color: c.success.withValues(alpha: 0.25)),
               ),
               child: Text(
                 '${sorted.length} accepted · nearest first',
@@ -362,17 +363,16 @@ class _NearbyDonorsSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final nearbyAsync = ref.watch(nearbyDonorsProvider(request.id));
-    final currentRadius =
-        request.searchRadiusKm > 0 ? request.searchRadiusKm : 25.0;
+    final currentRadius = request.searchRadiusKm > 0
+        ? request.searchRadiusKm
+        : 25.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Expanded(
-              child: SectionHeader('Nearby & Matched Donors'),
-            ),
+            const Expanded(child: SectionHeader('Nearby & Matched Donors')),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
@@ -439,8 +439,9 @@ class _NearbyDonorsSection extends ConsumerWidget {
           error: (_, _) => const SizedBox.shrink(),
           data: (donors) {
             final acceptedIds = request.acceptedDonorIds.toSet();
-            final unaccepted =
-                donors.where((d) => !acceptedIds.contains(d.id)).toList();
+            final unaccepted = donors
+                .where((d) => !acceptedIds.contains(d.id))
+                .toList();
 
             if (unaccepted.isEmpty) {
               return AppCard(
@@ -519,32 +520,33 @@ class _SummaryCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // The badges and the status pill share a line and the text sits
+          // under them. All on one row, a request open to eight groups left
+          // the text no width at all and it stacked one letter per line.
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              BloodGroupBadges(request.bloodGroups, large: true, maxVisible: 3),
-              const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      Fmt.units(request.units),
-                      style: context.text.titleLarge,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      patientName == null
-                          ? 'Created ${Fmt.relative(request.createdAt)}'
-                          : 'For $patientName'
-                                '${request.patientBloodGroup == null ? '' : ' (${request.patientBloodGroup!.label})'}'
-                                ' · ${Fmt.relative(request.createdAt)}',
-                      style: context.text.bodySmall,
-                    ),
-                  ],
+                child: BloodGroupBadges(
+                  request.bloodGroups,
+                  large: true,
+                  maxVisible: 3,
                 ),
               ),
+              const SizedBox(width: AppSpacing.md),
               StatusBadge(request.status),
             ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(Fmt.units(request.units), style: context.text.titleLarge),
+          const SizedBox(height: 2),
+          Text(
+            patientName == null
+                ? 'Created ${Fmt.relative(request.createdAt)}'
+                : 'For $patientName'
+                      '${request.patientBloodGroup == null ? '' : ' (${request.patientBloodGroup!.label})'}'
+                      ' · ${Fmt.relative(request.createdAt)}',
+            style: context.text.bodySmall,
           ),
           const SizedBox(height: AppSpacing.lg),
           const Divider(),

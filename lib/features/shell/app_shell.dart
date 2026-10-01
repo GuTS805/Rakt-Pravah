@@ -8,7 +8,8 @@ import '../../core/theme/app_typography.dart';
 import '../../data/providers.dart';
 
 /// The single unified shell. One account, four flows — never separate donor and
-/// requester apps (spec §4). A badge on Donate reflects pending opportunities.
+/// requester apps (spec §4). A badge on Donate reflects pending opportunities,
+/// and one on Requests counts the requests still in progress.
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.shell});
 
@@ -18,12 +19,17 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pending = ref.watch(pendingInvitationsProvider).length;
     final donorOn = ref.watch(donorProfileValueProvider).isOn;
+    final processing = ref.watch(processingCountProvider);
+    // Kept listening for as long as the app is open, so an approval arrives
+    // live and the gate on requesting and donating is never stale.
+    ref.watch(canActProvider);
 
     return Scaffold(
       body: shell,
       bottomNavigationBar: AppBottomNavigation(
         currentIndex: shell.currentIndex,
         donateBadge: donorOn ? pending : 0,
+        requestsBadge: processing,
         onTap: (i) =>
             shell.goBranch(i, initialLocation: i == shell.currentIndex),
       ),
@@ -51,11 +57,16 @@ class AppBottomNavigation extends StatelessWidget {
     required this.currentIndex,
     required this.onTap,
     this.donateBadge = 0,
+    this.requestsBadge = 0,
   });
 
   final int currentIndex;
   final ValueChanged<int> onTap;
   final int donateBadge;
+
+  /// Requests still in progress. Blue, unlike the Donate badge: it is a count
+  /// of things underway, not something waiting for you to act.
+  final int requestsBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +87,12 @@ class AppBottomNavigation extends StatelessWidget {
                   child: _NavButton(
                     item: _items[i],
                     selected: i == currentIndex,
-                    badge: i == 2 ? donateBadge : 0,
+                    badge: switch (i) {
+                      1 => requestsBadge,
+                      2 => donateBadge,
+                      _ => 0,
+                    },
+                    badgeColor: i == 1 ? c.info : c.brand,
                     onTap: () => onTap(i),
                   ),
                 ),
@@ -93,6 +109,7 @@ class _NavButton extends StatelessWidget {
     required this.item,
     required this.selected,
     required this.onTap,
+    required this.badgeColor,
     this.badge = 0,
   });
 
@@ -100,6 +117,7 @@ class _NavButton extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final int badge;
+  final Color badgeColor;
 
   @override
   Widget build(BuildContext context) {
@@ -140,7 +158,7 @@ class _NavButton extends StatelessWidget {
                       ),
                       constraints: const BoxConstraints(minWidth: 16),
                       decoration: BoxDecoration(
-                        color: c.brand,
+                        color: badgeColor,
                         borderRadius: BorderRadius.circular(AppRadius.pill),
                         border: Border.all(color: c.surface, width: 1.5),
                       ),

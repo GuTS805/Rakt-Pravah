@@ -42,9 +42,24 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
           spacing: AppSpacing.sm,
           children: [
             _mapFilterChip('all', 'All Activity', Icons.layers_rounded, c),
-            _mapFilterChip('emergency', 'Emergencies', Icons.emergency_rounded, c),
-            _mapFilterChip('hospitals', 'Hospitals', Icons.local_hospital_rounded, c),
-            _mapFilterChip('donors', 'Available Donors', Icons.volunteer_activism_rounded, c),
+            _mapFilterChip(
+              'emergency',
+              'Emergencies',
+              Icons.emergency_rounded,
+              c,
+            ),
+            _mapFilterChip(
+              'hospitals',
+              'Hospitals',
+              Icons.local_hospital_rounded,
+              c,
+            ),
+            _mapFilterChip(
+              'donors',
+              'Available Donors',
+              Icons.volunteer_activism_rounded,
+              c,
+            ),
           ],
         ),
       ],
@@ -60,7 +75,11 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
           // Synthesize realistic coordinates clustered around Delhi NCR for requests
           final activeRequests = allRequests.where((r) => r.isOpen).toList();
           final emergencyRequests = activeRequests
-              .where((r) => r.urgency == Urgency.critical || r.urgency == Urgency.urgent)
+              .where(
+                (r) =>
+                    r.urgency == Urgency.critical ||
+                    r.urgency == Urgency.urgent,
+              )
               .toList();
 
           final markers = <Marker>[];
@@ -70,7 +89,9 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
             for (var i = 0; i < activeRequests.length; i++) {
               final r = activeRequests[i];
               final isCritical = r.urgency == Urgency.critical;
-              if (_filter == 'emergency' && !isCritical && r.urgency != Urgency.urgent) {
+              if (_filter == 'emergency' &&
+                  !isCritical &&
+                  r.urgency != Urgency.urgent) {
                 continue;
               }
 
@@ -92,7 +113,9 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
                         border: Border.all(color: Colors.white, width: 2.5),
                         boxShadow: [
                           BoxShadow(
-                            color: (isCritical ? c.danger : c.brand).withValues(alpha: 0.4),
+                            color: (isCritical ? c.danger : c.brand).withValues(
+                              alpha: 0.4,
+                            ),
                             blurRadius: 8,
                             spreadRadius: 2,
                           ),
@@ -100,7 +123,9 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
                       ),
                       child: Center(
                         child: Text(
-                          r.bloodGroups.isNotEmpty ? r.bloodGroups.first.label : '🩸',
+                          r.bloodGroups.isNotEmpty
+                              ? r.bloodGroups.first.label
+                              : '🩸',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -158,7 +183,9 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
 
           // 3. Available Donors
           if (_filter == 'all' || _filter == 'donors') {
-            final donors = users.where((u) => u.isDonorOn && !u.isInCooldown).toList();
+            final donors = users
+                .where((u) => u.isDonorOn && !u.isInCooldown)
+                .toList();
             for (var i = 0; i < donors.length && i < 25; i++) {
               final d = donors[i];
               final lat = 28.5900 + ((i % 7) - 3) * 0.035;
@@ -206,7 +233,8 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
                     ),
                     children: [
                       TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                         userAgentPackageName: 'com.raktpravah.app',
                       ),
                       MarkerLayer(markers: markers),
@@ -220,7 +248,10 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
                 top: AppSpacing.md,
                 left: AppSpacing.md,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: c.surface.withValues(alpha: 0.94),
                     borderRadius: AppRadius.cardMd,
@@ -238,17 +269,33 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
                     children: [
                       Text(
                         'LIVE COVERAGE',
-                        style: AppTypography.mono(size: 10, color: c.textTertiary, weight: FontWeight.w700),
+                        style: AppTypography.mono(
+                          size: 10,
+                          color: c.textTertiary,
+                          weight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          _hudMetric('Active', '${activeRequests.length}', c.info),
+                          _hudMetric(
+                            'Active',
+                            '${activeRequests.length}',
+                            c.info,
+                          ),
                           const SizedBox(width: 14),
-                          _hudMetric('Critical', '${emergencyRequests.length}', c.danger),
+                          _hudMetric(
+                            'Critical',
+                            '${emergencyRequests.length}',
+                            c.danger,
+                          ),
                           const SizedBox(width: 14),
-                          _hudMetric('Donors', '${users.where((u) => u.isDonorOn).length}', c.success),
+                          _hudMetric(
+                            'Donors',
+                            '${users.where((u) => u.isDonorOn).length}',
+                            c.success,
+                          ),
                         ],
                       ),
                     ],
@@ -288,8 +335,12 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
                                 RequestStatusPill(_selectedRequest!.status),
                                 const Spacer(),
                                 IconButton(
-                                  icon: const Icon(Icons.close_rounded, size: 18),
-                                  onPressed: () => setState(() => _selectedRequest = null),
+                                  icon: const Icon(
+                                    Icons.close_rounded,
+                                    size: 18,
+                                  ),
+                                  onPressed: () =>
+                                      setState(() => _selectedRequest = null),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
                                 ),
@@ -298,36 +349,56 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
                             const SizedBox(height: 6),
                             Text(
                               _selectedRequest!.requesterName,
-                              style: context.text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                              style: context.text.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                             Text(
                               _selectedRequest!.destinationName,
-                              style: context.text.bodySmall?.copyWith(color: c.textTertiary),
+                              style: context.text.bodySmall?.copyWith(
+                                color: c.textTertiary,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: c.brandSubtle,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
-                                    _selectedRequest!.bloodGroups.map((g) => g.label).join(' '),
-                                    style: AppTypography.mono(size: 12, color: c.brand, weight: FontWeight.w700),
+                                    _selectedRequest!.bloodGroups
+                                        .map((g) => g.label)
+                                        .join(' '),
+                                    style: AppTypography.mono(
+                                      size: 12,
+                                      color: c.brand,
+                                      weight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
                                   '${_selectedRequest!.units} Units',
-                                  style: AppTypography.mono(size: 12, color: c.textPrimary),
+                                  style: AppTypography.mono(
+                                    size: 12,
+                                    color: c.textPrimary,
+                                  ),
                                 ),
                                 const Spacer(),
                                 Text(
                                   _selectedRequest!.urgency.label,
                                   style: context.text.labelSmall?.copyWith(
-                                    color: _selectedRequest!.urgency == Urgency.critical ? c.danger : c.textSecondary,
+                                    color:
+                                        _selectedRequest!.urgency ==
+                                            Urgency.critical
+                                        ? c.danger
+                                        : c.textSecondary,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -381,8 +452,18 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(val, style: AppTypography.mono(size: 16, color: color, weight: FontWeight.w700)),
-        Text(title, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+        Text(
+          val,
+          style: AppTypography.mono(
+            size: 16,
+            color: color,
+            weight: FontWeight.w700,
+          ),
+        ),
+        Text(
+          title,
+          style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+        ),
       ],
     );
   }

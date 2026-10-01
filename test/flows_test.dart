@@ -4,11 +4,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:rakt_pravah/core/router/routes.dart';
+import 'package:rakt_pravah/core/services/donor_gate.dart';
 import 'package:rakt_pravah/core/theme/app_theme.dart';
 import 'package:rakt_pravah/data/models/models.dart';
 import 'package:rakt_pravah/data/providers.dart';
 import 'package:rakt_pravah/features/home/donor_status_card.dart';
+import 'package:rakt_pravah/core/widgets/invitation_card.dart';
+import 'package:rakt_pravah/core/widgets/profile_card.dart';
+import 'package:rakt_pravah/core/widgets/request_card.dart';
 import 'package:rakt_pravah/features/auth/login_screen.dart';
+import 'package:rakt_pravah/features/requests/request_detail_screen.dart';
+import 'package:rakt_pravah/features/requests/requests_screen.dart';
+import 'package:rakt_pravah/features/shell/app_shell.dart';
 import 'package:rakt_pravah/features/home/home_screen.dart';
 import 'package:rakt_pravah/features/invitations/invitation_detail_screen.dart';
 
@@ -38,14 +45,21 @@ UserProfile _user({
   city: city,
 );
 
-Invitation _invitation({String id = 'r9'}) => Invitation(
+Invitation _invitation({
+  String id = 'r9',
+  InvitationStatus status = InvitationStatus.pending,
+  RequestStatus requestStatus = RequestStatus.searching,
+}) => Invitation(
   id: id,
   requestId: id,
+  requesterId: 'RDTEnCpXsUTImKqDY8iEY93Lgwg2',
+  requesterName: 'Ravi Kumar',
   bloodGroups: const [BloodGroup.oPos],
   units: 1,
   urgency: Urgency.critical,
   distanceKm: 2.4,
-  status: InvitationStatus.pending,
+  requestStatus: requestStatus,
+  status: status,
   destinationName: 'City Hospital',
   destinationArea: 'MG Road',
   createdAt: DateTime.now(),
@@ -127,6 +141,527 @@ void _useTallPhone(WidgetTester tester) {
 }
 
 void main() {
+  group('request and invitation cards', () {
+    Future<void> show(
+      WidgetTester tester,
+      Widget card, {
+      FakeBackend? backend,
+    }) async {
+      _useTallPhone(tester);
+      await tester.pumpWidget(
+        _app(
+          backend: backend ?? FakeBackend(user: _user()),
+          user: _user(),
+          screen: Scaffold(
+            body: Padding(
+              padding: const EdgeInsets.all(16),
+              child: SingleChildScrollView(child: card),
+            ),
+          ),
+        ),
+      );
+      await _pumpFrames(tester);
+    }
+
+    Finder inPhoto(Finder f) =>
+        find.descendant(of: find.byKey(ProfileCard.photoKey), matching: f);
+    Finder inDetails(Finder f) =>
+        find.descendant(of: find.byKey(ProfileCard.detailsKey), matching: f);
+
+    testWidgets('the requester takes the left 30% and the details the right '
+        '70%', (tester) async {
+      await show(tester, RequestCard(request: _request()));
+
+      final photo = tester.getSize(find.byKey(ProfileCard.photoKey)).width;
+      final details = tester.getSize(find.byKey(ProfileCard.detailsKey)).width;
+      expect(photo / (photo + details), closeTo(0.3, 0.001));
+    });
+
+    testWidgets('the requester is shown on the left, with their initials', (
+      tester,
+    ) async {
+      await show(tester, RequestCard(request: _request()));
+
+      expect(inPhoto(find.text('Alok Sharma')), findsOneWidget);
+      expect(inPhoto(find.text('AS')), findsOneWidget);
+    });
+
+    testWidgets('a request you sent shows the patient, the id and the rest', (
+      tester,
+    ) async {
+      final backend = FakeBackend(user: _user())
+        ..patientNames['r1'] = 'Sita Devi';
+      await show(tester, RequestCard(request: _request()), backend: backend);
+
+      expect(inDetails(find.text('Sita Devi')), findsOneWidget);
+      expect(inDetails(find.text('ID RP-U1')), findsOneWidget);
+      expect(inDetails(find.text('City Hospital')), findsOneWidget);
+      expect(inDetails(find.text('MG Road')), findsOneWidget);
+      expect(inDetails(find.text('Critical')), findsOneWidget);
+      expect(inDetails(find.text('Searching')), findsOneWidget);
+    });
+
+    testWidgets('an invitation shows who is asking and their id', (
+      tester,
+    ) async {
+      await show(tester, InvitationCard(invitation: _invitation()));
+
+      expect(inPhoto(find.text('Ravi Kumar')), findsOneWidget);
+      expect(inDetails(find.text('ID RP-RDTENC')), findsOneWidget);
+      expect(inDetails(find.text('City Hospital')), findsOneWidget);
+      expect(inDetails(find.text('2.4 km')), findsOneWidget);
+    });
+
+    testWidgets('the patient name is held back until you accept', (
+      tester,
+    ) async {
+      final backend = FakeBackend(user: _user())
+        ..patientNames['r9'] = 'Sita Devi';
+      await show(
+        tester,
+        InvitationCard(invitation: _invitation()),
+        backend: backend,
+      );
+
+      expect(
+        find.text('Sita Devi'),
+        findsNothing,
+        reason: 'a donor who has not accepted is not allowed to read it',
+      );
+      expect(find.text('Name shown after you accept'), findsOneWidget);
+    });
+
+    testWidgets('once you accept, the patient name appears', (tester) async {
+      final backend = FakeBackend(user: _user())
+        ..patientNames['r9'] = 'Sita Devi';
+      await show(
+        tester,
+        InvitationCard(
+          invitation: _invitation(status: InvitationStatus.accepted),
+        ),
+        backend: backend,
+      );
+
+      expect(inDetails(find.text('Sita Devi')), findsOneWidget);
+      expect(find.text('Name shown after you accept'), findsNothing);
+      expect(find.text('You accepted this request'), findsOneWidget);
+    });
+
+    testWidgets('accept and decline run across the whole card', (tester) async {
+      await show(
+        tester,
+        InvitationCard(
+          invitation: _invitation(),
+          onAccept: () {},
+          onDecline: () {},
+        ),
+      );
+
+      final card = tester.getSize(find.byType(ProfileCard)).width;
+      final accept = tester.getRect(find.text('Accept'));
+      final decline = tester.getRect(find.text('Decline'));
+      expect(decline.left, lessThan(accept.left));
+      expect(
+        accept.right - decline.left,
+        greaterThan(card * 0.4),
+        reason: 'the buttons sit under both halves, not inside the 70%',
+      );
+    });
+  });
+
+  group('requests page', () {
+    testWidgets('invitations are on the left and my requests on the right', (
+      tester,
+    ) async {
+      _useTallPhone(tester);
+      await tester.pumpWidget(
+        _app(
+          backend: FakeBackend(user: _user()),
+          user: _user(),
+          screen: const RequestsScreen(),
+        ),
+      );
+      await _pumpFrames(tester);
+
+      final invitations = tester.getCenter(find.text('Invitations')).dx;
+      final mine = tester.getCenter(find.text('My requests')).dx;
+      expect(invitations, lessThan(mine));
+    });
+
+    testWidgets('it still opens on my requests', (tester) async {
+      _useTallPhone(tester);
+      await tester.pumpWidget(
+        _app(
+          backend: FakeBackend(user: _user(), requests: [_request()]),
+          user: _user(),
+          screen: const RequestsScreen(),
+        ),
+      );
+      await _pumpFrames(tester);
+
+      expect(find.byType(RequestCard), findsOneWidget);
+
+      await tester.tap(find.text('Invitations'));
+      await _pumpFrames(tester);
+      expect(find.byType(RequestCard), findsNothing);
+      expect(find.text('Donor Mode is off'), findsOneWidget);
+    });
+
+    testWidgets('requests and invitations both arrive as cards', (
+      tester,
+    ) async {
+      _useTallPhone(tester);
+      final backend = FakeBackend(
+        user: _user(),
+        requests: [_request()],
+        invitations: [_invitation()],
+        donor: const DonorProfile(
+          availability: DonorAvailability.available,
+          bloodGroup: BloodGroup.oPos,
+        ),
+      );
+      await tester.pumpWidget(
+        _app(backend: backend, user: _user(), screen: const RequestsScreen()),
+      );
+      await _pumpFrames(tester);
+
+      expect(find.byType(ProfileCard), findsOneWidget);
+      await tester.tap(find.text('Invitations'));
+      await _pumpFrames(tester);
+      expect(find.byType(InvitationCard), findsOneWidget);
+      expect(find.byType(ProfileCard), findsOneWidget);
+    });
+  });
+
+  group('requests in progress', () {
+    Future<int> processingFor(FakeBackend backend) async {
+      final container = ProviderContainer(
+        overrides: [
+          backendProvider.overrideWithValue(backend),
+          currentUserProvider.overrideWithValue(_user()),
+          locationServiceProvider.overrideWithValue(FakeLocationService()),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(myRequestsProvider.future);
+      await container.read(invitationsProvider.future);
+      return container.read(processingCountProvider);
+    }
+
+    test('counts what you asked for that is not finished', () async {
+      final backend = FakeBackend(
+        user: _user(),
+        requests: [
+          _request(id: 'a'),
+          _request(id: 'b', status: RequestStatus.coordinating),
+          _request(id: 'c', status: RequestStatus.fulfilled),
+          _request(id: 'd', status: RequestStatus.cancelled),
+        ],
+      );
+      expect(await processingFor(backend), 2);
+    });
+
+    test('counts donations you agreed to that are not finished', () async {
+      final backend = FakeBackend(
+        user: _user(),
+        invitations: [
+          _invitation(id: 'a', status: InvitationStatus.accepted),
+          _invitation(
+            id: 'b',
+            status: InvitationStatus.accepted,
+            requestStatus: RequestStatus.fulfilled,
+          ),
+          _invitation(id: 'c'),
+        ],
+      );
+      expect(
+        await processingFor(backend),
+        1,
+        reason:
+            'a finished donation and an unanswered invitation are not '
+            'in progress',
+      );
+    });
+
+    test('adds the two together', () async {
+      final backend = FakeBackend(
+        user: _user(),
+        requests: [_request()],
+        invitations: [_invitation(status: InvitationStatus.accepted)],
+      );
+      expect(await processingFor(backend), 2);
+    });
+
+    test('is zero when nothing is going on', () async {
+      expect(await processingFor(FakeBackend(user: _user())), 0);
+    });
+
+    testWidgets('the Requests tab shows the number', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            bottomNavigationBar: AppBottomNavigation(
+              currentIndex: 0,
+              onTap: (_) {},
+              requestsBadge: 3,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('3'), findsOneWidget);
+    });
+
+    testWidgets('the Requests badge is blue and the Donate badge is red', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            bottomNavigationBar: AppBottomNavigation(
+              currentIndex: 0,
+              onTap: (_) {},
+              requestsBadge: 2,
+              donateBadge: 5,
+            ),
+          ),
+        ),
+      );
+
+      final colors = tester.element(find.byType(AppBottomNavigation)).colors;
+      Color? badgeColor(String count) {
+        final box = tester.widget<Container>(
+          find
+              .ancestor(of: find.text(count), matching: find.byType(Container))
+              .first,
+        );
+        return (box.decoration as BoxDecoration).color;
+      }
+
+      expect(
+        badgeColor('2'),
+        colors.info,
+        reason: 'requests in progress are underway, not waiting on you',
+      );
+      expect(
+        badgeColor('5'),
+        colors.brand,
+        reason: 'a pending invitation is waiting for you to act',
+      );
+    });
+
+    testWidgets('the Requests tab shows nothing when nothing is in progress', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            bottomNavigationBar: AppBottomNavigation(
+              currentIndex: 0,
+              onTap: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('0'), findsNothing);
+    });
+  });
+
+  group('invitations follow the donor settings', () {
+    Future<(ProviderContainer, FakeBackend)> start() async {
+      final backend = FakeBackend(
+        user: _user(),
+        donor: const DonorProfile(
+          availability: DonorAvailability.available,
+          bloodGroup: BloodGroup.oPos,
+          maxDistanceKm: 15,
+        ),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          backendProvider.overrideWithValue(backend),
+          currentUserProvider.overrideWithValue(_user()),
+          locationServiceProvider.overrideWithValue(FakeLocationService()),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(invitationsProvider, (_, _) {});
+      await container.read(invitationsProvider.future);
+      return (container, backend);
+    }
+
+    test('a new range rebuilds the invitation query', () async {
+      final (container, backend) = await start();
+      final before = backend.invitationsStreamReads;
+
+      backend.emitDonor(
+        container.read(donorProfileValueProvider).copyWith(maxDistanceKm: 30),
+      );
+      await container.pump();
+
+      expect(backend.invitationsStreamReads, before + 1);
+    });
+
+    test('an unrelated donor change does not', () async {
+      final (container, backend) = await start();
+      final before = backend.invitationsStreamReads;
+
+      backend.emitDonor(
+        container.read(donorProfileValueProvider).copyWith(notifyPush: false),
+      );
+      await container.pump();
+
+      expect(backend.invitationsStreamReads, before);
+    });
+  });
+
+  group('request detail', () {
+    testWidgets('a request open to every group still lays out on a phone', (
+      tester,
+    ) async {
+      // An ordinary phone, 411 logical pixels wide.
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 2.625;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final backend = FakeBackend(
+        user: _user(),
+        requests: [_request(groups: BloodGroup.values.toList())],
+      )..patientNames['r1'] = 'Sita Devi';
+      await tester.pumpWidget(
+        _app(
+          backend: backend,
+          user: _user(),
+          screen: const RequestDetailScreen(requestId: 'r1'),
+        ),
+      );
+      await _pumpFrames(tester);
+
+      expect(tester.takeException(), isNull, reason: 'no overflow');
+      final units = tester.getSize(find.text('2 units'));
+      expect(units.width, greaterThan(50), reason: 'not one letter per line');
+      expect(units.height, lessThan(40));
+    });
+  });
+
+  group('approval', () {
+    Future<void> openHome(WidgetTester tester, FakeBackend backend) async {
+      _useTallPhone(tester);
+      await tester.pumpWidget(
+        _app(backend: backend, user: _user(), screen: const HomeScreen()),
+      );
+      await _pumpFrames(tester);
+    }
+
+    testWidgets('an approved account sees no banner and can request', (
+      tester,
+    ) async {
+      await openHome(tester, FakeBackend(user: _user()));
+
+      expect(find.text('Waiting for approval'), findsNothing);
+      await tester.tap(find.text('Create blood request'));
+      await _pumpFrames(tester);
+      expect(find.text('CREATE REQUEST SCREEN'), findsOneWidget);
+    });
+
+    testWidgets('a waiting account is told so, and cannot start a request', (
+      tester,
+    ) async {
+      final backend = FakeBackend(user: _user())..emitCanAct(false);
+      await openHome(tester, backend);
+
+      expect(find.text('Waiting for approval'), findsOneWidget);
+      await tester.tap(find.text('Create blood request'));
+      await _pumpFrames(tester);
+
+      expect(find.text('CREATE REQUEST SCREEN'), findsNothing);
+      expect(find.textContaining('waiting for approval'), findsOneWidget);
+    });
+
+    testWidgets('approval reaches the open app without a restart', (
+      tester,
+    ) async {
+      final backend = FakeBackend(user: _user())..emitCanAct(false);
+      await openHome(tester, backend);
+      expect(find.text('Waiting for approval'), findsOneWidget);
+
+      backend.emitCanAct(true);
+      await _pumpFrames(tester);
+
+      expect(find.text('Waiting for approval'), findsNothing);
+      await tester.tap(find.text('Create blood request'));
+      await _pumpFrames(tester);
+      expect(find.text('CREATE REQUEST SCREEN'), findsOneWidget);
+    });
+
+    testWidgets('a waiting account cannot turn Donor Mode on or accept', (
+      tester,
+    ) async {
+      final backend = FakeBackend(user: _user())..emitCanAct(false);
+      bool? allowed;
+      await tester.pumpWidget(
+        _app(
+          backend: backend,
+          user: _user(),
+          screen: Consumer(
+            builder: (context, ref, _) {
+              ref.watch(canActProvider); // the app shell does this
+              return Scaffold(
+                body: TextButton(
+                  onPressed: () => allowed = requireDonorProfile(context, ref),
+                  child: const Text('try'),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await _pumpFrames(tester);
+
+      await tester.tap(find.text('try'));
+      await tester.pump();
+
+      expect(allowed, isFalse);
+      expect(find.textContaining('waiting for approval'), findsOneWidget);
+    });
+
+    testWidgets('once approved the same donor check passes', (tester) async {
+      final backend = FakeBackend(user: _user());
+      bool? allowed;
+      await tester.pumpWidget(
+        _app(
+          backend: backend,
+          user: _user(),
+          screen: Consumer(
+            builder: (context, ref, _) {
+              ref.watch(canActProvider); // the app shell does this
+              return Scaffold(
+                body: TextButton(
+                  onPressed: () => allowed = requireDonorProfile(context, ref),
+                  child: const Text('try'),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await _pumpFrames(tester);
+
+      await tester.tap(find.text('try'));
+      await tester.pump();
+
+      expect(allowed, isTrue);
+    });
+
+    test('an account from before approval existed counts as approved', () {
+      expect(_user().approved, isTrue);
+    });
+  });
+
   group('signing in', () {
     Future<FakeBackend> signIn(
       WidgetTester tester, {

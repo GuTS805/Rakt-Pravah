@@ -45,8 +45,10 @@ AdminUser _user({
   DateTime? lastDonation,
   int donations = 0,
   String? email,
+  bool approved = true,
 }) => AdminUser(
   id: id,
+  approved: approved,
   name: name,
   phone: '9876543210',
   bloodGroup: BloodGroup.oPos,
@@ -64,8 +66,12 @@ Widget _console({
   List<AdminUser> users = const [],
   List<AdminReport> reports = const [],
   List<AuditEntry> audit = const [],
+  bool requireApproval = false,
 }) => ProviderScope(
   overrides: [
+    adminRequireApprovalProvider.overrideWith(
+      (ref) => Stream.value(requireApproval),
+    ),
     currentUserProvider.overrideWithValue(
       const UserProfile(
         id: 'admin1',
@@ -384,6 +390,92 @@ void main() {
       expect(find.text('Available'), findsOneWidget);
       expect(find.text('Cooldown'), findsOneWidget);
       expect(find.text('4'), findsOneWidget);
+    });
+  });
+
+  group('Approval', () {
+    Future<void> open(
+      WidgetTester tester, {
+      required List<AdminUser> users,
+      bool requireApproval = false,
+    }) async {
+      _wide(tester);
+      await tester.pumpWidget(
+        _console(
+          screen: const AdminUsersScreen(),
+          users: users,
+          requireApproval: requireApproval,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    testWidgets('counts who is waiting and offers to approve them all', (
+      tester,
+    ) async {
+      await open(
+        tester,
+        users: [
+          _user(id: 'a', name: 'Approved Person'),
+          _user(id: 'b', name: 'New Person', approved: false),
+          _user(id: 'c', name: 'Another New', approved: false),
+        ],
+      );
+
+      expect(find.text('2 waiting'), findsOneWidget);
+      expect(find.text('Approve all 2'), findsOneWidget);
+    });
+
+    testWidgets('nobody waiting means nothing to approve in bulk', (
+      tester,
+    ) async {
+      await open(
+        tester,
+        users: [_user(id: 'a', name: 'Approved Person')],
+      );
+
+      expect(find.text('0 waiting'), findsOneWidget);
+      expect(find.textContaining('Approve all'), findsNothing);
+    });
+
+    testWidgets('the Waiting filter shows only people who are not approved', (
+      tester,
+    ) async {
+      await open(
+        tester,
+        users: [
+          _user(id: 'a', name: 'Approved Person'),
+          _user(id: 'b', name: 'New Person', approved: false),
+        ],
+      );
+      expect(find.text('Approved Person'), findsOneWidget);
+      expect(find.text('Waiting  1'), findsOneWidget);
+
+      await tester.tap(find.text('Waiting  1'));
+      await tester.pump();
+
+      expect(find.text('New Person'), findsOneWidget);
+      expect(find.text('Approved Person'), findsNothing);
+    });
+
+    testWidgets('the panel says anyone can act while the switch is off', (
+      tester,
+    ) async {
+      await open(tester, users: [_user()]);
+
+      expect(
+        find.textContaining('Off. Anyone with an account'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the panel says who is held back while the switch is on', (
+      tester,
+    ) async {
+      await open(tester, users: [_user()], requireApproval: true);
+
+      expect(find.textContaining('On. An account that is not'), findsOneWidget);
     });
   });
 

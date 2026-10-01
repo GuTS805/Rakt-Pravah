@@ -35,10 +35,16 @@ abstract class AppRadius {
   static const double xl = 16;
   static const double pill = 999;
 
-  static const BorderRadius buttonRadius = BorderRadius.all(Radius.circular(button));
-  static const BorderRadius inputRadius = BorderRadius.all(Radius.circular(input));
+  static const BorderRadius buttonRadius = BorderRadius.all(
+    Radius.circular(button),
+  );
+  static const BorderRadius inputRadius = BorderRadius.all(
+    Radius.circular(input),
+  );
   static const BorderRadius cardMd = BorderRadius.all(Radius.circular(card));
   static const BorderRadius cardLg = BorderRadius.all(Radius.circular(card));
   static const BorderRadius control = BorderRadius.all(Radius.circular(input));
-  static const BorderRadius modalRadius = BorderRadius.all(Radius.circular(modal));
+  static const BorderRadius modalRadius = BorderRadius.all(
+    Radius.circular(modal),
+  );
 }

@@ -13,6 +13,26 @@ service cloud.firestore {
         || request.auth.uid in req.get('acceptedDonorIds', []);
     }
 
+    // Profile pictures are kept as small base64 text, because Firebase
+    // Storage needs a paid plan. The client shrinks them to a few KB; this is
+    // the ceiling that stops anyone storing something large in their place.
+    function photoOk(photo) {
+      return photo == null || (photo is string && photo.size() <= 60000);
+    }
+
+    // Whether an account may ask for blood or donate. The operators' switch
+    // lives in config/app (off when that document does not exist). While it
+    // is on, only approved accounts and operators pass. An account from
+    // before approval existed has no approved field and counts as approved.
+    function canAct() {
+      return !exists(/databases/$(database)/documents/config/app)
+        || get(/databases/$(database)/documents/config/app)
+             .data.get('requireApproval', false) != true
+        || isAdmin()
+        || get(/databases/$(database)/documents/users/$(request.auth.uid))
+             .data.get('approved', true) == true;
+    }
+
     // Operator access for the admin console (spec §27). The flag lives on the
     // user's own profile document, which only an existing admin can set —
     // see the users rule below, which refuses self-promotion.
@@ -37,17 +57,24 @@ service cloud.firestore {
       // operator by writing one field to their own document.
       allow create: if isSignedIn() && request.auth.uid == uid
         && request.resource.data.get('isAdmin', false) == false
-        && request.resource.data.get('role', 'user') != 'admin';
+        && request.resource.data.get('role', 'user') != 'admin'
+        // A new account starts unapproved, and cannot start any other way:
+        // leaving the field out would otherwise read as approved.
+        && request.resource.data.get('approved', null) == false
+        && photoOk(request.resource.data.get('photo', null));
 
       allow update: if isSignedIn() && (
         (request.auth.uid == uid
           && request.resource.data.get('isAdmin', false)
              == resource.data.get('isAdmin', false)
           && request.resource.data.get('role', 'user')
-             == resource.data.get('role', 'user'))
+             == resource.data.get('role', 'user')
+          && request.resource.data.get('approved', null)
+             == resource.data.get('approved', null)
+          && photoOk(request.resource.data.get('photo', null)))
         || (isAdmin()
           && request.resource.data.diff(resource.data)
-               .affectedKeys().hasOnly(['isAdmin', 'role', 'isActive', 'disabled']))
+               .affectedKeys().hasOnly(['isAdmin', 'role', 'isActive', 'disabled', 'approved']))
       );
 
       allow delete: if false;
@@ -72,11 +99,20 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // App-wide settings. Everyone signed in reads them; only operators change
+    // them.
+    match /config/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     match /blood_requests/{requestId} {
       allow read: if isSignedIn();
 
       allow create: if isSignedIn()
-        && request.resource.data.requesterId == request.auth.uid;
+        && canAct()
+        && request.resource.data.requesterId == request.auth.uid
+        && photoOk(request.resource.data.get('requesterPhoto', null));
 
       // Six, and only six, kinds of update are allowed:
       //  1. the requester changes their own request (cancel, fulfil, etc.)
@@ -95,7 +131,8 @@ service cloud.firestore {
       //     quietly rewrite someone's request
       allow update: if isSignedIn() && (
         resource.data.requesterId == request.auth.uid
-        || (!(request.auth.uid in resource.data.get('acceptedDonorIds', []))
+        || (canAct()
+            && !(request.auth.uid in resource.data.get('acceptedDonorIds', []))
             && request.auth.uid in request.resource.data.acceptedDonorIds
             && request.resource.data.acceptedDonorIds.size()
                == resource.data.get('acceptedDonorIds', []).size() + 1

@@ -68,7 +68,9 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
 
     if (!result.isGranted) {
       // In dev/web environments without hardware GPS permission, proceed with cached location
-      debugPrint('Device location permission not granted, proceeding with fallback.');
+      debugPrint(
+        'Device location permission not granted, proceeding with fallback.',
+      );
     }
 
     setState(() => _sharing = true);
@@ -77,7 +79,10 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
     await _pushCurrentLocation();
 
     _locationTimer?.cancel();
-    _locationTimer = Timer.periodic(_updateInterval, (_) => _pushCurrentLocation());
+    _locationTimer = Timer.periodic(
+      _updateInterval,
+      (_) => _pushCurrentLocation(),
+    );
   }
 
   Future<void> _pushCurrentLocation() async {
@@ -87,19 +92,23 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
     final me = ref.read(currentUserProvider);
     final isRequester = req?.requesterId == me?.id;
 
-    final locResult =
-        await ref.read(locationServiceProvider).getLocationIfPermitted();
+    final locResult = await ref
+        .read(locationServiceProvider)
+        .getLocationIfPermitted();
     GeoPoint? point;
 
     if (locResult is LocationGranted) {
       point = locResult.point;
     } else {
-      point = ref.read(deviceLocationProvider).point ??
+      point =
+          ref.read(deviceLocationProvider).point ??
           ref.read(backendProvider).myLocation;
     }
 
     if (point != null && mounted) {
-      await ref.read(backendProvider).updateLiveLocation(
+      await ref
+          .read(backendProvider)
+          .updateLiveLocation(
             widget.requestId,
             point,
             transitStatus: _transitStatus,
@@ -151,7 +160,9 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
     _simulatedDonorPoint = GeoPoint(startLat, startLng);
 
     // Push initial simulated point
-    ref.read(backendProvider).updateLiveLocation(
+    ref
+        .read(backendProvider)
+        .updateLiveLocation(
           widget.requestId,
           _simulatedDonorPoint!,
           transitStatus: DonorTransitStatus.onTheWay,
@@ -185,7 +196,9 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
         }
       });
 
-      ref.read(backendProvider).updateLiveLocation(
+      ref
+          .read(backendProvider)
+          .updateLiveLocation(
             widget.requestId,
             _simulatedDonorPoint!,
             transitStatus: _transitStatus,
@@ -204,7 +217,8 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
     final dLng = (b.lng - a.lng) * (math.pi / 180.0);
     final lat1 = a.lat * (math.pi / 180.0);
     final lat2 = b.lat * (math.pi / 180.0);
-    final h = math.pow(math.sin(dLat / 2), 2) +
+    final h =
+        math.pow(math.sin(dLat / 2), 2) +
         math.pow(math.sin(dLng / 2), 2) * math.cos(lat1) * math.cos(lat2);
     return r * 2 * math.asin(math.sqrt(h));
   }
@@ -282,18 +296,20 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
           final isDonor = req.acceptedDonorIds.contains(me?.id);
           final firstDonor = req.acceptedDonors.firstOrNull;
           final donorId = isDonor ? me?.id : firstDonor?.id;
-          final donorPing =
-              donorId != null ? req.donorLiveLocations[donorId] : null;
+          final donorPing = donorId != null
+              ? req.donorLiveLocations[donorId]
+              : null;
 
           final effectiveTransitStatus =
               donorPing?.transitStatus ?? _transitStatus;
 
-          final effectiveDonorPoint = _simulatedDonorPoint ??
+          final effectiveDonorPoint =
+              _simulatedDonorPoint ??
               donorPing?.point ??
               firstDonor?.location ??
               (isDonor
                   ? (ref.watch(deviceLocationProvider).point ??
-                      ref.watch(backendProvider).myLocation)
+                        ref.watch(backendProvider).myLocation)
                   : null) ??
               (req.destination.location != null
                   ? GeoPoint(
@@ -302,7 +318,8 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
                     )
                   : null);
 
-          final effectiveRequesterPoint = req.requesterLiveLocation?.point ??
+          final effectiveRequesterPoint =
+              req.requesterLiveLocation?.point ??
               (isDonor ? null : ref.watch(deviceLocationProvider).point);
 
           final double currentDistance;
@@ -319,8 +336,9 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
               ? req.requesterName
               : (firstDonor?.name ?? 'Assigned Donor');
           final partnerPhone = isDonor ? req.phone : firstDonor?.phone;
-          final partnerBloodGroup =
-              isDonor ? req.patientBloodGroup : firstDonor?.bloodGroup;
+          final partnerBloodGroup = isDonor
+              ? req.patientBloodGroup
+              : firstDonor?.bloodGroup;
 
           return Stack(
             children: [
@@ -331,13 +349,12 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
                   donorLocation: effectiveDonorPoint,
                   requesterLocation: effectiveRequesterPoint,
                   donorName: isDonor ? me?.name : firstDonor?.name,
-                  donorBloodGroup:
-                      isDonor ? me?.bloodGroup : firstDonor?.bloodGroup,
+                  donorBloodGroup: isDonor
+                      ? me?.bloodGroup
+                      : firstDonor?.bloodGroup,
                   transitStatus: effectiveTransitStatus,
                   onLocateMe: () async {
-                    await ref
-                        .read(deviceLocationProvider.notifier)
-                        .request();
+                    await ref.read(deviceLocationProvider.notifier).request();
                   },
                 ),
               ),
@@ -405,9 +422,7 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
               isFulfilled
                   ? 'The blood donation was completed successfully. Live-location sharing has stopped to protect donor and requester privacy.'
                   : 'This request was ${req.status.label.toLowerCase()}. Active tracking and live-location sharing have been terminated.',
-              style: context.text.bodyMedium?.copyWith(
-                color: c.textSecondary,
-              ),
+              style: context.text.bodyMedium?.copyWith(color: c.textSecondary),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xl),

@@ -23,58 +23,72 @@ void main() {
       expect(DonorTransitStatus.reached.label, 'Reached');
     });
 
-    test('Two-way live location updates store donor and requester pings', () async {
-      final fake = FakeBackend();
-      final req = await fake.createRequest(
-        patientName: 'Asha Sharma',
-        patientBloodGroup: BloodGroup.bPos,
-        bloodGroups: [BloodGroup.bPos],
-        units: 1,
-        urgency: Urgency.urgent,
-        requestLocationLabel: 'Apollo Hospital',
-        destination: const Destination(name: 'Apollo Hospital', address: 'Main Rd'),
-      );
+    test(
+      'Two-way live location updates store donor and requester pings',
+      () async {
+        final fake = FakeBackend();
+        final req = await fake.createRequest(
+          patientName: 'Asha Sharma',
+          patientBloodGroup: BloodGroup.bPos,
+          bloodGroups: [BloodGroup.bPos],
+          units: 1,
+          urgency: Urgency.urgent,
+          requestLocationLabel: 'Apollo Hospital',
+          destination: const Destination(
+            name: 'Apollo Hospital',
+            address: 'Main Rd',
+          ),
+        );
 
-      // Donor updates location
-      const donorPoint = GeoPoint(28.6140, 77.2095);
-      await fake.updateLiveLocation(
-        req.id,
-        donorPoint,
-        transitStatus: DonorTransitStatus.onTheWay,
-      );
+        // Donor updates location
+        const donorPoint = GeoPoint(28.6140, 77.2095);
+        await fake.updateLiveLocation(
+          req.id,
+          donorPoint,
+          transitStatus: DonorTransitStatus.onTheWay,
+        );
 
-      var updated = await fake.requestStream(req.id).first;
-      expect(updated.donorLiveLocations[fake.uid], isNotNull);
-      expect(updated.donorLiveLocations[fake.uid]!.point.lat, 28.6140);
-      expect(updated.donorLiveLocations[fake.uid]!.transitStatus,
-          DonorTransitStatus.onTheWay);
+        var updated = await fake.requestStream(req.id).first;
+        expect(updated.donorLiveLocations[fake.uid], isNotNull);
+        expect(updated.donorLiveLocations[fake.uid]!.point.lat, 28.6140);
+        expect(
+          updated.donorLiveLocations[fake.uid]!.transitStatus,
+          DonorTransitStatus.onTheWay,
+        );
 
-      // Requester updates location
-      const requesterPoint = GeoPoint(28.6150, 77.2100);
-      await fake.updateLiveLocation(
-        req.id,
-        requesterPoint,
-        isRequester: true,
-      );
+        // Requester updates location
+        const requesterPoint = GeoPoint(28.6150, 77.2100);
+        await fake.updateLiveLocation(
+          req.id,
+          requesterPoint,
+          isRequester: true,
+        );
 
-      updated = await fake.requestStream(req.id).first;
-      expect(updated.requesterLiveLocation, isNotNull);
-      expect(updated.requesterLiveLocation!.point.lat, 28.6150);
+        updated = await fake.requestStream(req.id).first;
+        expect(updated.requesterLiveLocation, isNotNull);
+        expect(updated.requesterLiveLocation!.point.lat, 28.6150);
 
-      // Advance transit status
-      await fake.updateDonorTransitStatus(req.id, DonorTransitStatus.nearHospital);
-      updated = await fake.requestStream(req.id).first;
-      expect(updated.donorLiveLocations[fake.uid]!.transitStatus,
-          DonorTransitStatus.nearHospital);
+        // Advance transit status
+        await fake.updateDonorTransitStatus(
+          req.id,
+          DonorTransitStatus.nearHospital,
+        );
+        updated = await fake.requestStream(req.id).first;
+        expect(
+          updated.donorLiveLocations[fake.uid]!.transitStatus,
+          DonorTransitStatus.nearHospital,
+        );
 
-      // Stop live location
-      await fake.stopLiveLocation(req.id);
-      updated = await fake.requestStream(req.id).first;
-      expect(updated.donorLiveLocations.containsKey(fake.uid), isFalse);
-    });
+        // Stop live location
+        await fake.stopLiveLocation(req.id);
+        updated = await fake.requestStream(req.id).first;
+        expect(updated.donorLiveLocations.containsKey(fake.uid), isFalse);
+      },
+    );
 
-    testWidgets('LiveTrackingSheet renders 4-step progress, ETA, and actions',
-        (tester) async {
+    testWidgets('LiveTrackingSheet renders 4-step progress, ETA, and actions', (
+      tester,
+    ) async {
       final req = BloodRequest(
         id: 'req-track',
         requesterId: 'req-1',
@@ -84,7 +98,10 @@ void main() {
         urgency: Urgency.critical,
         status: RequestStatus.coordinating,
         createdAt: DateTime.now(),
-        destination: const Destination(name: 'Max Healthcare', address: 'Ring Rd'),
+        destination: const Destination(
+          name: 'Max Healthcare',
+          address: 'Ring Rd',
+        ),
         requestLocationLabel: 'Max Healthcare',
       );
 
@@ -127,52 +144,55 @@ void main() {
       expect(find.text('Directions'), findsOneWidget);
     });
 
-    testWidgets('LiveLocationScreen renders live map and bottom tracking sheet',
-        (tester) async {
-      final fake = FakeBackend(
-        user: const UserProfile(
-          id: 'donor-1',
-          name: 'Aarav Sharma',
-          bloodGroup: BloodGroup.oPos,
-          phone: '+91 98765 43210',
-        ),
-      );
-
-      final req = await fake.createRequest(
-        patientName: 'Ravi Kumar',
-        patientBloodGroup: BloodGroup.oPos,
-        bloodGroups: [BloodGroup.oPos],
-        units: 1,
-        urgency: Urgency.urgent,
-        requestLocationLabel: 'City Hospital',
-        destination: const Destination(
-          name: 'City Hospital',
-          address: 'Station Rd',
-          location: GeoPoint(28.6139, 77.2090),
-        ),
-      );
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            backendProvider.overrideWithValue(fake),
-          ],
-          child: MaterialApp(
-            theme: AppTheme.light(),
-            home: LiveLocationScreen(requestId: req.id),
+    testWidgets(
+      'LiveLocationScreen renders live map and bottom tracking sheet',
+      (tester) async {
+        final fake = FakeBackend(
+          user: const UserProfile(
+            id: 'donor-1',
+            name: 'Aarav Sharma',
+            bloodGroup: BloodGroup.oPos,
+            phone: '+91 98765 43210',
           ),
-        ),
-      );
+        );
 
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
+        final req = await fake.createRequest(
+          patientName: 'Ravi Kumar',
+          patientBloodGroup: BloodGroup.oPos,
+          bloodGroups: [BloodGroup.oPos],
+          units: 1,
+          urgency: Urgency.urgent,
+          requestLocationLabel: 'City Hospital',
+          destination: const Destination(
+            name: 'City Hospital',
+            address: 'Station Rd',
+            location: GeoPoint(28.6139, 77.2090),
+          ),
+        );
 
-      expect(find.text('Live Donation Tracking'), findsOneWidget);
-      expect(find.text('Max Healthcare'), findsNothing);
-      expect(find.text('City Hospital'), findsOneWidget);
-      expect(find.text('Call'), findsNothing); // requester has no phone by default
-      expect(find.text('Chat'), findsOneWidget);
-      expect(find.text('Directions'), findsOneWidget);
-    });
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [backendProvider.overrideWithValue(fake)],
+            child: MaterialApp(
+              theme: AppTheme.light(),
+              home: LiveLocationScreen(requestId: req.id),
+            ),
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        expect(find.text('Live Donation Tracking'), findsOneWidget);
+        expect(find.text('Max Healthcare'), findsNothing);
+        expect(find.text('City Hospital'), findsOneWidget);
+        expect(
+          find.text('Call'),
+          findsNothing,
+        ); // requester has no phone by default
+        expect(find.text('Chat'), findsOneWidget);
+        expect(find.text('Directions'), findsOneWidget);
+      },
+    );
   });
 }

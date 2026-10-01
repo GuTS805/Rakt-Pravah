@@ -239,9 +239,7 @@ class DestructiveButton extends StatelessWidget {
             decoration: outlined
                 ? BoxDecoration(
                     borderRadius: AppRadius.buttonRadius,
-                    border: Border.all(
-                      color: c.danger.withValues(alpha: 0.45),
-                    ),
+                    border: Border.all(color: c.danger.withValues(alpha: 0.45)),
                   )
                 : null,
             child: child,
@@ -358,11 +356,7 @@ class AppIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final iconWidget = Icon(
-      icon,
-      size: size,
-      color: color ?? c.textPrimary,
-    );
+    final iconWidget = Icon(icon, size: size, color: color ?? c.textPrimary);
 
     final button = Material(
       color: backgroundColor ?? Colors.transparent,
@@ -370,10 +364,7 @@ class AppIconButton extends StatelessWidget {
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onPressed,
-        child: Padding(
-          padding: EdgeInsets.all(padding),
-          child: iconWidget,
-        ),
+        child: Padding(padding: EdgeInsets.all(padding), child: iconWidget),
       ),
     );
 

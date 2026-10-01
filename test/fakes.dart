@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:geolocator/geolocator.dart' show LocationPermission;
 
 import 'package:rakt_pravah/core/services/location_service.dart';
+import 'package:rakt_pravah/core/services/photo_picker.dart';
 import 'package:rakt_pravah/data/backend.dart';
 import 'package:rakt_pravah/data/models/models.dart';
 
@@ -66,6 +67,7 @@ class FakeBackend implements Backend {
   final _Replay<DonorProfile> _donor;
   final _Replay<List<BloodRequest>> _requests;
   final _Replay<List<Invitation>> _invitations;
+  final _Replay<bool> _canAct = _Replay(true);
 
   // --- What the UI asked us to do, for assertions ------------------------
 
@@ -97,6 +99,9 @@ class FakeBackend implements Backend {
   void emitRequests(List<BloodRequest> next) => _requests.value = next;
   void emitInvitations(List<Invitation> next) => _invitations.value = next;
   void emitDonor(DonorProfile next) => _donor.value = next;
+
+  /// Flips whether the account may act, as an operator's approval would.
+  void emitCanAct(bool next) => _canAct.value = next;
 
   // --- Backend -----------------------------------------------------------
 
@@ -146,8 +151,14 @@ class FakeBackend implements Backend {
   @override
   Stream<List<BloodRequest>> get myRequestsStream => _requests.stream;
 
+  /// How many times the invitation query was (re)built.
+  int invitationsStreamReads = 0;
+
   @override
-  Stream<List<Invitation>> get invitationsStream => _invitations.stream;
+  Stream<List<Invitation>> get invitationsStream {
+    invitationsStreamReads++;
+    return _invitations.stream;
+  }
 
   @override
   Stream<String?> patientNameStream(String id) =>
@@ -178,6 +189,7 @@ class FakeBackend implements Backend {
       id: 'req-$createRequestCalls',
       requesterId: uid,
       requesterName: currentUser?.name ?? 'Tester',
+      requesterPhoto: currentUser?.photo,
       patientName: patientName,
       patientBloodGroup: patientBloodGroup,
       bloodGroups: bloodGroups,
@@ -266,8 +278,8 @@ class FakeBackend implements Backend {
         status: (req?.acceptedDonorIds.contains('donor-2') ?? false)
             ? DonorRequestInteractionStatus.accepted
             : (req?.viewedByDonorIds.contains('donor-2') ?? false)
-                ? DonorRequestInteractionStatus.viewed
-                : DonorRequestInteractionStatus.notified,
+            ? DonorRequestInteractionStatus.viewed
+            : DonorRequestInteractionStatus.notified,
         phone: '+91 98765 43211',
         notifiedAt: DateTime.now().subtract(const Duration(minutes: 12)),
       ),
@@ -368,7 +380,8 @@ class FakeBackend implements Backend {
                 StatusEvent(
                   status: RequestStatus.donorAccepted,
                   at: DateTime.now(),
-                  note: '${currentUser?.name ?? "Donor"} accepted your blood request',
+                  note:
+                      '${currentUser?.name ?? "Donor"} accepted your blood request',
                 ),
               ],
             )
@@ -416,10 +429,7 @@ class FakeBackend implements Backend {
           isRequester
               ? r.copyWith(requesterLiveLocation: ping)
               : r.copyWith(
-                  donorLiveLocations: {
-                    ...r.donorLiveLocations,
-                    uid: ping,
-                  },
+                  donorLiveLocations: {...r.donorLiveLocations, uid: ping},
                 )
         else
           r,
@@ -440,8 +450,9 @@ class FakeBackend implements Backend {
                 entry.key: DonorPing(
                   point: entry.value.point,
                   at: entry.value.at,
-                  transitStatus:
-                      entry.key == uid ? status : entry.value.transitStatus,
+                  transitStatus: entry.key == uid
+                      ? status
+                      : entry.value.transitStatus,
                   headingDegrees: entry.value.headingDegrees,
                 ),
             },
@@ -489,7 +500,8 @@ class FakeBackend implements Backend {
     if (!passwords.containsKey(email) && currentUser == null) {
       throw const SignInFailure('Invalid ID or password.');
     }
-    final user = registeredUsers[email] ??
+    final user =
+        registeredUsers[email] ??
         currentUser ??
         UserProfile(
           id: 'fake-uid',
@@ -578,8 +590,34 @@ class FakeBackend implements Backend {
       city: city,
       lastDonation: user.lastDonation,
       isAdmin: user.isAdmin,
+      photo: user.photo,
+      approved: user.approved,
     );
   }
+
+  @override
+  Future<void> setProfilePhoto(String? photo) async {
+    final user = currentUser!;
+    currentUser = UserProfile(
+      id: user.id,
+      name: user.name,
+      bloodGroup: user.bloodGroup,
+      phone: user.phone,
+      email: user.email,
+      dateOfBirth: user.dateOfBirth,
+      gender: user.gender,
+      country: user.country,
+      state: user.state,
+      city: user.city,
+      lastDonation: user.lastDonation,
+      isAdmin: user.isAdmin,
+      photo: photo,
+      approved: user.approved,
+    );
+  }
+
+  @override
+  Stream<bool> get canActStream => _canAct.stream;
 
   @override
   Future<void> signOut() async => currentUser = null;
@@ -617,4 +655,17 @@ class FakeLocationService implements LocationService {
       result is LocationGranted
       ? LocationPermission.whileInUse
       : LocationPermission.denied;
+}
+
+/// Camera and gallery without a device: hands back whatever [next] holds, and
+/// remembers which source it was asked for.
+class FakePhotoPicker implements PhotoPicker {
+  String? next;
+  final asked = <PhotoSource>[];
+
+  @override
+  Future<String?> pick(PhotoSource source) async {
+    asked.add(source);
+    return next;
+  }
 }

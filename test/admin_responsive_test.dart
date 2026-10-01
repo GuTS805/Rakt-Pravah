@@ -15,22 +15,21 @@ AdminRequest _mockReq({
   RequestStatus status = RequestStatus.searching,
   Urgency urgency = Urgency.critical,
   String? donor,
-}) =>
-    AdminRequest(
-      id: id,
-      requesterId: 'u1',
-      requesterName: requester,
-      bloodGroups: [BloodGroup.oNeg, BloodGroup.oPos],
-      units: 2,
-      urgency: urgency,
-      status: status,
-      createdAt: DateTime.now().subtract(const Duration(minutes: 45)),
-      destinationName: 'Apollo Hospital Bengaluru',
-      locationLabel: 'Bannerghatta Road, Bengaluru',
-      acceptedDonorIds: donor == null ? const [] : const ['d1'],
-      acceptedDonorName: donor,
-      declinedCount: 3,
-    );
+}) => AdminRequest(
+  id: id,
+  requesterId: 'u1',
+  requesterName: requester,
+  bloodGroups: [BloodGroup.oNeg, BloodGroup.oPos],
+  units: 2,
+  urgency: urgency,
+  status: status,
+  createdAt: DateTime.now().subtract(const Duration(minutes: 45)),
+  destinationName: 'Apollo Hospital Bengaluru',
+  locationLabel: 'Bannerghatta Road, Bengaluru',
+  acceptedDonorIds: donor == null ? const [] : const ['d1'],
+  acceptedDonorName: donor,
+  declinedCount: 3,
+);
 
 AdminUser _mockUser({
   String id = 'u1',
@@ -39,21 +38,20 @@ AdminUser _mockUser({
   bool isActive = true,
   DonorAvailability? donor = DonorAvailability.available,
   int donations = 5,
-}) =>
-    AdminUser(
-      id: id,
-      name: name,
-      phone: '+91 98765 43210',
-      bloodGroup: BloodGroup.oNeg,
-      isAdmin: isAdmin,
-      isActive: isActive,
-      emailVerified: true,
-      email: 'priya@example.com',
-      donorAvailability: donor,
-      totalDonations: donations,
-      city: 'Bengaluru',
-      lastDonation: DateTime.now().subtract(const Duration(days: 30)),
-    );
+}) => AdminUser(
+  id: id,
+  name: name,
+  phone: '+91 98765 43210',
+  bloodGroup: BloodGroup.oNeg,
+  isAdmin: isAdmin,
+  isActive: isActive,
+  emailVerified: true,
+  email: 'priya@example.com',
+  donorAvailability: donor,
+  totalDonations: donations,
+  city: 'Bengaluru',
+  lastDonation: DateTime.now().subtract(const Duration(days: 30)),
+);
 
 Widget _testWrapper(Widget screen) {
   final reqs = [
@@ -113,7 +111,9 @@ void main() {
       final name = entry.key;
       final size = entry.value;
 
-      testWidgets('Dashboard renders with no overflow at $name', (tester) async {
+      testWidgets('Dashboard renders with no overflow at $name', (
+        tester,
+      ) async {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.resetPhysicalSize);
@@ -126,8 +126,9 @@ void main() {
         expect(tester.takeException(), isNull);
       });
 
-      testWidgets('Emergency Monitoring renders with no overflow at $name',
-          (tester) async {
+      testWidgets('Emergency Monitoring renders with no overflow at $name', (
+        tester,
+      ) async {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.resetPhysicalSize);
@@ -140,8 +141,9 @@ void main() {
         expect(tester.takeException(), isNull);
       });
 
-      testWidgets('User Management renders with no overflow at $name',
-          (tester) async {
+      testWidgets('User Management renders with no overflow at $name', (
+        tester,
+      ) async {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.resetPhysicalSize);
@@ -154,8 +156,9 @@ void main() {
         expect(tester.takeException(), isNull);
       });
 
-      testWidgets('Donor Network renders with no overflow at $name',
-          (tester) async {
+      testWidgets('Donor Network renders with no overflow at $name', (
+        tester,
+      ) async {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.resetPhysicalSize);
@@ -168,8 +171,9 @@ void main() {
         expect(tester.takeException(), isNull);
       });
 
-      testWidgets('Reports & Export renders with no overflow at $name',
-          (tester) async {
+      testWidgets('Reports & Export renders with no overflow at $name', (
+        tester,
+      ) async {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.resetPhysicalSize);

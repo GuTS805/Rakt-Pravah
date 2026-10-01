@@ -87,9 +87,7 @@ class LiveTrackingSheet extends StatelessWidget {
             Expanded(
               child: Container(
                 height: 3,
-                color: i <= currentStep
-                    ? c.brand
-                    : c.surfaceMuted,
+                color: i <= currentStep ? c.brand : c.surfaceMuted,
               ),
             ),
           Column(
@@ -103,8 +101,8 @@ class LiveTrackingSheet extends StatelessWidget {
                   color: i < currentStep
                       ? c.success
                       : i == currentStep
-                          ? c.brand
-                          : c.surfaceMuted,
+                      ? c.brand
+                      : c.surfaceMuted,
                   border: Border.all(
                     color: i <= currentStep ? Colors.white : c.border,
                     width: 1.5,
@@ -120,19 +118,25 @@ class LiveTrackingSheet extends StatelessWidget {
                 ),
                 child: Center(
                   child: i < currentStep
-                      ? const Icon(Icons.check_rounded,
-                          size: 14, color: Colors.white)
+                      ? const Icon(
+                          Icons.check_rounded,
+                          size: 14,
+                          color: Colors.white,
+                        )
                       : i == currentStep
-                          ? const Icon(Icons.directions_bike_rounded,
-                              size: 13, color: Colors.white)
-                          : Text(
-                              '${i + 1}',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: c.textTertiary,
-                              ),
-                            ),
+                      ? const Icon(
+                          Icons.directions_bike_rounded,
+                          size: 13,
+                          color: Colors.white,
+                        )
+                      : Text(
+                          '${i + 1}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: c.textTertiary,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 4),
@@ -146,8 +150,8 @@ class LiveTrackingSheet extends StatelessWidget {
                   color: i == currentStep
                       ? c.brand
                       : i < currentStep
-                          ? c.textPrimary
-                          : c.textTertiary,
+                      ? c.textPrimary
+                      : c.textTertiary,
                 ),
               ),
             ],
@@ -161,8 +165,9 @@ class LiveTrackingSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final etaMinutes = (distanceKm / 0.5).round().clamp(2, 180);
-    final etaTime =
-        DateFormat.jm().format(DateTime.now().add(Duration(minutes: etaMinutes)));
+    final etaTime = DateFormat.jm().format(
+      DateTime.now().add(Duration(minutes: etaMinutes)),
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -213,11 +218,12 @@ class LiveTrackingSheet extends StatelessWidget {
                         Row(
                           children: [
                             Text(
-                              transitStatus == DonorTransitStatus.donationCompleted
+                              transitStatus ==
+                                      DonorTransitStatus.donationCompleted
                                   ? 'Donation Completed'
                                   : transitStatus == DonorTransitStatus.reached
-                                      ? 'Arrived at destination'
-                                      : '$etaMinutes mins',
+                                  ? 'Arrived at destination'
+                                  : '$etaMinutes mins',
                               style: context.text.headlineMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
                                 color: c.textPrimary,
@@ -231,8 +237,8 @@ class LiveTrackingSheet extends StatelessWidget {
                           transitStatus == DonorTransitStatus.donationCompleted
                               ? 'Blood donation has been completed successfully'
                               : transitStatus == DonorTransitStatus.reached
-                                  ? 'Donor has reached the hospital location'
-                                  : '${distanceKm.toStringAsFixed(1)} km away • Arriving by $etaTime',
+                              ? 'Donor has reached the hospital location'
+                              : '${distanceKm.toStringAsFixed(1)} km away • Arriving by $etaTime',
                           style: context.text.bodyMedium?.copyWith(
                             color: c.textSecondary,
                             fontWeight: FontWeight.w500,
@@ -242,8 +248,10 @@ class LiveTrackingSheet extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: isSharingLocation
                           ? c.successSubtle
@@ -329,11 +337,16 @@ class LiveTrackingSheet extends StatelessWidget {
                             color: c.textSecondary,
                           ),
                         ),
-                        if (partnerPhone != null && partnerPhone!.isNotEmpty) ...[
+                        if (partnerPhone != null &&
+                            partnerPhone!.isNotEmpty) ...[
                           const SizedBox(height: 2),
                           Row(
                             children: [
-                              Icon(Icons.phone_rounded, size: 12, color: c.success),
+                              Icon(
+                                Icons.phone_rounded,
+                                size: 12,
+                                color: c.success,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 partnerPhone!,
@@ -360,14 +373,22 @@ class LiveTrackingSheet extends StatelessWidget {
                   if (partnerPhone != null && partnerPhone!.isNotEmpty) ...[
                     Expanded(
                       child: OutlinedButton.icon(
-                        icon: Icon(Icons.phone_rounded,
-                            size: 18, color: c.success),
-                        label: Text('Call',
-                            style: TextStyle(
-                                color: c.success, fontWeight: FontWeight.w600)),
+                        icon: Icon(
+                          Icons.phone_rounded,
+                          size: 18,
+                          color: c.success,
+                        ),
+                        label: Text(
+                          'Call',
+                          style: TextStyle(
+                            color: c.success,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(
-                              color: c.success.withValues(alpha: 0.35)),
+                            color: c.success.withValues(alpha: 0.35),
+                          ),
                           backgroundColor: c.successSubtle,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
@@ -381,29 +402,39 @@ class LiveTrackingSheet extends StatelessWidget {
                   ],
                   Expanded(
                     child: OutlinedButton.icon(
-                      icon: Icon(Icons.chat_bubble_outline_rounded,
-                          size: 18, color: c.brand),
-                      label: Text('Chat',
-                          style: TextStyle(
-                              color: c.brand, fontWeight: FontWeight.w600)),
+                      icon: Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 18,
+                        color: c.brand,
+                      ),
+                      label: Text(
+                        'Chat',
+                        style: TextStyle(
+                          color: c.brand,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: c.brand.withValues(alpha: 0.35)),
+                        side: BorderSide(
+                          color: c.brand.withValues(alpha: 0.35),
+                        ),
                         backgroundColor: c.brandSubtle,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(AppRadius.md),
                         ),
                       ),
-                      onPressed: () =>
-                          context.push(Routes.chat(request.id)),
+                      onPressed: () => context.push(Routes.chat(request.id)),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.directions_rounded, size: 18),
-                      label: const Text('Directions',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      label: const Text(
+                        'Directions',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -432,8 +463,11 @@ class LiveTrackingSheet extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.share_location_rounded,
-                              size: 18, color: c.brand),
+                          Icon(
+                            Icons.share_location_rounded,
+                            size: 18,
+                            color: c.brand,
+                          ),
                           const SizedBox(width: AppSpacing.sm),
                           Text(
                             'Donor Transit & Location Controls',
@@ -481,8 +515,9 @@ class LiveTrackingSheet extends StatelessWidget {
                                     ? c.brand
                                     : c.textSecondary,
                               ),
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
                               materialTapTargetSize:
                                   MaterialTapTargetSize.shrinkWrap,
                             ),

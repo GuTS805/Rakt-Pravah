@@ -83,9 +83,7 @@ class DonorRankingCard extends StatelessWidget {
       ),
       DonorRequestInteractionStatus.notified => (
         'Notified',
-        context.isDark
-            ? const Color(0xFF3E2723)
-            : const Color(0xFFFFF3E0),
+        context.isDark ? const Color(0xFF3E2723) : const Color(0xFFFFF3E0),
         const Color(0xFFE65100),
         Icons.notifications_active_rounded,
       ),
@@ -140,9 +138,7 @@ class DonorRankingCard extends StatelessWidget {
         color: c.surface,
         borderRadius: AppRadius.cardMd,
         border: Border.all(
-          color: isAccepted
-              ? c.success.withValues(alpha: 0.45)
-              : c.border,
+          color: isAccepted ? c.success.withValues(alpha: 0.45) : c.border,
           width: isAccepted ? 1.5 : 1.0,
         ),
         boxShadow: [
@@ -218,68 +214,79 @@ class DonorRankingCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
-              // Distance indicator
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: c.surfaceMuted,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+              Expanded(
+                child: Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
                   children: [
-                    Icon(
-                      Icons.near_me_rounded,
-                      size: 14,
-                      color: c.brand,
+                    // Distance indicator
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: c.surfaceMuted,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.near_me_rounded, size: 14, color: c.brand),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${donor.distanceKm.toStringAsFixed(1)} km away',
+                            style: AppTypography.mono(
+                              size: 12,
+                              weight: FontWeight.w600,
+                              color: c.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${donor.distanceKm.toStringAsFixed(1)} km away',
-                      style: AppTypography.mono(
-                        size: 12,
-                        weight: FontWeight.w600,
-                        color: c.textPrimary,
+                    // Travel time indicator
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: c.surfaceMuted,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.directions_car_outlined,
+                            size: 14,
+                            color: c.textSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '~$travelMins min travel',
+                            style: context.text.bodySmall?.copyWith(
+                              fontSize: 11,
+                              color: c.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: AppSpacing.xs),
-              // Travel time indicator
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: c.surfaceMuted,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.directions_car_outlined,
-                      size: 14,
-                      color: c.textSecondary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '~$travelMins min travel',
-                      style: context.text.bodySmall?.copyWith(
-                        fontSize: 11,
-                        color: c.textSecondary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
               // Privacy / Action controls
               if (onTrackLive != null) ...[
                 IconButton(
                   tooltip: 'Live Track Donor',
-                  icon: Icon(Icons.delivery_dining_rounded,
-                      size: 20, color: c.brand),
+                  icon: Icon(
+                    Icons.delivery_dining_rounded,
+                    size: 20,
+                    color: c.brand,
+                  ),
                   style: IconButton.styleFrom(
                     backgroundColor: c.brandSubtle,
                     padding: const EdgeInsets.all(6),

@@ -162,12 +162,21 @@ void main() {
       expect(paused.isInCooldown, isTrue);
     });
 
-    test('nextEligibleDonationDate is 3 months (90 days) after last donation', () {
-      final donated = DateTime(2026, 9, 22, 12, 0, 0);
-      final donor = _donor(lastDonation: donated);
-      expect(donor.nextEligibleDonationDate, donated.add(const Duration(days: 90)));
-      expect(Fmt.fullDate(donor.nextEligibleDonationDate!), '21 December 2026');
-    });
+    test(
+      'nextEligibleDonationDate is 3 months (90 days) after last donation',
+      () {
+        final donated = DateTime(2026, 9, 22, 12, 0, 0);
+        final donor = _donor(lastDonation: donated);
+        expect(
+          donor.nextEligibleDonationDate,
+          donated.add(const Duration(days: 90)),
+        );
+        expect(
+          Fmt.fullDate(donor.nextEligibleDonationDate!),
+          '21 December 2026',
+        );
+      },
+    );
 
     test('Fmt.localDateTime formats date and time with weekday', () {
       final dt = DateTime(2026, 9, 22, 19, 30, 45);
@@ -178,35 +187,49 @@ void main() {
     });
 
     test('Fmt.countdown formats remaining duration nicely', () {
-      expect(Fmt.countdown(const Duration(days: 89, hours: 23, minutes: 59, seconds: 42)), '89d 23h 59m 42s');
-      expect(Fmt.countdown(const Duration(hours: 4, minutes: 12, seconds: 5)), '04h 12m 05s');
+      expect(
+        Fmt.countdown(
+          const Duration(days: 89, hours: 23, minutes: 59, seconds: 42),
+        ),
+        '89d 23h 59m 42s',
+      );
+      expect(
+        Fmt.countdown(const Duration(hours: 4, minutes: 12, seconds: 5)),
+        '04h 12m 05s',
+      );
       expect(Fmt.countdown(Duration.zero), '00d 00h 00m 00s');
     });
 
-    test('FakeBackend.recordDonation turns Donor Mode OFF and sets lastDonation', () async {
-      final backend = FakeBackend(
-        donor: const DonorProfile(
-          availability: DonorAvailability.available,
-          bloodGroup: BloodGroup.oPos,
-        ),
-      );
-      expect(backend.donorProfile.isOn, isTrue);
+    test(
+      'FakeBackend.recordDonation turns Donor Mode OFF and sets lastDonation',
+      () async {
+        final backend = FakeBackend(
+          donor: const DonorProfile(
+            availability: DonorAvailability.available,
+            bloodGroup: BloodGroup.oPos,
+          ),
+        );
+        expect(backend.donorProfile.isOn, isTrue);
 
-      final now = DateTime(2026, 9, 22);
-      await backend.recordDonation(now);
+        final now = DateTime(2026, 9, 22);
+        await backend.recordDonation(now);
 
-      expect(backend.donorProfile.availability, DonorAvailability.off);
-      expect(backend.donorProfile.isOn, isFalse);
-      expect(backend.donorProfile.lastDonation, now);
-      expect(backend.donorProfile.isInCooldown, isTrue);
-      expect(backend.donorProfile.nextEligibleDonationDate, now.add(const Duration(days: 90)));
+        expect(backend.donorProfile.availability, DonorAvailability.off);
+        expect(backend.donorProfile.isOn, isFalse);
+        expect(backend.donorProfile.lastDonation, now);
+        expect(backend.donorProfile.isInCooldown, isTrue);
+        expect(
+          backend.donorProfile.nextEligibleDonationDate,
+          now.add(const Duration(days: 90)),
+        );
 
-      // Resetting cooldown turns Donor Mode back ON
-      await backend.resetDonationCooldown();
-      expect(backend.donorProfile.availability, DonorAvailability.available);
-      expect(backend.donorProfile.isOn, isTrue);
-      expect(backend.donorProfile.isInCooldown, isFalse);
-    });
+        // Resetting cooldown turns Donor Mode back ON
+        await backend.resetDonationCooldown();
+        expect(backend.donorProfile.availability, DonorAvailability.available);
+        expect(backend.donorProfile.isOn, isTrue);
+        expect(backend.donorProfile.isInCooldown, isFalse);
+      },
+    );
   });
 
   group('donor availability', () {
@@ -464,6 +487,29 @@ void main() {
     });
   });
 
+  group('card identity', () {
+    test('a user id is the first six characters of the uid, upper-cased', () {
+      expect(Fmt.userId('RDTEnCpXsUTImKqDY8iEY93Lgwg2'), 'RP-RDTENC');
+    });
+
+    test('a uid shorter than six characters is used whole', () {
+      expect(Fmt.userId('u1'), 'RP-U1');
+    });
+
+    test('two different accounts do not share a user id', () {
+      expect(
+        Fmt.userId('pauiecD2mNVtTj9ov6xZhOCaQow1'),
+        isNot(Fmt.userId('RDTEnCpXsUTImKqDY8iEY93Lgwg2')),
+      );
+    });
+
+    test('initials are the first and last name', () {
+      expect(Fmt.initials('Alok Kumar Sharma'), 'AS');
+      expect(Fmt.initials('alok'), 'A');
+      expect(Fmt.initials('   '), '?');
+    });
+  });
+
   group('formatters', () {
     test('units is singular only for one', () {
       expect(Fmt.units(1), '1 unit');
@@ -510,6 +556,23 @@ void main() {
     test('shortDate renders day and month name', () {
       expect(Fmt.shortDate(DateTime(2026, 8, 12)), '12 Aug');
       expect(Fmt.shortDate(DateTime(2026, 1, 1)), '1 Jan');
+    });
+  });
+
+  group('donor range', () {
+    test('a donor is offered requests within 30 km by default', () {
+      const donor = DonorProfile(
+        availability: DonorAvailability.available,
+        bloodGroup: BloodGroup.oPos,
+      );
+      expect(donor.maxDistanceKm, 30);
+    });
+
+    test('30 km is a step the settings slider can land on', () {
+      // The slider runs 2-40 km in 19 divisions, so 2 km steps.
+      const min = 2.0, max = 40.0, divisions = 19;
+      final step = (max - min) / divisions;
+      expect(((30 - min) / step) % 1, closeTo(0, 1e-9));
     });
   });
 

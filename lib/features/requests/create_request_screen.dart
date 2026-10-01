@@ -128,8 +128,8 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
           _source = _LocationSource.stateCity;
           _location.text = _selectedCity == 'Other'
               ? (_customCityController.text.trim().isEmpty
-                  ? _selectedState!
-                  : '${_customCityController.text.trim()}, $_selectedState')
+                    ? _selectedState!
+                    : '${_customCityController.text.trim()}, $_selectedState')
               : '$_selectedCity, $_selectedState';
         } else {
           _location.text = '';
@@ -781,20 +781,17 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
               _divider(),
               _reviewRow('Hospital', _destName.text.trim()),
               _divider(),
-              _reviewRow(
-                'Hospital address',
-                () {
-                  final resolved = _destCity == 'Other'
-                      ? _destCustomCityController.text.trim()
-                      : (_destCity ?? '');
-                  final parts = [
-                    _destAddress.text.trim(),
-                    if (resolved.isNotEmpty) resolved,
-                    if (_destState != null && _destState!.isNotEmpty) _destState!,
-                  ].where((p) => p.isNotEmpty).join(', ');
-                  return parts.isEmpty ? '—' : parts;
-                }(),
-              ),
+              _reviewRow('Hospital address', () {
+                final resolved = _destCity == 'Other'
+                    ? _destCustomCityController.text.trim()
+                    : (_destCity ?? '');
+                final parts = [
+                  _destAddress.text.trim(),
+                  if (resolved.isNotEmpty) resolved,
+                  if (_destState != null && _destState!.isNotEmpty) _destState!,
+                ].where((p) => p.isNotEmpty).join(', ');
+                return parts.isEmpty ? '—' : parts;
+              }()),
             ],
           ),
         ),
@@ -806,7 +803,8 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
           maxLines: 3,
           textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(
-            hintText: 'Any special instructions, room number, or timing for donors…',
+            hintText:
+                'Any special instructions, room number, or timing for donors…',
             alignLabelWithHint: true,
           ),
         ),

@@ -48,7 +48,7 @@ class ProfileScreen extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  Avatar(initials: user.initials, size: 56),
+                  Avatar(initials: user.initials, photo: user.photo, size: 56),
                   const SizedBox(width: AppSpacing.lg),
                   Expanded(
                     child: Column(

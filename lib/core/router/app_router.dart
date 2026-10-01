@@ -207,14 +207,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.settings, builder: (_, _) => const SettingsScreen()),
 
       // ---- Admin Authentication & Gateways ----
-      GoRoute(
-        path: Routes.adminLogin,
-        redirect: (_, _) => Routes.login,
-      ),
-      GoRoute(
-        path: '/sign-in',
-        redirect: (_, _) => Routes.login,
-      ),
+      GoRoute(path: Routes.adminLogin, redirect: (_, _) => Routes.login),
+      GoRoute(path: '/sign-in', redirect: (_, _) => Routes.login),
       GoRoute(
         path: Routes.adminNoAccess,
         builder: (_, _) => const AdminNoAccessScreen(),

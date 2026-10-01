@@ -18,7 +18,6 @@ class AdminSignInScreen extends StatelessWidget {
   Widget build(BuildContext context) => const LoginScreen();
 }
 
-
 /// Signed in, but not an operator. Says so plainly instead of showing an
 /// empty console that looks broken.
 class AdminNoAccessScreen extends ConsumerWidget {
@@ -51,7 +50,11 @@ class AdminNoAccessScreen extends ConsumerWidget {
                       color: c.dangerSubtle,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.lock_person_rounded, size: 36, color: c.danger),
+                    child: Icon(
+                      Icons.lock_person_rounded,
+                      size: 36,
+                      color: c.danger,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Text('Access Restricted', style: context.text.headlineSmall),

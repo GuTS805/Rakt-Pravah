@@ -239,10 +239,7 @@ class _AvailabilityRow extends StatelessWidget {
 }
 
 class _CooldownNotice extends StatelessWidget {
-  const _CooldownNotice({
-    required this.remaining,
-    this.nextEligibleDate,
-  });
+  const _CooldownNotice({required this.remaining, this.nextEligibleDate});
   final Duration remaining;
   final DateTime? nextEligibleDate;
 

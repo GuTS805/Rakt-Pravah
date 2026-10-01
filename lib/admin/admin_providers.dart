@@ -29,6 +29,12 @@ final adminUsersProvider = StreamProvider<List<AdminUser>>((ref) {
   return admin?.users ?? const Stream.empty();
 });
 
+/// The operators' switch: must new accounts be approved before acting.
+final adminRequireApprovalProvider = StreamProvider<bool>((ref) {
+  final admin = ref.watch(adminBackendProvider);
+  return admin?.requireApproval ?? const Stream.empty();
+});
+
 final adminReportsProvider = StreamProvider<List<AdminReport>>((ref) {
   final admin = ref.watch(adminBackendProvider);
   return admin?.reports ?? const Stream.empty();
@@ -44,11 +50,12 @@ final adminHospitalsProvider = StreamProvider<List<AdminHospital>>((ref) {
   return admin?.hospitals ?? const Stream.empty();
 });
 
-final adminNotificationsProvider =
-    StreamProvider<List<AdminNotificationEntry>>((ref) {
-  final admin = ref.watch(adminBackendProvider);
-  return admin?.adminNotifications ?? const Stream.empty();
-});
+final adminNotificationsProvider = StreamProvider<List<AdminNotificationEntry>>(
+  (ref) {
+    final admin = ref.watch(adminBackendProvider);
+    return admin?.adminNotifications ?? const Stream.empty();
+  },
+);
 
 /// The numbers an operator is actually scanning for. Deliberately about work
 /// state — what's stuck, what's unmatched — rather than vanity totals.

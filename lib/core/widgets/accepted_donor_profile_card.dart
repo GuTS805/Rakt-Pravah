@@ -56,7 +56,8 @@ class AcceptedDonorProfileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final livePing = request.donorLiveLocations[donor.id];
-    final effectiveTransitStatus = livePing?.transitStatus ?? donor.transitStatus;
+    final effectiveTransitStatus =
+        livePing?.transitStatus ?? donor.transitStatus;
 
     final double effectiveDistance;
     if (livePing != null && request.destination.location != null) {
@@ -75,9 +76,7 @@ class AcceptedDonorProfileCard extends StatelessWidget {
         color: c.surface,
         borderRadius: BorderRadius.circular(AppRadius.card),
         border: Border.all(
-          color: isSelected
-              ? c.success.withValues(alpha: 0.6)
-              : c.border,
+          color: isSelected ? c.success.withValues(alpha: 0.6) : c.border,
           width: isSelected ? 1.8 : 1.0,
         ),
         boxShadow: [
@@ -94,10 +93,15 @@ class AcceptedDonorProfileCard extends StatelessWidget {
           // Top selection / status header
           if (isSelected)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: 6,
+              ),
               decoration: BoxDecoration(
                 color: c.successSubtle,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.card - 1)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppRadius.card - 1),
+                ),
               ),
               child: Row(
                 children: [
@@ -113,11 +117,16 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                   ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(AppRadius.pill),
-                      border: Border.all(color: c.success.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: c.success.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -198,16 +207,25 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                               if (donor.bloodGroup != null)
                                 BloodGroupBadge(donor.bloodGroup!),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: c.surfaceMuted,
-                                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.pill,
+                                  ),
                                   border: Border.all(color: c.border),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.water_drop_rounded, size: 11, color: c.brand),
+                                    Icon(
+                                      Icons.water_drop_rounded,
+                                      size: 11,
+                                      color: c.brand,
+                                    ),
                                     const SizedBox(width: 3),
                                     Text(
                                       donor.bloodType,
@@ -222,15 +240,24 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                               ),
                               if (donor.isVerified)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: c.brandSubtle,
-                                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.pill,
+                                    ),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.shield_rounded, size: 10, color: c.brand),
+                                      Icon(
+                                        Icons.shield_rounded,
+                                        size: 10,
+                                        color: c.brand,
+                                      ),
                                       const SizedBox(width: 3),
                                       Text(
                                         'Verified',
@@ -253,17 +280,23 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                                 width: 8,
                                 height: 8,
                                 decoration: BoxDecoration(
-                                  color: donor.isDonorModeOn ? c.success : c.textTertiary,
+                                  color: donor.isDonorModeOn
+                                      ? c.success
+                                      : c.textTertiary,
                                   shape: BoxShape.circle,
                                 ),
                               ),
                               const SizedBox(width: 5),
                               Text(
-                                donor.isDonorModeOn ? 'Available · Donor Mode ON' : 'Donor Mode OFF',
+                                donor.isDonorModeOn
+                                    ? 'Available · Donor Mode ON'
+                                    : 'Donor Mode OFF',
                                 style: context.text.bodySmall?.copyWith(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: donor.isDonorModeOn ? c.success : c.textTertiary,
+                                  color: donor.isDonorModeOn
+                                      ? c.success
+                                      : c.textTertiary,
                                 ),
                               ),
                             ],
@@ -278,11 +311,16 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                 if (donor.phone != null && donor.phone!.isNotEmpty) ...[
                   Container(
                     margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: c.surfaceMuted,
                       borderRadius: BorderRadius.circular(AppRadius.md),
-                      border: Border.all(color: c.border.withValues(alpha: 0.5)),
+                      border: Border.all(
+                        color: c.border.withValues(alpha: 0.5),
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -305,7 +343,10 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                         ),
                         const Spacer(),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: c.successSubtle,
                             borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -329,15 +370,24 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: c.surfaceMuted,
                           borderRadius: BorderRadius.circular(AppRadius.md),
-                          border: Border.all(color: c.border.withValues(alpha: 0.5)),
+                          border: Border.all(
+                            color: c.border.withValues(alpha: 0.5),
+                          ),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.near_me_rounded, size: 16, color: c.brand),
+                            Icon(
+                              Icons.near_me_rounded,
+                              size: 16,
+                              color: c.brand,
+                            ),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Column(
@@ -368,15 +418,24 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: c.surfaceMuted,
                           borderRadius: BorderRadius.circular(AppRadius.md),
-                          border: Border.all(color: c.border.withValues(alpha: 0.5)),
+                          border: Border.all(
+                            color: c.border.withValues(alpha: 0.5),
+                          ),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.directions_car_rounded, size: 16, color: c.brand),
+                            Icon(
+                              Icons.directions_car_rounded,
+                              size: 16,
+                              color: c.brand,
+                            ),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Column(
@@ -429,8 +488,10 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                       Expanded(
                         flex: 3,
                         child: ElevatedButton.icon(
-                          onPressed: onTrackLive ??
-                              () => context.push(Routes.liveLocation(request.id)),
+                          onPressed:
+                              onTrackLive ??
+                              () =>
+                                  context.push(Routes.liveLocation(request.id)),
                           icon: const Icon(Icons.navigation_rounded, size: 16),
                           label: const Text('Track Donor (Live)'),
                           style: ElevatedButton.styleFrom(
@@ -438,7 +499,9 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppRadius.button),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.button,
+                              ),
                             ),
                             elevation: 0,
                           ),
@@ -448,13 +511,21 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                       // Call button
                       if (donor.phone != null && donor.phone!.isNotEmpty) ...[
                         OutlinedButton(
-                          onPressed: () => _makePhoneCall(context, donor.phone!),
+                          onPressed: () =>
+                              _makePhoneCall(context, donor.phone!),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: c.success,
-                            side: BorderSide(color: c.success.withValues(alpha: 0.5)),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            side: BorderSide(
+                              color: c.success.withValues(alpha: 0.5),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppRadius.button),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.button,
+                              ),
                             ),
                           ),
                           child: const Row(
@@ -473,10 +544,17 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                         onPressed: () => context.push(Routes.chat(request.id)),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: c.brand,
-                          side: BorderSide(color: c.brand.withValues(alpha: 0.5)),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          side: BorderSide(
+                            color: c.brand.withValues(alpha: 0.5),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppRadius.button),
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.button,
+                            ),
                           ),
                         ),
                         child: const Row(
@@ -502,7 +580,11 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.lock_outline_rounded, size: 14, color: c.textTertiary),
+                      Icon(
+                        Icons.lock_outline_rounded,
+                        size: 14,
+                        color: c.textTertiary,
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -571,8 +653,8 @@ class _JourneyStepper extends StatelessWidget {
                   color: i < currentIdx
                       ? c.success
                       : i == currentIdx
-                          ? c.brand
-                          : c.surfaceMuted,
+                      ? c.brand
+                      : c.surfaceMuted,
                   border: Border.all(
                     color: i <= currentIdx ? Colors.white : c.border,
                     width: 1.5,
@@ -580,13 +662,19 @@ class _JourneyStepper extends StatelessWidget {
                 ),
                 child: Center(
                   child: i < currentIdx
-                      ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
+                      ? const Icon(
+                          Icons.check_rounded,
+                          size: 14,
+                          color: Colors.white,
+                        )
                       : Text(
                           '${i + 1}',
                           style: AppTypography.mono(
                             size: 10,
                             weight: FontWeight.w700,
-                            color: i == currentIdx ? Colors.white : c.textTertiary,
+                            color: i == currentIdx
+                                ? Colors.white
+                                : c.textTertiary,
                           ),
                         ),
                 ),
@@ -607,12 +695,14 @@ class _JourneyStepper extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: context.text.bodySmall?.copyWith(
                     fontSize: 9,
-                    fontWeight: status == currentStatus ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: status == currentStatus
+                        ? FontWeight.w700
+                        : FontWeight.w500,
                     color: status == currentStatus
                         ? c.brand
                         : status.stepIndex < currentIdx
-                            ? c.success
-                            : c.textTertiary,
+                        ? c.success
+                        : c.textTertiary,
                   ),
                 ),
               ),

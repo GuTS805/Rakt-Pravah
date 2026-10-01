@@ -17,10 +17,10 @@ import '../admin_widgets.dart';
 /// Provider for admin notifications from Firestore.
 final adminNotificationsProvider =
     StreamProvider.autoDispose<List<AdminNotificationEntry>>((ref) {
-  final admin = ref.watch(adminBackendProvider);
-  if (admin == null) return Stream.value(const []);
-  return admin.adminNotifications;
-});
+      final admin = ref.watch(adminBackendProvider);
+      if (admin == null) return Stream.value(const []);
+      return admin.adminNotifications;
+    });
 
 class AdminNotificationsScreen extends ConsumerStatefulWidget {
   const AdminNotificationsScreen({super.key});
@@ -153,8 +153,9 @@ class _AdminNotificationsScreenState
                             for (final n in shown)
                               Container(
                                 decoration: BoxDecoration(
-                                  border:
-                                      Border(top: BorderSide(color: c.border)),
+                                  border: Border(
+                                    top: BorderSide(color: c.border),
+                                  ),
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: AppSpacing.lg,
@@ -180,8 +181,8 @@ class _AdminNotificationsScreenState
                                             overflow: TextOverflow.ellipsis,
                                             style: context.text.bodySmall
                                                 ?.copyWith(
-                                              color: c.textTertiary,
-                                            ),
+                                                  color: c.textTertiary,
+                                                ),
                                           ),
                                         ],
                                       ),
@@ -353,8 +354,7 @@ class _AdminNotificationsScreenState
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: 'Emergency Details',
-                  hintText:
-                      'Blood group, hospital, units needed, contact...',
+                  hintText: 'Blood group, hospital, units needed, contact...',
                 ),
               ),
             ],
@@ -380,10 +380,7 @@ class _AdminNotificationsScreenState
               );
               if (ctx.mounted) {
                 Navigator.pop(ctx);
-                showAdminToast(
-                  context,
-                  'Emergency alert sent to all donors.',
-                );
+                showAdminToast(context, 'Emergency alert sent to all donors.');
               }
             },
             child: const Text('Send Emergency Alert'),

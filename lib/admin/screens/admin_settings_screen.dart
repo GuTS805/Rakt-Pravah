@@ -78,15 +78,13 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
               ),
               _SliderSetting(
                 title: 'Cooldown Period (days)',
-                description:
-                    'Minimum days between donations for donor safety.',
+                description: 'Minimum days between donations for donor safety.',
                 value: _cooldownDays.toDouble(),
                 min: 30,
                 max: 180,
                 divisions: 15,
                 label: '$_cooldownDays days',
-                onChanged: (v) =>
-                    setState(() => _cooldownDays = v.round()),
+                onChanged: (v) => setState(() => _cooldownDays = v.round()),
               ),
             ],
           ),
@@ -146,16 +144,13 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                 title: 'Email Notifications',
                 description: 'Send email notifications for critical events.',
                 value: _emailNotifications,
-                onChanged: (v) =>
-                    setState(() => _emailNotifications = v),
+                onChanged: (v) => setState(() => _emailNotifications = v),
               ),
               _ToggleSetting(
                 title: 'Push Notifications',
-                description:
-                    'Send push notifications to mobile devices.',
+                description: 'Send push notifications to mobile devices.',
                 value: _pushNotifications,
-                onChanged: (v) =>
-                    setState(() => _pushNotifications = v),
+                onChanged: (v) => setState(() => _pushNotifications = v),
               ),
               _ToggleSetting(
                 title: 'Emergency Alerts',
@@ -176,8 +171,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
             children: [
               _ActionSetting(
                 title: 'Export Audit Logs',
-                description:
-                    'Download all administrative audit logs as CSV.',
+                description: 'Download all administrative audit logs as CSV.',
                 actionLabel: 'Export',
                 icon: Icons.download_rounded,
                 onTap: () => showAdminToast(
@@ -191,10 +185,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                 actionLabel: 'Clear',
                 icon: Icons.cleaning_services_rounded,
                 isDangerous: true,
-                onTap: () => showAdminToast(
-                  context,
-                  'Session cache cleared.',
-                ),
+                onTap: () => showAdminToast(context, 'Session cache cleared.'),
               ),
             ],
           ),

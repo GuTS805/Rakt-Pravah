@@ -36,9 +36,11 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
         !_busy) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        ref.read(backendProvider).setDonorProfile(
-          donor.copyWith(availability: DonorAvailability.available),
-        );
+        ref
+            .read(backendProvider)
+            .setDonorProfile(
+              donor.copyWith(availability: DonorAvailability.available),
+            );
       });
     }
   }
@@ -124,17 +126,13 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
       await ref.read(backendProvider).resetDonationCooldown();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cooldown reset. Donor Mode is ON.'),
-          ),
+          const SnackBar(content: Text('Cooldown reset. Donor Mode is ON.')),
         );
       }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Couldn\'t reset cooldown. Try again.'),
-          ),
+          const SnackBar(content: Text('Couldn\'t reset cooldown. Try again.')),
         );
       }
     } finally {
@@ -260,16 +258,18 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
               decoration: BoxDecoration(
                 color: c.warningSubtle,
                 borderRadius: BorderRadius.circular(AppRadius.md),
-                border: Border.all(
-                  color: c.warning.withValues(alpha: 0.3),
-                ),
+                border: Border.all(color: c.warning.withValues(alpha: 0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.event_available_rounded, size: 16, color: c.warning),
+                      Icon(
+                        Icons.event_available_rounded,
+                        size: 16,
+                        color: c.warning,
+                      ),
                       const SizedBox(width: AppSpacing.xs),
                       Text(
                         'Next eligible donation date (3 months later):',
@@ -323,7 +323,10 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
                     child: TextButton.icon(
                       onPressed: _busy ? null : _resetCooldown,
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         visualDensity: VisualDensity.compact,
                       ),
                       icon: const Icon(Icons.refresh_rounded, size: 14),
@@ -345,9 +348,16 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
                   onPressed: _busy ? null : _recordDonationToday,
                   style: TextButton.styleFrom(
                     visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                   ),
-                  icon: Icon(Icons.water_drop_outlined, size: 14, color: c.brand),
+                  icon: Icon(
+                    Icons.water_drop_outlined,
+                    size: 14,
+                    color: c.brand,
+                  ),
                   label: Text(
                     'I donated blood today',
                     style: context.text.labelSmall?.copyWith(

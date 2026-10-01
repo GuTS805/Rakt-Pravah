@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
+import '../../core/services/approval_gate.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/invitation_card.dart';
@@ -12,8 +13,9 @@ import '../../data/models/models.dart';
 import '../../data/providers.dart';
 import '../../shared/segmented_control.dart';
 
-/// Two tabs: the user's own requests, and incoming donor invitations. One
-/// unified surface — the same person both asks and helps (spec §4, §13).
+/// Two tabs: incoming donor invitations on the left, the user's own requests
+/// on the right. One unified surface — the same person both asks and helps
+/// (spec §4, §13).
 class RequestsScreen extends ConsumerStatefulWidget {
   const RequestsScreen({super.key});
 
@@ -22,7 +24,9 @@ class RequestsScreen extends ConsumerStatefulWidget {
 }
 
 class _RequestsScreenState extends ConsumerState<RequestsScreen> {
-  int _tab = 0;
+  /// Opens on My requests, as it always has. Invitations moved to the left
+  /// of it without changing which one you land on.
+  int _tab = 1;
 
   @override
   Widget build(BuildContext context) {
@@ -49,8 +53,8 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               child: SegmentedControl(
                 segments: [
-                  Segment('My requests'),
                   Segment('Invitations', badge: pending),
+                  const Segment('My requests'),
                 ],
                 selected: _tab,
                 onChanged: (i) => setState(() => _tab = i),
@@ -60,7 +64,7 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
             Expanded(
               child: IndexedStack(
                 index: _tab,
-                children: const [_MyRequests(), _Invitations()],
+                children: const [_Invitations(), _MyRequests()],
               ),
             ),
           ],
@@ -89,7 +93,11 @@ class _MyRequests extends ConsumerWidget {
             title: 'No requests yet',
             message: 'When you request blood, you\'ll track it here.',
             actionLabel: 'Request blood',
-            onAction: () => context.push(Routes.createRequest),
+            onAction: () {
+              if (requireApproval(context, ref)) {
+                context.push(Routes.createRequest);
+              }
+            },
           );
         }
         final active = requests.where((r) => r.status.isActive).toList();

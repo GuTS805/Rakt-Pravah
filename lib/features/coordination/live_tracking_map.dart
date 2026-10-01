@@ -83,9 +83,11 @@ class _LiveTrackingMapState extends State<LiveTrackingMap>
     _markerAnimController.addListener(() {
       if (_previousDonorLatLng != null && _targetDonorLatLng != null) {
         final t = _markerAnimController.value;
-        final lat = _previousDonorLatLng!.latitude +
+        final lat =
+            _previousDonorLatLng!.latitude +
             (_targetDonorLatLng!.latitude - _previousDonorLatLng!.latitude) * t;
-        final lng = _previousDonorLatLng!.longitude +
+        final lng =
+            _previousDonorLatLng!.longitude +
             (_targetDonorLatLng!.longitude - _previousDonorLatLng!.longitude) *
                 t;
         setState(() {
@@ -109,7 +111,8 @@ class _LiveTrackingMapState extends State<LiveTrackingMap>
         _currentAnimatedDonorLatLng = next;
       } else if (next.latitude != _targetDonorLatLng!.latitude ||
           next.longitude != _targetDonorLatLng!.longitude) {
-        _previousDonorLatLng = _currentAnimatedDonorLatLng ?? _targetDonorLatLng;
+        _previousDonorLatLng =
+            _currentAnimatedDonorLatLng ?? _targetDonorLatLng;
         _targetDonorLatLng = next;
         _markerAnimController.forward(from: 0.0);
       }
@@ -142,10 +145,12 @@ class _LiveTrackingMapState extends State<LiveTrackingMap>
     for (int i = 1; i < steps; i++) {
       final t = i / steps;
       // Quadratic Bezier curve
-      final lat = (1 - t) * (1 - t) * start.latitude +
+      final lat =
+          (1 - t) * (1 - t) * start.latitude +
           2 * (1 - t) * t * controlPoint.latitude +
           t * t * end.latitude;
-      final lng = (1 - t) * (1 - t) * start.longitude +
+      final lng =
+          (1 - t) * (1 - t) * start.longitude +
           2 * (1 - t) * t * controlPoint.longitude +
           t * t * end.longitude;
       points.add(ll.LatLng(lat, lng));
@@ -173,17 +178,14 @@ class _LiveTrackingMapState extends State<LiveTrackingMap>
     final reqGeo = widget.requesterLocation;
     final reqLatLng = reqGeo != null ? ll.LatLng(reqGeo.lat, reqGeo.lng) : null;
 
-    final allPoints = <ll.LatLng>[
-      ?destLatLng,
-      ?donorLatLng,
-      ?reqLatLng,
-    ];
+    final allPoints = <ll.LatLng>[?destLatLng, ?donorLatLng, ?reqLatLng];
 
     final LatLngBounds? bounds = allPoints.length >= 2
         ? LatLngBounds.fromPoints(allPoints)
         : null;
 
-    final initialCenter = donorLatLng ?? destLatLng ?? reqLatLng ?? _fallbackCenter;
+    final initialCenter =
+        donorLatLng ?? destLatLng ?? reqLatLng ?? _fallbackCenter;
 
     final routePoints = (donorLatLng != null && destLatLng != null)
         ? _generateRouteWaypoints(donorLatLng, destLatLng)
@@ -217,11 +219,7 @@ class _LiveTrackingMapState extends State<LiveTrackingMap>
                 strokeWidth: 7.0,
                 color: Colors.black.withValues(alpha: 0.18),
               ),
-              Polyline(
-                points: routePoints,
-                strokeWidth: 4.5,
-                color: c.brand,
-              ),
+              Polyline(points: routePoints, strokeWidth: 4.5, color: c.brand),
             ],
           ),
         ],
@@ -348,8 +346,10 @@ class _LiveTrackingMapState extends State<LiveTrackingMap>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            widget.transitStatus == DonorTransitStatus.reached ||
-                                    widget.transitStatus == DonorTransitStatus.donationCompleted
+                            widget.transitStatus ==
+                                        DonorTransitStatus.reached ||
+                                    widget.transitStatus ==
+                                        DonorTransitStatus.donationCompleted
                                 ? Icons.check_circle_rounded
                                 : Icons.directions_bike_rounded,
                             color: Colors.white,
@@ -417,8 +417,7 @@ class _LiveTrackingMapState extends State<LiveTrackingMap>
             if (reqLatLng != null &&
                 (destLatLng == null ||
                     (reqLatLng.latitude - destLatLng.latitude).abs() > 0.005 ||
-                    (reqLatLng.longitude - destLatLng.longitude).abs() >
-                        0.005))
+                    (reqLatLng.longitude - destLatLng.longitude).abs() > 0.005))
               Marker(
                 point: reqLatLng,
                 width: 90,
@@ -446,8 +445,11 @@ class _LiveTrackingMapState extends State<LiveTrackingMap>
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Icon(Icons.person_pin_circle_rounded,
-                        color: c.info, size: 28),
+                    Icon(
+                      Icons.person_pin_circle_rounded,
+                      color: c.info,
+                      size: 28,
+                    ),
                   ],
                 ),
               ),

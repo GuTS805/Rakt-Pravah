@@ -48,10 +48,10 @@ class _AdminVerificationScreenState
           message: 'Could not read: $e',
         ),
         data: (users) {
-          final donors =
-              users.where((u) => u.donorAvailability != null).toList();
-          final pending =
-              donors.where((u) => !u.emailVerified).toList();
+          final donors = users
+              .where((u) => u.donorAvailability != null)
+              .toList();
+          final pending = donors.where((u) => !u.emailVerified).toList();
           final verified = donors.where((u) => u.emailVerified).toList();
 
           var shown = switch (_tab) {
@@ -145,10 +145,8 @@ class _AdminVerificationScreenState
                     ? AdminEmpty(
                         icon: Icons.verified_user_rounded,
                         message: switch (_tab) {
-                          'pending' =>
-                            'No donors pending verification.',
-                          'verified' =>
-                            'No verified donors yet.',
+                          'pending' => 'No donors pending verification.',
+                          'verified' => 'No verified donors yet.',
                           _ => 'No donors found.',
                         },
                       )
@@ -165,8 +163,7 @@ class _AdminVerificationScreenState
                               ('Verified', 2),
                               ('Actions', 2),
                             ]),
-                            for (final u in shown)
-                              _VerificationRow(user: u),
+                            for (final u in shown) _VerificationRow(user: u),
                           ],
                         ),
                       ),
@@ -266,18 +263,18 @@ class _VerificationRow extends ConsumerWidget {
               user.isInCooldown
                   ? 'Cooldown'
                   : user.isDonorOn
-                      ? 'Available'
-                      : 'Off',
+                  ? 'Available'
+                  : 'Off',
               fg: user.isInCooldown
                   ? c.warning
                   : user.isDonorOn
-                      ? c.success
-                      : c.textTertiary,
+                  ? c.success
+                  : c.textTertiary,
               bg: user.isInCooldown
                   ? c.warningSubtle
                   : user.isDonorOn
-                      ? c.successSubtle
-                      : c.surfaceMuted,
+                  ? c.successSubtle
+                  : c.surfaceMuted,
             ),
           ),
           AdminCell(
@@ -305,7 +302,8 @@ class _VerificationRow extends ConsumerWidget {
                         final confirmed = await showAdminConfirmDialog(
                           context,
                           title: 'Verify ${user.name}?',
-                          message: 'This will mark this donor as verified '
+                          message:
+                              'This will mark this donor as verified '
                               'in the system. Ensure you have validated '
                               'their identity and eligibility.',
                           confirmLabel: 'Verify',
@@ -351,18 +349,15 @@ class _VerificationRow extends ConsumerWidget {
             children: [
               _DetailRow(label: 'Blood Group', value: user.bloodGroup.label),
               _DetailRow(label: 'Phone', value: user.phone),
-              _DetailRow(
-                label: 'Email',
-                value: user.email ?? 'Not provided',
-              ),
+              _DetailRow(label: 'Email', value: user.email ?? 'Not provided'),
               _DetailRow(label: 'City', value: user.city ?? '—'),
               _DetailRow(
                 label: 'Donor Status',
                 value: user.isDonorOn
                     ? 'Available'
                     : user.isInCooldown
-                        ? 'Cooldown'
-                        : 'Off',
+                    ? 'Cooldown'
+                    : 'Off',
               ),
               _DetailRow(
                 label: 'Total Donations',
@@ -378,10 +373,7 @@ class _VerificationRow extends ConsumerWidget {
                 label: 'Email Verified',
                 value: user.emailVerified ? 'Yes' : 'No',
               ),
-              _DetailRow(
-                label: 'Admin',
-                value: user.isAdmin ? 'Yes' : 'No',
-              ),
+              _DetailRow(label: 'Admin', value: user.isAdmin ? 'Yes' : 'No'),
             ],
           ),
         ),
@@ -415,9 +407,7 @@ class _DetailRow extends StatelessWidget {
               style: context.text.bodySmall?.copyWith(color: c.textSecondary),
             ),
           ),
-          Expanded(
-            child: Text(value, style: context.text.bodySmall),
-          ),
+          Expanded(child: Text(value, style: context.text.bodySmall)),
         ],
       ),
     );

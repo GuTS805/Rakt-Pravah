@@ -43,6 +43,8 @@ class AdminBackend {
       db.collection('admin_audit');
   fs.CollectionReference<Map<String, dynamic>> get _reports =>
       db.collection('reports');
+  fs.DocumentReference<Map<String, dynamic>> get _config =>
+      db.collection('config').doc('app');
 
   // --- Requests ----------------------------------------------------------
 
@@ -99,10 +101,59 @@ class AdminBackend {
   }
 
   Future<void> setUserActive(String uid, bool isActive) async {
-    await _users.doc(uid).set({'isActive': isActive}, fs.SetOptions(merge: true));
+    await _users.doc(uid).set({
+      'isActive': isActive,
+    }, fs.SetOptions(merge: true));
     await _writeAudit(
       action: isActive ? 'user.activate' : 'user.deactivate',
       targetId: uid,
+    );
+  }
+
+  /// Clears, or withdraws clearance from, one account. Only matters while
+  /// [requireApproval] is on.
+  Future<void> setApproved(String uid, bool approved) async {
+    await _users.doc(uid).set({
+      'approved': approved,
+    }, fs.SetOptions(merge: true));
+    await _writeAudit(
+      action: approved ? 'user.approve' : 'user.revokeApproval',
+      targetId: uid,
+    );
+  }
+
+  /// Approves everyone still waiting, in one go. Returns how many. For the
+  /// moment the switch goes on and accounts made while it was off would
+  /// otherwise be locked out.
+  Future<int> approveAllWaiting(List<String> uids) async {
+    if (uids.isEmpty) return 0;
+    final batch = db.batch();
+    for (final uid in uids) {
+      batch.set(_users.doc(uid), {
+        'approved': true,
+      }, fs.SetOptions(merge: true));
+    }
+    await batch.commit();
+    await _writeAudit(
+      action: 'user.approveAll',
+      targetId: 'users',
+      detail: '${uids.length} accounts',
+    );
+    return uids.length;
+  }
+
+  // --- Approval switch ---------------------------------------------------
+
+  /// Whether new accounts have to be approved before they can request blood
+  /// or donate. Off when the setting has never been written.
+  Stream<bool> get requireApproval =>
+      _config.snapshots().map((doc) => doc.data()?['requireApproval'] == true);
+
+  Future<void> setRequireApproval(bool on) async {
+    await _config.set({'requireApproval': on}, fs.SetOptions(merge: true));
+    await _writeAudit(
+      action: on ? 'approval.on' : 'approval.off',
+      targetId: 'config/app',
     );
   }
 
@@ -177,18 +228,14 @@ class AdminBackend {
       'isVerified': false,
       'createdAt': fs.Timestamp.fromDate(DateTime.now()),
     });
-    await _writeAudit(
-      action: 'hospital.add',
-      targetId: ref.id,
-      detail: name,
-    );
+    await _writeAudit(action: 'hospital.add', targetId: ref.id, detail: name);
   }
 
   Future<void> verifyHospital(String id) async {
-    await _hospitals.doc(id).set(
-      {'isVerified': true, 'verifiedBy': actorId},
-      fs.SetOptions(merge: true),
-    );
+    await _hospitals.doc(id).set({
+      'isVerified': true,
+      'verifiedBy': actorId,
+    }, fs.SetOptions(merge: true));
     await _writeAudit(action: 'hospital.verify', targetId: id);
   }
 
@@ -349,6 +396,7 @@ class AdminUser {
     required this.isAdmin,
     required this.emailVerified,
     this.isActive = true,
+    this.approved = true,
     this.email,
     this.city,
     this.donorAvailability,
@@ -363,6 +411,9 @@ class AdminUser {
   final bool isAdmin;
   final bool emailVerified;
   final bool isActive;
+
+  /// Missing on accounts that predate approval, which count as approved.
+  final bool approved;
   final String? email;
   final String? city;
   final DonorAvailability? donorAvailability;
@@ -389,7 +440,9 @@ class AdminUser {
           ? BloodGroup.fromLabel(m['bloodGroup'] as String)
           : BloodGroup.oPos,
       isAdmin: m['isAdmin'] as bool? ?? false,
-      isActive: (m['isActive'] as bool?) ?? (!(m['disabled'] as bool? ?? false)),
+      isActive:
+          (m['isActive'] as bool?) ?? (!(m['disabled'] as bool? ?? false)),
+      approved: m['approved'] as bool? ?? true,
       // Firebase owns the real claim; the doc only mirrors that an address
       // exists, so this is "has a verified address on file", not authority.
       emailVerified: (m['email'] as String?) != null,
@@ -554,4 +607,3 @@ class AdminNotificationEntry {
     );
   }
 }
-
