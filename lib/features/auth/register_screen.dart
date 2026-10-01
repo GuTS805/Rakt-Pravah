@@ -9,6 +9,7 @@ import '../../core/widgets/buttons.dart';
 import '../../data/backend.dart';
 import '../../data/models/enums.dart';
 import '../../data/providers.dart';
+import '../../shared/brand_mark.dart';
 import '../../shared/profile_fields.dart';
 
 /// Registration asks for everything up front: name, phone, blood group, date
@@ -101,9 +102,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'A few details so donors near you can help fast.',
-                      style: context.text.bodyMedium,
+                    const Center(child: BrandMark(size: 72)),
+                    const SizedBox(height: AppSpacing.xl),
+                    Center(
+                      child: Text(
+                        'A few details so donors near you can help fast.',
+                        textAlign: TextAlign.center,
+                        style: context.text.bodyMedium,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.xxl),
                     const FieldLabel('Email'),

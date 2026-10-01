@@ -99,13 +99,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const BrandMark(size: 48),
+                    const Center(child: BrandMark(size: 72)),
                     const SizedBox(height: AppSpacing.xl),
-                    Text('Welcome back', style: context.text.headlineMedium),
+                    Center(
+                      child: Text(
+                        'Welcome back',
+                        textAlign: TextAlign.center,
+                        style: context.text.headlineMedium,
+                      ),
+                    ),
                     const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      'Sign in to your account',
-                      style: context.text.bodyMedium,
+                    Center(
+                      child: Text(
+                        'Sign in to your account',
+                        textAlign: TextAlign.center,
+                        style: context.text.bodyMedium,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.xxxl),
                     Text('Email', style: context.text.titleSmall),
