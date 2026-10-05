@@ -125,6 +125,18 @@ abstract class Backend {
   /// Resets the donation cooldown (clears lastDonation and restores Donor Mode ON).
   Future<DonorProfile> resetDonationCooldown();
 
+  /// Registers an FCM push-notification device token for this account.
+  Future<void> registerFcmToken(String token);
+
+  /// Unregisters an FCM device token (e.g. on logout or turning Donor Mode OFF).
+  Future<void> unregisterFcmToken(String token);
+
+  /// Live donation cooldown configuration from the platform settings.
+  Stream<CooldownConfig> get cooldownConfigStream;
+
+  /// Cached donation cooldown configuration.
+  CooldownConfig get cooldownConfig;
+
   // --- Requests ----------------------------------------------------------
 
   Stream<List<BloodRequest>> get myRequestsStream;

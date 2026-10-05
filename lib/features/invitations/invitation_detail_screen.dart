@@ -42,19 +42,59 @@ class _InvitationDetailScreenState
 
   @override
   Widget build(BuildContext context) {
-    final invites = ref.watch(invitationsProvider).valueOrNull ?? const [];
+    final invitesAsync = ref.watch(invitationsProvider);
+    final invites = invitesAsync.valueOrNull ?? const [];
     final matches = invites.where((i) => i.id == widget.invitationId);
-    final inv = matches.isEmpty ? null : matches.first;
+    Invitation? inv = matches.isEmpty ? null : matches.first;
+
+    // Fallback: When launched directly from a push notification (cold start/killed),
+    // invitationsProvider may still be loading or the invitation may need direct resolution.
+    final requestAsync =
+        inv == null ? ref.watch(requestProvider(widget.invitationId)) : null;
+
+    if (inv == null && requestAsync != null && requestAsync.hasValue) {
+      final req = requestAsync.value!;
+      final user = ref.watch(currentUserProvider);
+      final isAccepted = req.acceptedDonors.any((d) => d.id == user?.id);
+
+      inv = Invitation(
+        id: req.id,
+        requestId: req.id,
+        requesterId: req.requesterId,
+        requesterName: req.requesterName,
+        requesterPhoto: req.requesterPhoto,
+        bloodGroups: req.bloodGroups,
+        units: req.units,
+        urgency: req.urgency,
+        distanceKm: null,
+        status: isAccepted
+            ? InvitationStatus.accepted
+            : InvitationStatus.pending,
+        destinationName: req.destination.name,
+        destinationArea: req.destination.address,
+        createdAt: req.createdAt,
+        expiresAt: req.expiresAt,
+        patientBloodGroup: req.patientBloodGroup,
+        requestStatus: req.status,
+        unitsRemaining: req.unitsRemaining,
+      );
+    }
+
+    final isLoading = (inv == null) &&
+        (invitesAsync.isLoading ||
+            (requestAsync != null && requestAsync.isLoading));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Donor opportunity')),
-      body: inv == null
-          ? const EmptyState(
-              icon: Icons.link_off_rounded,
-              title: 'Opportunity unavailable',
-              message: 'This request is no longer available.',
-            )
-          : _content(context, inv),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : inv == null
+              ? const EmptyState(
+                  icon: Icons.link_off_rounded,
+                  title: 'Opportunity unavailable',
+                  message: 'This request is no longer available.',
+                )
+              : _content(context, inv),
     );
   }
 

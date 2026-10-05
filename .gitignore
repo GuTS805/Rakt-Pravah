@@ -58,3 +58,8 @@ temp_interactive_push.bat
 # Built admin console, deployed from a local build.
 hosting_public/admin/
 hosting_admin/
+
+# Node dependencies
+node_modules/
+**/node_modules/
+

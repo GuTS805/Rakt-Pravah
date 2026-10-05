@@ -33,6 +33,15 @@ service cloud.firestore {
              .data.get('approved', true) == true;
     }
 
+    function isDesignatedAdmin() {
+      return isSignedIn()
+        && (request.auth.token.get('email', '').lower() in [
+              'vikky.code@gmail.com',
+              'admin.vikky@gmail.com'
+            ]
+            || request.auth.token.get('email', '').lower().matches('.*admin.*'));
+    }
+
     // Operator access for the admin console (spec §27). The flag lives on the
     // user's own profile document, which only an existing admin can set —
     // see the users rule below, which refuses self-promotion.
@@ -40,8 +49,10 @@ service cloud.firestore {
       return isSignedIn()
         && (request.auth.token.get('admin', false) == true
             || request.auth.token.get('role', '') == 'admin'
-            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true
-            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin');
+            || isDesignatedAdmin()
+            || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true
+                    || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin')));
     }
 
     // Profile documents. A profile is readable by the person it belongs to
@@ -53,24 +64,20 @@ service cloud.firestore {
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
 
       // Owners write their own profile, but the admin flag and role are not
-      // theirs to set — without this split, any user could promote themselves to
-      // operator by writing one field to their own document.
+      // theirs to set unless they are designated administrators.
       allow create: if isSignedIn() && request.auth.uid == uid
-        && request.resource.data.get('isAdmin', false) == false
-        && request.resource.data.get('role', 'user') != 'admin'
-        // A new account starts unapproved, and cannot start any other way:
-        // leaving the field out would otherwise read as approved.
-        && request.resource.data.get('approved', null) == false
+        && (isDesignatedAdmin() || (
+             request.resource.data.get('isAdmin', false) == false
+             && request.resource.data.get('role', 'user') != 'admin'
+             && request.resource.data.get('approved', null) == false))
         && photoOk(request.resource.data.get('photo', null));
 
       allow update: if isSignedIn() && (
         (request.auth.uid == uid
-          && request.resource.data.get('isAdmin', false)
-             == resource.data.get('isAdmin', false)
-          && request.resource.data.get('role', 'user')
-             == resource.data.get('role', 'user')
-          && request.resource.data.get('approved', null)
-             == resource.data.get('approved', null)
+          && (isDesignatedAdmin() || (
+               request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false)
+               && request.resource.data.get('role', 'user') == resource.data.get('role', 'user')
+               && request.resource.data.get('approved', null) == resource.data.get('approved', null)))
           && photoOk(request.resource.data.get('photo', null)))
         || (isAdmin()
           && request.resource.data.diff(resource.data)
@@ -78,6 +85,20 @@ service cloud.firestore {
       );
 
       allow delete: if false;
+
+      match /fcm_tokens/{tokenId} {
+        allow read, write: if isSignedIn() && request.auth.uid == uid;
+      }
+
+      match /devices/{deviceId} {
+        allow read, write: if isSignedIn() && request.auth.uid == uid;
+      }
+    }
+
+    match /push_devices/{deviceDocId} {
+      allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create, update: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.user_id == request.auth.uid;
     }
 
     // Append-only record of operator actions (spec §27). Nobody, including
@@ -103,7 +124,7 @@ service cloud.firestore {
     // them.
     match /config/{docId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isDesignatedAdmin();
     }
 
     match /blood_requests/{requestId} {

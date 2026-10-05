@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
+import '../../data/models/models.dart';
+import '../../data/providers.dart';
+import '../admin_providers.dart';
 import '../admin_shell.dart';
 import '../admin_widgets.dart';
 
@@ -28,12 +32,114 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
   bool _pushNotifications = true;
   bool _emergencyAlerts = true;
   int _maxRequestsPerUser = 3;
-  int _cooldownDays = 90;
+  int? _cooldownDays;
+  bool? _cooldownEnabled;
   int _requestExpiryHours = 24;
   double _maxSearchRadius = 50.0;
 
+  Future<void> _applyCooldownConfig(CooldownConfig config) async {
+    // 1. Immediately update backend if it's FakeBackend/test backend
+    final backend = ref.read(backendProvider);
+    try {
+      (backend as dynamic).emitCooldownConfig(config);
+    } catch (_) {}
+
+    // 2. Persist to local storage immediately so page refresh never resets state
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('rakt_cooldown_enabled', config.enabled);
+      await prefs.setInt('rakt_cooldown_days', config.durationDays);
+    } catch (_) {}
+
+    // 3. Persist to remote Firestore via AdminBackend
+    final admin = ref.read(adminBackendProvider);
+    if (admin != null) {
+      try {
+        await admin.setCooldownConfig(config);
+      } catch (e) {
+        if (mounted) {
+          showAdminToast(
+            context,
+            'Setting saved locally. (Firestore sync notice: $e)',
+          );
+        }
+        return;
+      }
+    }
+
+    if (mounted) {
+      showAdminToast(
+        context,
+        config.enabled
+            ? 'Cooldown period enabled (${config.durationDays} days).'
+            : 'Cooldown period disabled.',
+      );
+    }
+  }
+
+  Future<void> _onToggleCooldown(bool nextVal, CooldownConfig current) async {
+    final confirmed = await showAdminConfirmDialog(
+      context,
+      title: nextVal ? 'Enable Cooldown Period?' : 'Disable Cooldown Period?',
+      message: nextVal
+          ? 'Enabling the cooldown period will enforce a minimum waiting duration between blood donations. Donors who recently donated will have Donor Mode disabled until their cooldown expires.'
+          : 'Disabling the cooldown period will remove donation cooldown restrictions. Donors will remain eligible according to other rules, and previous donations will not automatically disable Donor Mode.',
+      confirmLabel: nextVal ? 'Enable' : 'Disable',
+      isDangerous: !nextVal,
+    );
+    if (!confirmed || !mounted) return;
+
+    final updated = current.copyWith(enabled: nextVal);
+    setState(() {
+      _cooldownEnabled = nextVal;
+    });
+    await _applyCooldownConfig(updated);
+  }
+
+  Future<void> _onDurationChangeEnd(int newDays, CooldownConfig current) async {
+    if (newDays == current.durationDays) return;
+    final confirmed = await showAdminConfirmDialog(
+      context,
+      title: 'Update Cooldown Duration?',
+      message:
+          'Set donation cooldown to $newDays days? This will immediately affect donor eligibility calculations across the application.',
+      confirmLabel: 'Update Duration',
+    );
+    if (!confirmed || !mounted) {
+      setState(() {
+        _cooldownDays = current.durationDays;
+      });
+      return;
+    }
+
+    final updated = current.copyWith(durationDays: newDays);
+    setState(() {
+      _cooldownDays = newDays;
+    });
+    await _applyCooldownConfig(updated);
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<CooldownConfig>>(adminCooldownConfigProvider, (prev, next) {
+      final config = next.valueOrNull;
+      if (config != null && mounted) {
+        setState(() {
+          _cooldownEnabled = config.enabled;
+          _cooldownDays = config.durationDays;
+        });
+      }
+    });
+
+    final cooldownAsync = ref.watch(adminCooldownConfigProvider);
+    final serverCooldown = cooldownAsync.valueOrNull ?? const CooldownConfig();
+    final cooldownEnabled = _cooldownEnabled ?? serverCooldown.enabled;
+    final cooldownDays = _cooldownDays ?? serverCooldown.durationDays;
+    final currentCooldownConfig = CooldownConfig(
+      enabled: cooldownEnabled,
+      durationDays: cooldownDays,
+    );
+
     return AdminPage(
       title: 'Settings',
       subtitle: 'Configure system behavior and platform settings.',
@@ -76,15 +182,33 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                 value: _autoMatchDonors,
                 onChanged: (v) => setState(() => _autoMatchDonors = v),
               ),
-              _SliderSetting(
-                title: 'Cooldown Period (days)',
+              _ToggleSetting(
+                title: 'Cooldown Period',
                 description: 'Minimum days between donations for donor safety.',
-                value: _cooldownDays.toDouble(),
-                min: 30,
+                value: cooldownEnabled,
+                statusBadge: cooldownEnabled ? 'ON' : 'OFF',
+                onChanged: (v) => _onToggleCooldown(v, currentCooldownConfig),
+              ),
+              _SliderSetting(
+                title: 'Cooldown Duration: [ $cooldownDays days ]',
+                description: cooldownEnabled
+                    ? 'Minimum days between donations for donor safety.'
+                    : 'Cooldown restriction is disabled. Donors are not placed in cooldown.',
+                value: cooldownDays.toDouble().clamp(15, 180),
+                min: 15,
                 max: 180,
-                divisions: 15,
-                label: '$_cooldownDays days',
-                onChanged: (v) => setState(() => _cooldownDays = v.round()),
+                divisions: 33,
+                label: '$cooldownDays days',
+                enabled: cooldownEnabled,
+                onChanged: cooldownEnabled
+                    ? (v) => setState(() => _cooldownDays = v.round())
+                    : null,
+                onChangeEnd: cooldownEnabled
+                    ? (v) => _onDurationChangeEnd(
+                        v.round(),
+                        currentCooldownConfig,
+                      )
+                    : null,
               ),
             ],
           ),
@@ -273,12 +397,14 @@ class _ToggleSetting extends StatelessWidget {
     required this.description,
     required this.value,
     required this.onChanged,
+    this.statusBadge,
     this.isDangerous = false,
   });
   final String title;
   final String description;
   final bool value;
   final ValueChanged<bool> onChanged;
+  final String? statusBadge;
   final bool isDangerous;
 
   @override
@@ -306,6 +432,29 @@ class _ToggleSetting extends StatelessWidget {
               ],
             ),
           ),
+          if (statusBadge != null)
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: 2,
+              ),
+              margin: const EdgeInsets.only(right: AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: value ? c.brandSubtle : c.surfaceMuted,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                border: Border.all(
+                  color: value ? c.brand.withValues(alpha: 0.3) : c.border,
+                ),
+              ),
+              child: Text(
+                statusBadge!,
+                style: AppTypography.mono(
+                  size: 11,
+                  weight: FontWeight.w700,
+                  color: value ? c.brand : c.textSecondary,
+                ),
+              ),
+            ),
           Switch(
             value: value,
             onChanged: onChanged,
@@ -325,8 +474,10 @@ class _SliderSetting extends StatelessWidget {
     required this.min,
     required this.max,
     required this.onChanged,
+    this.onChangeEnd,
     this.divisions,
     this.label,
+    this.enabled = true,
   });
   final String title;
   final String description;
@@ -335,65 +486,72 @@ class _SliderSetting extends StatelessWidget {
   final double max;
   final int? divisions;
   final String? label;
-  final ValueChanged<double> onChanged;
+  final bool enabled;
+  final ValueChanged<double>? onChanged;
+  final ValueChanged<double>? onChangeEnd;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: context.text.titleSmall),
-                    const SizedBox(height: 2),
-                    Text(
-                      description,
-                      style: context.text.bodySmall?.copyWith(
-                        color: c.textSecondary,
+    final effectiveColor = enabled ? c.brand : c.textSecondary;
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.6,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: context.text.titleSmall),
+                      const SizedBox(height: 2),
+                      Text(
+                        description,
+                        style: context.text.bodySmall?.copyWith(
+                          color: c.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (label != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: enabled ? c.brandSubtle : c.surfaceMuted,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: Text(
+                      label!,
+                      style: AppTypography.mono(
+                        size: 12,
+                        weight: FontWeight.w600,
+                        color: effectiveColor,
                       ),
                     ),
-                  ],
-                ),
-              ),
-              if (label != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: 2,
                   ),
-                  decoration: BoxDecoration(
-                    color: c.brandSubtle,
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                  ),
-                  child: Text(
-                    label!,
-                    style: AppTypography.mono(
-                      size: 12,
-                      weight: FontWeight.w600,
-                      color: c.brand,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          Slider(
-            value: value,
-            min: min,
-            max: max,
-            divisions: divisions,
-            onChanged: onChanged,
-          ),
-        ],
+              ],
+            ),
+            Slider(
+              value: value,
+              min: min,
+              max: max,
+              divisions: divisions,
+              onChanged: enabled ? onChanged : null,
+              onChangeEnd: enabled ? onChangeEnd : null,
+            ),
+          ],
+        ),
       ),
     );
   }

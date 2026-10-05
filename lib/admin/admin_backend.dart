@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/models/models.dart';
 
@@ -155,6 +156,33 @@ class AdminBackend {
       action: on ? 'approval.on' : 'approval.off',
       targetId: 'config/app',
     );
+  }
+
+  // --- Cooldown configuration --------------------------------------------
+
+  Stream<CooldownConfig> get cooldownConfig => _config.snapshots().map(
+        (doc) => CooldownConfig.fromMap(doc.data()),
+      );
+
+  Future<void> setCooldownConfig(CooldownConfig config) async {
+    // 1. Cache to local storage immediately so page refresh retains setting
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('rakt_cooldown_enabled', config.enabled);
+      await prefs.setInt('rakt_cooldown_days', config.durationDays);
+    } catch (_) {}
+
+    // 2. Persist to Firestore config/app
+    await _config.set(config.toMap(), fs.SetOptions(merge: true));
+
+    // 3. Write audit entry without blocking or throwing if audit collection rules reject
+    try {
+      await _writeAudit(
+        action: config.enabled ? 'cooldown.enable' : 'cooldown.disable',
+        targetId: 'config/app',
+        detail: '${config.durationDays} days',
+      );
+    } catch (_) {}
   }
 
   // --- Reports -----------------------------------------------------------

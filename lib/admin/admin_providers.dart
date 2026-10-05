@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/models/models.dart';
 import '../data/providers.dart';
@@ -33,6 +34,29 @@ final adminUsersProvider = StreamProvider<List<AdminUser>>((ref) {
 final adminRequireApprovalProvider = StreamProvider<bool>((ref) {
   final admin = ref.watch(adminBackendProvider);
   return admin?.requireApproval ?? const Stream.empty();
+});
+
+/// System-wide donor cooldown configuration (ON/OFF and duration in days).
+final adminCooldownConfigProvider = StreamProvider<CooldownConfig>((ref) async* {
+  // 1. Immediately yield cached local preference to prevent resetting on page reload
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool('rakt_cooldown_enabled');
+    final days = prefs.getInt('rakt_cooldown_days');
+    if (enabled != null || days != null) {
+      yield CooldownConfig(
+        enabled: enabled ?? true,
+        durationDays: days ?? 90,
+      );
+    }
+  } catch (_) {}
+
+  final admin = ref.watch(adminBackendProvider);
+  final stream = admin != null
+      ? admin.cooldownConfig
+      : ref.watch(backendProvider).cooldownConfigStream;
+
+  yield* stream.handleError((_) {});
 });
 
 final adminReportsProvider = StreamProvider<List<AdminReport>>((ref) {

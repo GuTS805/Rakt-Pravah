@@ -128,10 +128,12 @@ class FakeBackend implements Backend {
   @override
   Future<DonorProfile> recordDonation([DateTime? donatedAt]) async {
     final when = donatedAt ?? DateTime.now();
+    final isCooldownOn = cooldownConfig.enabled;
     final updated = donorProfile.copyWith(
-      availability: DonorAvailability.off,
+      availability: isCooldownOn ? DonorAvailability.off : donorProfile.availability,
       lastDonation: when,
       totalDonations: donorProfile.totalDonations + 1,
+      cooldownConfig: cooldownConfig,
     );
     setDonorProfileCalls.add(updated);
     _donor.value = updated;
@@ -147,6 +149,43 @@ class FakeBackend implements Backend {
     setDonorProfileCalls.add(updated);
     _donor.value = updated;
     return updated;
+  }
+
+  final List<String> registeredFcmTokens = [];
+  final List<String> unregisteredFcmTokens = [];
+
+  @override
+  Future<void> registerFcmToken(String token) async {
+    registeredFcmTokens.add(token);
+  }
+
+  @override
+  Future<void> unregisterFcmToken(String token) async {
+    unregisteredFcmTokens.add(token);
+  }
+
+  final _cooldownConfig = _Replay(const CooldownConfig());
+
+  @override
+  CooldownConfig get cooldownConfig => _cooldownConfig.value;
+
+  @override
+  Stream<CooldownConfig> get cooldownConfigStream => _cooldownConfig.stream;
+
+  void emitCooldownConfig(CooldownConfig config) {
+    _cooldownConfig.value = config;
+    var updated = _donor.value.copyWith(cooldownConfig: config);
+    if (!config.enabled &&
+        updated.availability == DonorAvailability.off &&
+        updated.lastDonation != null) {
+      updated = updated.copyWith(availability: DonorAvailability.available);
+    } else if (config.enabled &&
+        updated.isInCooldown &&
+        updated.availability != DonorAvailability.off) {
+      updated = updated.copyWith(availability: DonorAvailability.off);
+    }
+    _donor.value = updated;
+    donorProfile = updated;
   }
 
   @override

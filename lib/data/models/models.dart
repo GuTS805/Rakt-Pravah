@@ -174,6 +174,54 @@ class UserProfile {
 }
 
 /// Donor Mode state — a capability attached to the user (spec §15).
+/// Configuration for the donation cooldown system.
+/// Controlled by operators/admins via config/app in Firestore.
+class CooldownConfig {
+  const CooldownConfig({
+    this.enabled = true,
+    this.durationDays = 90,
+  });
+
+  final bool enabled;
+  final int durationDays;
+
+  Duration get duration => Duration(days: durationDays);
+
+  Map<String, dynamic> toMap() => {
+    'cooldownEnabled': enabled,
+    'cooldownDays': durationDays,
+  };
+
+  factory CooldownConfig.fromMap(Map<String, dynamic>? map) {
+    if (map == null) return const CooldownConfig();
+    return CooldownConfig(
+      enabled: map['cooldownEnabled'] as bool? ?? true,
+      durationDays: (map['cooldownDays'] as num?)?.toInt() ?? 90,
+    );
+  }
+
+  CooldownConfig copyWith({
+    bool? enabled,
+    int? durationDays,
+  }) {
+    return CooldownConfig(
+      enabled: enabled ?? this.enabled,
+      durationDays: durationDays ?? this.durationDays,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CooldownConfig &&
+          runtimeType == other.runtimeType &&
+          enabled == other.enabled &&
+          durationDays == other.durationDays;
+
+  @override
+  int get hashCode => enabled.hashCode ^ durationDays.hashCode;
+}
+
 class DonorProfile {
   const DonorProfile({
     required this.availability,
@@ -185,6 +233,7 @@ class DonorProfile {
     this.pausedUntil,
     this.totalDonations = 0,
     this.lastDonation,
+    this.cooldownConfig = const CooldownConfig(),
   });
 
   final DonorAvailability availability;
@@ -196,6 +245,7 @@ class DonorProfile {
   final DateTime? pausedUntil;
   final int totalDonations;
   final DateTime? lastDonation;
+  final CooldownConfig cooldownConfig;
 
   bool get isOn => availability != DonorAvailability.off;
 
@@ -203,17 +253,26 @@ class DonorProfile {
   /// Enforced here so donors don't accidentally donate too soon.
   static const cooldownDuration = Duration(days: 90);
 
-  /// The next eligible donation date (3 months / 90 days after last donation).
-  DateTime? get nextEligibleDonationDate => lastDonation?.add(cooldownDuration);
+  /// Active cooldown duration from configuration.
+  Duration get activeCooldownDuration => cooldownConfig.duration;
+
+  /// The next eligible donation date according to current cooldown configuration.
+  /// Null if cooldown is disabled or donor has never donated.
+  DateTime? get nextEligibleDonationDate {
+    if (!cooldownConfig.enabled || lastDonation == null) return null;
+    return lastDonation!.add(activeCooldownDuration);
+  }
 
   DateTime? get cooldownEndsAt => nextEligibleDonationDate;
 
   bool get isInCooldown {
+    if (!cooldownConfig.enabled) return false;
     final ends = cooldownEndsAt;
     return ends != null && DateTime.now().isBefore(ends);
   }
 
   Duration get cooldownRemaining {
+    if (!cooldownConfig.enabled) return Duration.zero;
     final ends = cooldownEndsAt;
     if (ends == null) return Duration.zero;
     final remaining = ends.difference(DateTime.now());
@@ -231,6 +290,7 @@ class DonorProfile {
     int? totalDonations,
     DateTime? lastDonation,
     bool clearLastDonation = false,
+    CooldownConfig? cooldownConfig,
   }) {
     return DonorProfile(
       availability: availability ?? this.availability,
@@ -244,6 +304,7 @@ class DonorProfile {
       lastDonation: clearLastDonation
           ? null
           : (lastDonation ?? this.lastDonation),
+      cooldownConfig: cooldownConfig ?? this.cooldownConfig,
     );
   }
 }

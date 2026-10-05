@@ -4,8 +4,12 @@ import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/location/location_data.dart';
+import '../../core/services/device_id_service.dart';
 import '../../core/services/photo_picker.dart';
 import '../backend.dart';
 import '../models/models.dart';
@@ -591,28 +595,120 @@ class FirebaseBackend implements Backend {
     );
   }
 
+  CooldownConfig _cooldownConfig = const CooldownConfig();
+
+  @override
+  CooldownConfig get cooldownConfig => _cooldownConfig;
+
+  @override
+  Stream<CooldownConfig> get cooldownConfigStream async* {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final enabled = prefs.getBool('rakt_cooldown_enabled');
+      final days = prefs.getInt('rakt_cooldown_days');
+      if (enabled != null || days != null) {
+        _cooldownConfig = CooldownConfig(
+          enabled: enabled ?? true,
+          durationDays: days ?? 90,
+        );
+        yield _cooldownConfig;
+      }
+    } catch (_) {}
+
+    yield* _db
+        .collection('config')
+        .doc('app')
+        .snapshots()
+        .map((doc) {
+          if (doc.exists && doc.data() != null) {
+            _cooldownConfig = CooldownConfig.fromMap(doc.data());
+            SharedPreferences.getInstance().then((p) {
+              p.setBool('rakt_cooldown_enabled', _cooldownConfig.enabled);
+              p.setInt('rakt_cooldown_days', _cooldownConfig.durationDays);
+            }).catchError((_) {});
+          }
+          return _cooldownConfig;
+        })
+        .handleError((_) {});
+  }
+
   // ---------------------------------------------------------------------
   // Donor Mode
   // ---------------------------------------------------------------------
   @override
-  Stream<DonorProfile> get donorStream =>
-      _users.doc(uid).snapshots().map((doc) {
-        // Keep the cache current too: invitationsStream and the location
-        // controller both read it, and a stale copy would be written back.
-        final parsed = _donorFromMap(
-          (doc.data()?['donor'] as Map?)?.cast<String, dynamic>(),
-          currentUser?.bloodGroup ?? BloodGroup.oPos,
+  Stream<DonorProfile> get donorStream {
+    final configDoc = _db.collection('config').doc('app');
+    final userDoc = _users.doc(uid);
+    late final StreamController<DonorProfile> controller;
+    final subs = <StreamSubscription<dynamic>>[];
+    Map<String, dynamic>? lastUserMap;
+    var userLoaded = false;
+
+    void emit() {
+      if (!userLoaded && currentUser == null) return;
+      final parsed = _donorFromMap(
+        (lastUserMap?['donor'] as Map?)?.cast<String, dynamic>(),
+        currentUser?.bloodGroup ?? BloodGroup.oPos,
+      );
+      donorProfile = _autoReenableIfCooldownEnded(parsed);
+      if (!controller.isClosed) controller.add(donorProfile);
+    }
+
+    controller = StreamController<DonorProfile>(
+      onListen: () {
+        subs.add(
+          configDoc.snapshots().listen(
+            (doc) {
+              _cooldownConfig = CooldownConfig.fromMap(doc.data());
+              emit();
+            },
+            onError: (_) {
+              _cooldownConfig = const CooldownConfig();
+              emit();
+            },
+          ),
         );
-        donorProfile = _autoReenableIfCooldownEnded(parsed);
-        return donorProfile;
-      });
+        subs.add(
+          userDoc.snapshots().listen(
+            (doc) {
+              userLoaded = true;
+              lastUserMap = doc.data();
+              emit();
+            },
+            onError: controller.addError,
+          ),
+        );
+      },
+      onCancel: () async {
+        for (final s in subs) {
+          await s.cancel();
+        }
+      },
+    );
+    return controller.stream;
+  }
 
   DonorProfile _autoReenableIfCooldownEnded(DonorProfile profile) {
+    if (profile.cooldownConfig.enabled && profile.isInCooldown) {
+      if (profile.availability != DonorAvailability.off) {
+        final disabled = profile.copyWith(
+          availability: DonorAvailability.off,
+          cooldownConfig: _cooldownConfig,
+        );
+        _users.doc(uid).set({
+          'donor': _donorToMap(disabled),
+        }, fs.SetOptions(merge: true)).ignore();
+        return disabled;
+      }
+      return profile;
+    }
+
     if (profile.lastDonation != null &&
         !profile.isInCooldown &&
         profile.availability == DonorAvailability.off) {
       final reactivated = profile.copyWith(
         availability: DonorAvailability.available,
+        cooldownConfig: _cooldownConfig,
       );
       _users.doc(uid).set({
         'donor': _donorToMap(reactivated),
@@ -624,20 +720,25 @@ class FirebaseBackend implements Backend {
 
   @override
   Future<DonorProfile> setDonorProfile(DonorProfile next) async {
+    final withConfig = next.copyWith(cooldownConfig: _cooldownConfig);
     await _users.doc(uid).set({
-      'donor': _donorToMap(next),
+      'donor': _donorToMap(withConfig),
     }, fs.SetOptions(merge: true));
-    donorProfile = next;
-    return next;
+    donorProfile = withConfig;
+    return withConfig;
   }
 
   @override
   Future<DonorProfile> recordDonation([DateTime? donatedAt]) async {
     final when = donatedAt ?? DateTime.now();
+    final isCooldownOn = _cooldownConfig.enabled;
     final updated = donorProfile.copyWith(
-      availability: DonorAvailability.off,
+      availability: isCooldownOn
+          ? DonorAvailability.off
+          : donorProfile.availability,
       lastDonation: when,
       totalDonations: donorProfile.totalDonations + 1,
+      cooldownConfig: _cooldownConfig,
     );
     await _users.doc(uid).set({
       'lastDonation': fs.Timestamp.fromDate(when),
@@ -652,6 +753,7 @@ class FirebaseBackend implements Backend {
     final updated = donorProfile.copyWith(
       availability: DonorAvailability.available,
       clearLastDonation: true,
+      cooldownConfig: _cooldownConfig,
     );
     await _users.doc(uid).set({
       'lastDonation': null,
@@ -659,6 +761,95 @@ class FirebaseBackend implements Backend {
     }, fs.SetOptions(merge: true));
     donorProfile = updated;
     return updated;
+  }
+
+  @override
+  Future<void> registerFcmToken(String token) async {
+    final currentUid = _auth.currentUser?.uid;
+    if (currentUid == null || currentUid.isEmpty) return;
+    final deviceId = await DeviceIdService.instance.getDeviceId();
+    final sanitizedKey = token.replaceAll(RegExp(r'[/.\#$\[\]]'), '_');
+    final platform = kIsWeb
+        ? 'web'
+        : (defaultTargetPlatform == TargetPlatform.android
+            ? 'android'
+            : (defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'other'));
+    final now = fs.Timestamp.now();
+
+    // 1. Maintain quick access list on the user's primary profile doc
+    await _users.doc(currentUid).set({
+      'fcmTokenList': fs.FieldValue.arrayUnion([token]),
+      'fcmTokens': {
+        sanitizedKey: {
+          'token': token,
+          'platform': platform,
+          'device_id': deviceId,
+          'updatedAt': now,
+        }
+      }
+    }, fs.SetOptions(merge: true));
+
+    // 2. Store push-device information in dedicated collection
+    final deviceData = {
+      'user_id': currentUid,
+      'device_id': deviceId,
+      'platform': platform,
+      'push_token': token,
+      'is_active': true,
+      'last_seen': now,
+      'updated_at': now,
+    };
+
+    final deviceDocRef = _db.collection('push_devices').doc(deviceId);
+    fs.DocumentSnapshot<Map<String, dynamic>>? existing;
+    try {
+      existing = await deviceDocRef.get();
+    } catch (_) {
+      existing = null;
+    }
+    if (existing == null || !existing.exists) {
+      deviceData['created_at'] = now;
+    }
+    await deviceDocRef.set(deviceData, fs.SetOptions(merge: true));
+
+    // Also mirror into user's devices subcollection
+    await _users
+        .doc(currentUid)
+        .collection('devices')
+        .doc(deviceId)
+        .set(deviceData, fs.SetOptions(merge: true));
+  }
+
+  @override
+  Future<void> unregisterFcmToken(String token) async {
+    final currentUid = _auth.currentUser?.uid;
+    if (currentUid == null || currentUid.isEmpty) return;
+    final deviceId = await DeviceIdService.instance.getDeviceId();
+    final sanitizedKey = token.replaceAll(RegExp(r'[/.\#$\[\]]'), '_');
+    final now = fs.Timestamp.now();
+
+    await _users.doc(currentUid).update({
+      'fcmTokenList': fs.FieldValue.arrayRemove([token]),
+      'fcmTokens.$sanitizedKey': fs.FieldValue.delete(),
+    }).catchError((_) {});
+
+    final deactivation = {
+      'is_active': false,
+      'updated_at': now,
+    };
+
+    await _db
+        .collection('push_devices')
+        .doc(deviceId)
+        .set(deactivation, fs.SetOptions(merge: true))
+        .catchError((_) {});
+
+    await _users
+        .doc(currentUid)
+        .collection('devices')
+        .doc(deviceId)
+        .set(deactivation, fs.SetOptions(merge: true))
+        .catchError((_) {});
   }
 
   Map<String, dynamic> _donorToMap(DonorProfile d) => {
@@ -685,6 +876,7 @@ class FirebaseBackend implements Backend {
       return DonorProfile(
         availability: DonorAvailability.available,
         bloodGroup: fallbackGroup,
+        cooldownConfig: _cooldownConfig,
       );
     }
     return DonorProfile(
@@ -702,6 +894,7 @@ class FirebaseBackend implements Backend {
       pausedUntil: (m['pausedUntil'] as fs.Timestamp?)?.toDate(),
       totalDonations: m['totalDonations'] as int? ?? 0,
       lastDonation: (m['lastDonation'] as fs.Timestamp?)?.toDate(),
+      cooldownConfig: _cooldownConfig,
     );
   }
 

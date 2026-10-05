@@ -18,7 +18,17 @@ final notificationWatcherProvider = Provider<void>((ref) {
   final user = ref.watch(currentUserProvider);
   if (user == null) return;
 
+  final backend = ref.read(backendProvider);
+  final donor = ref.watch(donorProfileValueProvider);
   final service = NotificationService.instance;
+
+  // Synchronize FCM token based on donor mode status
+  service.syncDeviceToken(backend, isDonorOn: donor.isOn);
+
+  ref.listen<DonorProfile>(donorProfileValueProvider, (_, next) {
+    service.syncDeviceToken(backend, isDonorOn: next.isOn);
+  });
+
   service.onTap = (payload) {
     final router = ref.read(routerProvider);
     final id = payload.substring(payload.indexOf(':') + 1);
@@ -28,6 +38,10 @@ final notificationWatcherProvider = Provider<void>((ref) {
       router.push(Routes.requestDetail(id));
     }
   };
+
+  ref.onDispose(() {
+    service.onTap = null;
+  });
 
   final seenInvitationIds = <String>{};
   // Requests this donor accepted, and whether each was still active last time.
