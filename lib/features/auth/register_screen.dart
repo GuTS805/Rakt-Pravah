@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_spacing.dart';
@@ -28,9 +27,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _password = TextEditingController();
   final _name = TextEditingController();
   final _phone = TextEditingController();
+  String _countryCode = '+91';
   final _country = TextEditingController(text: 'India');
+  final _countryIsoCode = TextEditingController(text: 'IN');
   final _state = TextEditingController();
+  final _stateCode = TextEditingController();
   final _city = TextEditingController();
+  final _latitude = ValueNotifier<double?>(null);
+  final _longitude = ValueNotifier<double?>(null);
   BloodGroup? _group;
   DateTime? _dateOfBirth;
   Gender? _gender;
@@ -46,8 +50,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _name.dispose();
     _phone.dispose();
     _country.dispose();
+    _countryIsoCode.dispose();
     _state.dispose();
+    _stateCode.dispose();
     _city.dispose();
+    _latitude.dispose();
+    _longitude.dispose();
     super.dispose();
   }
 
@@ -68,12 +76,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             password: _password.text,
             name: _name.text.trim(),
             phone: _phone.text.trim(),
+            countryCode: _countryCode,
+            countryIsoCode: _countryIsoCode.text.trim().isNotEmpty
+                ? _countryIsoCode.text.trim()
+                : null,
             bloodGroup: _group!,
             dateOfBirth: _dateOfBirth!,
             gender: _gender!,
             country: _country.text.trim(),
             state: _state.text.trim(),
+            stateCode: _stateCode.text.trim().isNotEmpty
+                ? _stateCode.text.trim()
+                : null,
             city: _city.text.trim(),
+            latitude: _latitude.value,
+            longitude: _longitude.value,
           );
     } on SignInFailure catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -164,24 +181,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     const FieldLabel('Phone number'),
-                    TextFormField(
-                      controller: _phone,
-                      keyboardType: TextInputType.phone,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]')),
-                      ],
-                      decoration: const InputDecoration(
-                        hintText: '98765 43210',
-                      ),
-                      validator: (v) {
-                        final digits = (v ?? '').replaceAll(
-                          RegExp(r'[^0-9]'),
-                          '',
-                        );
-                        return digits.length < 10
-                            ? 'Enter a valid phone number'
-                            : null;
-                      },
+                    PhoneNumberField(
+                      phoneController: _phone,
+                      initialCountryCode: _countryCode,
+                      onCountryChanged: (c) =>
+                          setState(() => _countryCode = c.dialCode),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     const FieldLabel('Your blood group'),
@@ -210,8 +214,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     const SizedBox(height: AppSpacing.lg),
                     HomeLocationFields(
                       country: _country,
+                      countryCode: _countryIsoCode,
                       state: _state,
+                      stateCode: _stateCode,
                       city: _city,
+                      latitude: _latitude,
+                      longitude: _longitude,
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: AppSpacing.lg),

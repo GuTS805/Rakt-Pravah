@@ -23,9 +23,15 @@ class ProfileEditScreen extends ConsumerStatefulWidget {
 class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
+  late final TextEditingController _phone;
+  late String _countryCode;
   late final TextEditingController _country;
+  late final TextEditingController _countryIsoCode;
   late final TextEditingController _state;
+  late final TextEditingController _stateCode;
   late final TextEditingController _city;
+  late final ValueNotifier<double?> _latitude;
+  late final ValueNotifier<double?> _longitude;
   late BloodGroup _group;
   DateTime? _dateOfBirth;
   Gender? _gender;
@@ -37,9 +43,15 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     super.initState();
     final user = ref.read(currentUserProvider)!;
     _name = TextEditingController(text: user.name);
+    _phone = TextEditingController(text: user.phone);
+    _countryCode = user.countryCode;
     _country = TextEditingController(text: user.country ?? 'India');
+    _countryIsoCode = TextEditingController(text: user.countryIsoCode ?? 'IN');
     _state = TextEditingController(text: user.state ?? '');
+    _stateCode = TextEditingController(text: user.stateCode ?? '');
     _city = TextEditingController(text: user.city ?? '');
+    _latitude = ValueNotifier<double?>(user.latitude);
+    _longitude = ValueNotifier<double?>(user.longitude);
     _group = user.bloodGroup;
     _dateOfBirth = user.dateOfBirth;
     _gender = user.gender;
@@ -48,9 +60,14 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   @override
   void dispose() {
     _name.dispose();
+    _phone.dispose();
     _country.dispose();
+    _countryIsoCode.dispose();
     _state.dispose();
+    _stateCode.dispose();
     _city.dispose();
+    _latitude.dispose();
+    _longitude.dispose();
     super.dispose();
   }
 
@@ -158,11 +175,21 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           .updateProfile(
             name: _name.text.trim(),
             bloodGroup: _group,
+            phone: PhoneUtils.cleanDigits(_phone.text),
+            countryCode: _countryCode,
+            countryIsoCode: _countryIsoCode.text.trim().isNotEmpty
+                ? _countryIsoCode.text.trim()
+                : null,
             dateOfBirth: _dateOfBirth!,
             gender: _gender!,
             country: _country.text.trim(),
             state: _state.text.trim(),
+            stateCode: _stateCode.text.trim().isNotEmpty
+                ? _stateCode.text.trim()
+                : null,
             city: _city.text.trim(),
+            latitude: _latitude.value,
+            longitude: _longitude.value,
           );
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -222,6 +249,13 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                   (v ?? '').trim().length < 2 ? 'Enter your name' : null,
             ),
             const SizedBox(height: AppSpacing.lg),
+            const FieldLabel('Phone number'),
+            PhoneNumberField(
+              phoneController: _phone,
+              initialCountryCode: _countryCode,
+              onCountryChanged: (c) => setState(() => _countryCode = c.dialCode),
+            ),
+            const SizedBox(height: AppSpacing.lg),
             const FieldLabel('Blood group'),
             BloodGroupPicker(
               selected: _group,
@@ -237,7 +271,15 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             const FieldLabel('Gender'),
             GenderField(initialValue: _gender, onChanged: (g) => _gender = g),
             const SizedBox(height: AppSpacing.lg),
-            HomeLocationFields(country: _country, state: _state, city: _city),
+            HomeLocationFields(
+              country: _country,
+              countryCode: _countryIsoCode,
+              state: _state,
+              stateCode: _stateCode,
+              city: _city,
+              latitude: _latitude,
+              longitude: _longitude,
+            ),
             const SizedBox(height: AppSpacing.xxl),
             PrimaryButton(label: 'Save changes', busy: _busy, onPressed: _save),
           ],

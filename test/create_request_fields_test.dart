@@ -65,10 +65,7 @@ void main() {
         'Ravi Kumar',
       );
       await tester.enterText(
-        find.widgetWithText(
-          TextField,
-          '10-digit mobile number for coordination',
-        ),
+        find.byKey(const ValueKey('phone-input-field')),
         '9876543210',
       );
       // Pick blood group A+
@@ -121,10 +118,7 @@ void main() {
         'Ravi Kumar',
       );
       await tester.enterText(
-        find.widgetWithText(
-          TextField,
-          '10-digit mobile number for coordination',
-        ),
+        find.byKey(const ValueKey('phone-input-field')),
         '9876543210',
       );
       await tester.tap(find.text('A+'), warnIfMissed: false);
@@ -186,10 +180,7 @@ void main() {
         'Ravi Kumar',
       );
       await tester.enterText(
-        find.widgetWithText(
-          TextField,
-          '10-digit mobile number for coordination',
-        ),
+        find.byKey(const ValueKey('phone-input-field')),
         '9876543210',
       );
       await tester.tap(find.text('A+'), warnIfMissed: false);

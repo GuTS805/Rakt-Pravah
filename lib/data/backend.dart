@@ -47,12 +47,17 @@ abstract class Backend {
     required String password,
     required String name,
     required String phone,
+    String countryCode = '+91',
+    String? countryIsoCode,
     required BloodGroup bloodGroup,
     required DateTime dateOfBirth,
     required Gender gender,
     required String country,
     required String state,
+    String? stateCode,
     required String city,
+    double? latitude,
+    double? longitude,
   });
 
   Future<void> updateProfile({
@@ -61,8 +66,14 @@ abstract class Backend {
     required DateTime dateOfBirth,
     required Gender gender,
     required String country,
+    String? countryIsoCode,
     required String state,
+    String? stateCode,
     required String city,
+    double? latitude,
+    double? longitude,
+    String? phone,
+    String? countryCode,
   });
 
   /// Sets, or with null removes, the signed-in user's profile photo: a small
@@ -130,6 +141,7 @@ abstract class Backend {
     required Destination destination,
     GeoPoint? requestLocation,
     String? bloodType,
+    String? phoneCountryCode,
     String? phone,
     DateTime? requiredDate,
     String? notes,

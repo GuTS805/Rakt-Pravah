@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/router/routes.dart';
 import '../../core/theme/app_spacing.dart';
@@ -115,14 +114,7 @@ class _AcceptedDonorsSectionState extends State<_AcceptedDonorsSection> {
   String? _selectedDonorId;
 
   Future<void> _makePhoneCall(BuildContext context, String rawPhone) async {
-    final clean = rawPhone.replaceAll(RegExp(r'[^\d+]'), '');
-    final uri = Uri.parse('tel:$clean');
-    final opened = await launchUrl(uri);
-    if (!opened && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not place call to $rawPhone')),
-      );
-    }
+    await PhoneUtils.makePhoneCall(context, rawPhone);
   }
 
   @override

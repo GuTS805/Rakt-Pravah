@@ -1,6 +1,8 @@
+import '../../core/utils/phone_number.dart';
 import 'donor_eligibility.dart';
 import 'enums.dart';
 
+export '../../core/utils/phone_number.dart' show CountryCode, PhoneUtils;
 export 'blood_compatibility.dart';
 export 'donor_eligibility.dart';
 export 'enums.dart';
@@ -30,12 +32,17 @@ class UserProfile {
     required this.name,
     required this.bloodGroup,
     required this.phone,
+    this.countryCode = '+91',
+    this.countryIsoCode = 'IN',
     this.email,
     this.dateOfBirth,
     this.gender,
     this.country,
     this.state,
+    this.stateCode,
     this.city,
+    this.latitude,
+    this.longitude,
     this.lastDonation,
     this.isAdmin = false,
     this.photo,
@@ -46,6 +53,8 @@ class UserProfile {
   final String name;
   final BloodGroup bloodGroup;
   final String phone;
+  final String countryCode;
+  final String? countryIsoCode;
   final String? email;
 
   /// A small JPEG, base64-encoded (see `Photos`). Null until the user adds one.
@@ -66,15 +75,30 @@ class UserProfile {
   /// live GPS position, which is only read at the moment it's needed.
   final String? country;
   final String? state;
+  final String? stateCode;
   final String? city;
+  final double? latitude;
+  final double? longitude;
   final DateTime? lastDonation;
   final bool isAdmin;
 
   UserRole get role => isAdmin ? UserRole.admin : UserRole.user;
 
+  String get fullPhoneNumber {
+    if (phone.isEmpty) return '';
+    final code = countryCode.trim().isNotEmpty ? countryCode.trim() : '+91';
+    final normalizedCode = code.startsWith('+') ? code : '+$code';
+    final cleanDigits = phone.replaceAll(RegExp(r'\D'), '');
+    return '$normalizedCode$cleanDigits';
+  }
+
   /// Whole years old on [on] (today by default), or null without a birth date.
   int? ageOn([DateTime? on]) =>
       dateOfBirth == null ? null : ageFrom(dateOfBirth!, on);
+
+  /// Geographic coordinates from saved latitude and longitude, if present.
+  GeoPoint? get coordinates =>
+      (latitude != null && longitude != null) ? GeoPoint(latitude!, longitude!) : null;
 
   /// "City, State" from whatever parts of the saved location are filled in.
   String? get placeLabel {
@@ -97,17 +121,29 @@ class UserProfile {
         .toUpperCase();
   }
 
+  /// Complete international number, e.g. "+919876543210".
+  String get internationalPhone =>
+      PhoneUtils.toInternational(phone, countryCode: countryCode);
+
+  /// Human-friendly display, e.g. "+91 98765 43210".
+  String get displayPhone => PhoneUtils.formatDisplay(countryCode, phone);
+
   UserProfile copyWith({
     String? id,
     String? name,
     BloodGroup? bloodGroup,
     String? phone,
+    String? countryCode,
+    String? countryIsoCode,
     String? email,
     DateTime? dateOfBirth,
     Gender? gender,
     String? country,
     String? state,
+    String? stateCode,
     String? city,
+    double? latitude,
+    double? longitude,
     DateTime? lastDonation,
     bool? isAdmin,
     String? photo,
@@ -118,12 +154,17 @@ class UserProfile {
       name: name ?? this.name,
       bloodGroup: bloodGroup ?? this.bloodGroup,
       phone: phone ?? this.phone,
+      countryCode: countryCode ?? this.countryCode,
+      countryIsoCode: countryIsoCode ?? this.countryIsoCode,
       email: email ?? this.email,
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       gender: gender ?? this.gender,
       country: country ?? this.country,
       state: state ?? this.state,
+      stateCode: stateCode ?? this.stateCode,
       city: city ?? this.city,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       lastDonation: lastDonation ?? this.lastDonation,
       isAdmin: isAdmin ?? this.isAdmin,
       photo: photo ?? this.photo,
@@ -399,6 +440,7 @@ class BloodRequest {
     this.patientBloodGroup,
     this.requestLocation,
     this.bloodType = 'Blood',
+    this.phoneCountryCode = '+91',
     this.phone,
     this.requiredDate,
     this.notes,
@@ -441,9 +483,20 @@ class BloodRequest {
   final BloodGroup? patientBloodGroup;
   final GeoPoint? requestLocation;
   final String bloodType;
+  final String? phoneCountryCode;
   final String? phone;
   final DateTime? requiredDate;
   final String? notes;
+
+  String? get fullPhoneNumber {
+    if (phone == null || phone!.trim().isEmpty) return null;
+    final code = (phoneCountryCode != null && phoneCountryCode!.trim().isNotEmpty)
+        ? phoneCountryCode!.trim()
+        : '+91';
+    final normalizedCode = code.startsWith('+') ? code : '+$code';
+    final cleanDigits = phone!.replaceAll(RegExp(r'\D'), '');
+    return '$normalizedCode$cleanDigits';
+  }
 
   // Matching progress (surfaced to the requester without leaking internals).
   final int donorsContacted;

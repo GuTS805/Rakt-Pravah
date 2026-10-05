@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/location/location_data.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/semantics.dart';
 import '../../core/utils/formatters.dart';
-import '../../core/utils/indian_locations.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/badges.dart';
 import '../../core/widgets/blood_group_picker.dart';
 import '../../core/widgets/buttons.dart';
+import '../../core/widgets/phone_number_field.dart';
 import '../../data/models/models.dart';
 import '../../data/providers.dart';
 
@@ -37,6 +38,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   // blood group and phone are asked for directly instead of borrowing the requester's.
   final _patientName = TextEditingController();
   final _patientPhone = TextEditingController();
+  String _phoneCountryCode = '+91';
   String _bloodType = 'Blood';
   DateTime _requiredDate = DateTime.now();
   BloodGroup? _patientGroup;
@@ -67,6 +69,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   // Step 2. Location selection via live GPS or State/City dropdowns.
   final _location = TextEditingController();
   final _customCityController = TextEditingController();
+  String _selectedCountry = 'India';
   String? _selectedState;
   String? _selectedCity;
   _LocationSource _source = _LocationSource.current;
@@ -77,6 +80,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   final _destName = TextEditingController();
   final _destAddress = TextEditingController();
   final _destCustomCityController = TextEditingController();
+  String _destCountry = 'India';
   String? _destState;
   String? _destCity;
 
@@ -90,10 +94,15 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = ref.read(currentUserProvider);
-      if (user?.state != null && indianStates.contains(user!.state)) {
-        _selectedState = user.state;
+      final userCountry = user?.country ?? 'India';
+      _selectedCountry = userCountry;
+      _destCountry = userCountry;
+      if (user?.state != null) {
+        _selectedState = user!.state;
         if (user.city != null && user.city!.isNotEmpty) {
-          final cities = indianCitiesByState[user.state] ?? const [];
+          final cities = LocationDataService.getCities(userCountry, user.state)
+              .map((c) => c.name)
+              .toList();
           if (cities.contains(user.city)) {
             _selectedCity = user.city;
           } else {
@@ -102,6 +111,18 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
           }
           _location.text = '${user.city}, ${user.state}';
           _source = _LocationSource.stateCity;
+          if (user.latitude != null && user.longitude != null) {
+            _requestPoint = GeoPoint(user.latitude!, user.longitude!);
+          } else {
+            final res = LocationDataService.resolve(
+              country: userCountry,
+              state: user.state,
+              city: user.city,
+            );
+            if (res.hasCoordinates) {
+              _requestPoint = GeoPoint(res.latitude!, res.longitude!);
+            }
+          }
         }
       }
       _useDeviceLocation();
@@ -154,9 +175,11 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   bool get _canAdvance {
     switch (_step) {
       case 0:
-        final digits = _patientPhone.text.replaceAll(RegExp(r'\D'), '');
+        final digits = PhoneUtils.cleanDigits(_patientPhone.text);
+        final isValidPhone =
+            PhoneUtils.validate(_phoneCountryCode, digits) == null;
         return _patientName.text.trim().length >= 2 &&
-            digits.length >= 10 &&
+            isValidPhone &&
             _patientGroup != null &&
             _groups.isNotEmpty &&
             _units >= 1;
@@ -193,14 +216,13 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   /// "Sivanchetti Gardens, Bengaluru, Karnataka", when both are recognised.
   void _destFromLabel(String label) {
     final parts = label.split(',').map((p) => p.trim()).toList();
-    final state = parts.lastWhere(indianStates.contains, orElse: () => '');
-    if (state.isEmpty) return;
-    final city = (indianCitiesByState[state] ?? const <String>[])
-        .where(parts.contains)
-        .firstOrNull;
+    final states = LocationDataService.getStates(_destCountry);
+    final state = states.where((s) => parts.contains(s.name)).firstOrNull;
+    if (state == null) return;
+    final city = state.cities.where((c) => parts.contains(c.name)).firstOrNull;
     if (city == null) return;
-    _destState = state;
-    _destCity = city;
+    _destState = state.name;
+    _destCity = city.name;
   }
 
   Future<void> _next() async {
@@ -244,17 +266,32 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
       ].where((part) => part.isNotEmpty).join(', ');
 
       final locationService = ref.read(locationServiceProvider);
-      final destPoint = await locationService.forwardGeocode(
+      var destPoint = await locationService.forwardGeocode(
         '${_destName.text.trim()}, $fullDestAddress',
       );
+      if (destPoint == null) {
+        final resolved = LocationDataService.resolve(
+          country: _destCountry,
+          state: _destState,
+          city: resolvedDestCity,
+        );
+        if (resolved.hasCoordinates) {
+          destPoint = GeoPoint(resolved.latitude!, resolved.longitude!);
+        }
+      }
       // A typed or state/city location has no coordinates yet; look them up the
       // same way so donors can still be sorted by distance.
       final requestPoint =
           _requestPoint ??
-          await locationService.forwardGeocode(_location.text.trim());
+          await locationService.forwardGeocode(_location.text.trim()) ??
+          destPoint;
 
-      final phoneText = _patientPhone.text.trim();
-      final contactText = phoneText.isNotEmpty ? 'Contact: $phoneText' : null;
+      final phoneDigits = PhoneUtils.cleanDigits(_patientPhone.text);
+      final fullInternational = phoneDigits.isNotEmpty
+          ? PhoneUtils.formatInternational(_phoneCountryCode, phoneDigits)
+          : null;
+      final contactText =
+          fullInternational != null ? 'Contact: $fullInternational' : null;
 
       final req = await ref
           .read(backendProvider)
@@ -267,7 +304,8 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
             requestLocationLabel: _location.text.trim(),
             requestLocation: requestPoint,
             bloodType: _bloodType,
-            phone: phoneText.isEmpty ? null : phoneText,
+            phoneCountryCode: phoneDigits.isNotEmpty ? _phoneCountryCode : null,
+            phone: phoneDigits.isEmpty ? null : phoneDigits,
             requiredDate: _requiredDate,
             notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
             destination: Destination(
@@ -364,14 +402,15 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
         const SizedBox(height: AppSpacing.lg),
         Text('Phone number', style: context.text.titleSmall),
         const SizedBox(height: AppSpacing.sm),
-        TextField(
-          controller: _patientPhone,
-          keyboardType: TextInputType.phone,
+        PhoneNumberField(
+          phoneController: _patientPhone,
+          initialCountryCode: _phoneCountryCode,
+          onCountryChanged: (c) {
+            setState(() {
+              _phoneCountryCode = c.dialCode;
+            });
+          },
           onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(
-            hintText: '10-digit mobile number for coordination',
-            prefixIcon: Icon(Icons.phone_outlined),
-          ),
         ),
         const SizedBox(height: AppSpacing.lg),
         Text('Blood Type', style: context.text.titleSmall),
@@ -454,8 +493,9 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
 
   // ---- Step 2: location ----
   Widget _locationStep() {
+    final availableStates = LocationDataService.getStates(_selectedCountry).map((s) => s.name).toList();
     final availableCities = _selectedState != null
-        ? (indianCitiesByState[_selectedState] ?? const <String>[])
+        ? LocationDataService.getCities(_selectedCountry, _selectedState).map((c) => c.name).toList()
         : const <String>[];
     final usingCurrent = _source == _LocationSource.current;
 
@@ -531,7 +571,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
             prefixIcon: Icon(Icons.map_outlined),
           ),
           items: [
-            for (final s in indianStates)
+            for (final s in availableStates)
               DropdownMenuItem(value: s, child: Text(s)),
           ],
           onChanged: (val) {
@@ -574,13 +614,24 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
                   setState(() {
                     _selectedCity = val;
                     _source = _LocationSource.stateCity;
-                    _requestPoint = null;
+                    final effectiveCity = val == 'Other'
+                        ? _customCityController.text.trim()
+                        : (val ?? '');
                     if (val == 'Other') {
                       _location.text = _customCityController.text.trim().isEmpty
                           ? _selectedState!
                           : '${_customCityController.text.trim()}, $_selectedState';
                     } else if (val != null) {
                       _location.text = '$val, $_selectedState';
+                    }
+                    final resolved = LocationDataService.resolve(
+                      country: _selectedCountry,
+                      state: _selectedState,
+                      city: effectiveCity,
+                    );
+                    if (resolved.hasCoordinates) {
+                      _requestPoint =
+                          GeoPoint(resolved.latitude!, resolved.longitude!);
                     }
                   });
                 },
@@ -600,6 +651,15 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
                 _location.text = text.trim().isEmpty
                     ? _selectedState!
                     : '${text.trim()}, $_selectedState';
+                final resolved = LocationDataService.resolve(
+                  country: _selectedCountry,
+                  state: _selectedState,
+                  city: text.trim(),
+                );
+                if (resolved.hasCoordinates) {
+                  _requestPoint =
+                      GeoPoint(resolved.latitude!, resolved.longitude!);
+                }
               });
             },
           ),
@@ -610,8 +670,9 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
 
   // ---- Step 3: destination ----
   Widget _destinationStep() {
+    final availableStates = LocationDataService.getStates(_destCountry).map((s) => s.name).toList();
     final availableCities = _destState != null
-        ? (indianCitiesByState[_destState] ?? const <String>[])
+        ? LocationDataService.getCities(_destCountry, _destState).map((c) => c.name).toList()
         : const <String>[];
 
     return Column(
@@ -652,7 +713,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
             prefixIcon: Icon(Icons.map_outlined),
           ),
           items: [
-            for (final s in indianStates)
+            for (final s in availableStates)
               DropdownMenuItem(value: s, child: Text(s)),
           ],
           onChanged: (val) {
@@ -768,7 +829,14 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
               _reviewRow('Patient', _patientName.text.trim()),
               if (_patientPhone.text.trim().isNotEmpty) ...[
                 _divider(),
-                _reviewRow('Phone', _patientPhone.text.trim(), mono: true),
+                _reviewRow(
+                  'Phone',
+                  PhoneUtils.formatInternational(
+                    _phoneCountryCode,
+                    _patientPhone.text.trim(),
+                  ),
+                  mono: true,
+                ),
               ],
               _divider(),
               _reviewRow('Blood type', _bloodType),

@@ -55,10 +55,7 @@ void main() {
       'Sita Devi',
     );
     await tester.enterText(
-      find.widgetWithText(
-        TextField,
-        '10-digit mobile number for coordination',
-      ),
+      find.byKey(const ValueKey('phone-input-field')),
       '9876543210',
     );
     await tester.tap(find.text('AB+'), warnIfMissed: false);

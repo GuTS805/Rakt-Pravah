@@ -392,6 +392,7 @@ class AdminUser {
     required this.id,
     required this.name,
     required this.phone,
+    this.countryCode = '+91',
     required this.bloodGroup,
     required this.isAdmin,
     required this.emailVerified,
@@ -408,10 +409,13 @@ class AdminUser {
   final String id;
   final String name;
   final String phone;
+  final String countryCode;
   final BloodGroup bloodGroup;
   final bool isAdmin;
   final bool emailVerified;
   final bool isActive;
+
+  String get displayPhone => PhoneUtils.formatDisplay(countryCode, phone);
 
   /// Missing on accounts that predate approval, which count as approved.
   final bool approved;
@@ -434,10 +438,16 @@ class AdminUser {
   static AdminUser fromDoc(fs.QueryDocumentSnapshot<Map<String, dynamic>> doc) {
     final m = doc.data();
     final donor = (m['donor'] as Map?)?.cast<String, dynamic>();
+    final rawPhone = m['phone'] as String? ?? '';
+    final rawCode = m['countryCode'] as String?;
+    final (countryCode, phone) = rawCode != null
+        ? (rawCode, rawPhone)
+        : (PhoneUtils.parse(rawPhone).countryCode, PhoneUtils.parse(rawPhone).phone);
     return AdminUser(
       id: doc.id,
       name: m['name'] as String? ?? 'Unknown',
-      phone: m['phone'] as String? ?? '',
+      phone: phone.isNotEmpty ? phone : rawPhone,
+      countryCode: countryCode,
       bloodGroup: BloodGroup.values.any((g) => g.label == m['bloodGroup'])
           ? BloodGroup.fromLabel(m['bloodGroup'] as String)
           : BloodGroup.oPos,

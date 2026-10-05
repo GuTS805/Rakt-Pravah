@@ -30,14 +30,7 @@ class DonorRankingCard extends StatelessWidget {
   }
 
   Future<void> _makePhoneCall(BuildContext context, String rawPhone) async {
-    final clean = rawPhone.replaceAll(RegExp(r'[^\d+]'), '');
-    final uri = Uri.parse('tel:$clean');
-    final opened = await launchUrl(uri);
-    if (!opened && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not place call to $rawPhone')),
-      );
-    }
+    await PhoneUtils.makePhoneCall(context, rawPhone);
   }
 
   Future<void> _openDirections(BuildContext context) async {

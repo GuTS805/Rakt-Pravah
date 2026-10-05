@@ -53,24 +53,34 @@ class AuthController extends Notifier<AuthState> {
     required String password,
     required String name,
     required String phone,
+    String countryCode = '+91',
+    String? countryIsoCode,
     required BloodGroup bloodGroup,
     required DateTime dateOfBirth,
     required Gender gender,
     required String country,
     required String state,
+    String? stateCode,
     required String city,
+    double? latitude,
+    double? longitude,
   }) async {
     final user = await _backend.register(
       email: email,
       password: password,
       name: name,
       phone: phone,
+      countryCode: countryCode,
+      countryIsoCode: countryIsoCode,
       bloodGroup: bloodGroup,
       dateOfBirth: dateOfBirth,
       gender: gender,
       country: country,
       state: state,
+      stateCode: stateCode,
       city: city,
+      latitude: latitude,
+      longitude: longitude,
     );
     this.state = AuthState(AuthStatus.needsOnboarding, user);
   }
@@ -86,8 +96,14 @@ class AuthController extends Notifier<AuthState> {
     required DateTime dateOfBirth,
     required Gender gender,
     required String country,
+    String? countryIsoCode,
     required String state,
+    String? stateCode,
     required String city,
+    double? latitude,
+    double? longitude,
+    String? phone,
+    String? countryCode,
   }) async {
     if (this.state.user == null) return;
     await _backend.updateProfile(
@@ -96,8 +112,14 @@ class AuthController extends Notifier<AuthState> {
       dateOfBirth: dateOfBirth,
       gender: gender,
       country: country,
+      countryIsoCode: countryIsoCode,
       state: state,
+      stateCode: stateCode,
       city: city,
+      latitude: latitude,
+      longitude: longitude,
+      phone: phone,
+      countryCode: countryCode,
     );
     this.state = AuthState(AuthStatus.authenticated, _backend.currentUser);
   }

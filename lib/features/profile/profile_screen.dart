@@ -73,7 +73,7 @@ class ProfileScreen extends ConsumerWidget {
                           const VerificationBadge(verified: true, dense: true),
                         ],
                         const SizedBox(height: 4),
-                        Text(user.phone, style: context.text.bodyMedium),
+                        Text(user.displayPhone, style: context.text.bodyMedium),
                         if (user.placeLabel != null) ...[
                           const SizedBox(height: 2),
                           Text(user.placeLabel!, style: context.text.bodySmall),

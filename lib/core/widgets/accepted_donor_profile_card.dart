@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/models/models.dart';
 import '../router/routes.dart';
@@ -42,14 +41,7 @@ class AcceptedDonorProfileCard extends StatelessWidget {
   }
 
   Future<void> _makePhoneCall(BuildContext context, String rawPhone) async {
-    final clean = rawPhone.replaceAll(RegExp(r'[^\d+]'), '');
-    final uri = Uri.parse('tel:$clean');
-    final opened = await launchUrl(uri);
-    if (!opened && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not place call to $rawPhone')),
-      );
-    }
+    await PhoneUtils.makePhoneCall(context, rawPhone);
   }
 
   @override
@@ -334,7 +326,7 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          donor.phone!,
+                          PhoneUtils.formatDisplay(null, donor.phone!),
                           style: AppTypography.mono(
                             size: 13,
                             weight: FontWeight.w700,

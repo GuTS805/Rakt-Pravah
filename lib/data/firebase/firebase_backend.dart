@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 
+import '../../core/location/location_data.dart';
 import '../../core/services/photo_picker.dart';
 import '../backend.dart';
 import '../models/models.dart';
@@ -90,23 +91,55 @@ class FirebaseBackend implements Backend {
     required String password,
     required String name,
     required String phone,
+    String countryCode = '+91',
+    String? countryIsoCode,
     required BloodGroup bloodGroup,
     required DateTime dateOfBirth,
     required Gender gender,
     required String country,
     required String state,
+    String? stateCode,
     required String city,
+    double? latitude,
+    double? longitude,
   }) async {
+    final cleanPhone = PhoneUtils.cleanDigits(phone);
+    final cleanCode =
+        countryCode.trim().isNotEmpty ? countryCode.trim() : '+91';
+
+    // Backend validation
+    final phoneError = PhoneUtils.validate(cleanCode, cleanPhone);
+    if (phoneError != null) {
+      throw ArgumentError(phoneError);
+    }
+
+    final resolvedLoc = LocationDataService.resolve(
+      country: country,
+      state: state,
+      city: city,
+    );
+    final effCountryIso = countryIsoCode ?? resolvedLoc.countryCode;
+    final effStateCode = stateCode ?? resolvedLoc.stateCode;
+    final effLat = latitude ?? resolvedLoc.latitude;
+    final effLng = longitude ?? resolvedLoc.longitude;
+
     await _createOrLinkAccount(email: email, password: password);
     final data = <String, dynamic>{
       'name': name,
-      'phone': phone,
+      'phone': cleanPhone,
+      'countryCode': cleanCode,
+      'countryIsoCode': effCountryIso,
       'bloodGroup': bloodGroup.label,
       'dateOfBirth': fs.Timestamp.fromDate(dateOfBirth),
       'gender': gender.name,
       'country': country,
       'state': state,
+      'stateCode': effStateCode,
       'city': city,
+      'latitude': effLat,
+      'longitude': effLng,
+      if (effLat != null && effLng != null)
+        'location': {'lat': effLat, 'lng': effLng},
       'email': email,
       'isAdmin': false,
       // Every new account starts unapproved; the rules refuse anything else.
@@ -131,17 +164,57 @@ class FirebaseBackend implements Backend {
     required DateTime dateOfBirth,
     required Gender gender,
     required String country,
+    String? countryIsoCode,
     required String state,
+    String? stateCode,
     required String city,
+    double? latitude,
+    double? longitude,
+    String? phone,
+    String? countryCode,
   }) async {
+    final effectiveCode =
+        (countryCode != null && countryCode.trim().isNotEmpty)
+            ? countryCode.trim()
+            : (currentUser?.countryCode ?? '+91');
+    final effectivePhone = (phone != null && phone.trim().isNotEmpty)
+        ? PhoneUtils.cleanDigits(phone)
+        : currentUser?.phone;
+
+    // Backend validation if phone is updated or present
+    if (effectivePhone != null && effectivePhone.isNotEmpty) {
+      final phoneError = PhoneUtils.validate(effectiveCode, effectivePhone);
+      if (phoneError != null) {
+        throw ArgumentError(phoneError);
+      }
+    }
+
+    final resolvedLoc = LocationDataService.resolve(
+      country: country,
+      state: state,
+      city: city,
+    );
+    final effCountryIso = countryIsoCode ?? resolvedLoc.countryCode;
+    final effStateCode = stateCode ?? resolvedLoc.stateCode;
+    final effLat = latitude ?? resolvedLoc.latitude;
+    final effLng = longitude ?? resolvedLoc.longitude;
+
     await _users.doc(uid).set({
       'name': name,
       'bloodGroup': bloodGroup.label,
       'dateOfBirth': fs.Timestamp.fromDate(dateOfBirth),
       'gender': gender.name,
       'country': country,
+      'countryIsoCode': effCountryIso,
       'state': state,
+      'stateCode': effStateCode,
       'city': city,
+      'latitude': effLat,
+      'longitude': effLng,
+      if (effLat != null && effLng != null)
+        'location': {'lat': effLat, 'lng': effLng},
+      'phone': ?effectivePhone,
+      if (effectiveCode.isNotEmpty) 'countryCode': effectiveCode,
       // A nested map, not a 'donor.bloodGroup' key: set() treats dotted keys
       // as literal field names, so matching used to keep the old group.
       'donor': {'bloodGroup': bloodGroup.label},
@@ -150,13 +223,18 @@ class FirebaseBackend implements Backend {
       id: uid,
       name: name,
       bloodGroup: bloodGroup,
-      phone: currentUser!.phone,
+      phone: effectivePhone ?? currentUser!.phone,
+      countryCode: effectiveCode,
+      countryIsoCode: effCountryIso,
       email: currentUser!.email,
       dateOfBirth: dateOfBirth,
       gender: gender,
       country: country,
       state: state,
+      stateCode: effStateCode,
       city: city,
+      latitude: effLat,
+      longitude: effLng,
       lastDonation: currentUser!.lastDonation,
       isAdmin: currentUser!.isAdmin,
       photo: currentUser!.photo,
@@ -401,6 +479,18 @@ class FirebaseBackend implements Backend {
         (roleStr?.toLowerCase() == 'admin');
     final isAdmin = tokenIsAdmin || isAdminFromDb || isDesignatedAdmin;
 
+    final rawPhone = (data['phone'] as String?) ?? '';
+    final rawCode = data['countryCode'] as String?;
+    final (countryCode: parsedCode, phone: parsedPhone) = rawCode != null
+        ? (countryCode: rawCode, phone: PhoneUtils.cleanDigits(rawPhone))
+        : PhoneUtils.parse(rawPhone);
+
+    final locMap = data['location'] as Map?;
+    final lat = (data['latitude'] as num?)?.toDouble() ??
+        (locMap?['lat'] as num?)?.toDouble();
+    final lng = (data['longitude'] as num?)?.toDouble() ??
+        (locMap?['lng'] as num?)?.toDouble();
+
     final user = UserProfile(
       id:
           userId ??
@@ -415,7 +505,9 @@ class FirebaseBackend implements Backend {
               orElse: () => BloodGroup.oPos,
             )
           : BloodGroup.oPos,
-      phone: (data['phone'] as String?) ?? '',
+      phone: parsedPhone.isNotEmpty ? parsedPhone : rawPhone,
+      countryCode: parsedCode,
+      countryIsoCode: data['countryIsoCode'] as String? ?? 'IN',
       email: email,
       dateOfBirth: (data['dateOfBirth'] as fs.Timestamp?)?.toDate(),
       gender: data['gender'] != null
@@ -423,7 +515,10 @@ class FirebaseBackend implements Backend {
           : null,
       country: data['country'] as String?,
       state: data['state'] as String?,
+      stateCode: data['stateCode'] as String?,
       city: data['city'] as String?,
+      latitude: lat,
+      longitude: lng,
       lastDonation: (data['lastDonation'] as fs.Timestamp?)?.toDate(),
       isAdmin: isAdmin,
       photo: data['photo'] as String?,
@@ -672,15 +767,41 @@ class FirebaseBackend implements Backend {
     required Destination destination,
     GeoPoint? requestLocation,
     String? bloodType,
+    String? phoneCountryCode,
     String? phone,
     DateTime? requiredDate,
     String? notes,
   }) async {
     final now = DateTime.now();
     final ref = _requests.doc();
-    final effectivePhone = (phone != null && phone.trim().isNotEmpty)
-        ? phone.trim()
-        : currentUser?.phone;
+    String? effectivePhone;
+    String effectivePhoneCountryCode = phoneCountryCode ?? '+91';
+
+    if (phone != null && phone.trim().isNotEmpty) {
+      if (phone.trim().startsWith('+')) {
+        final parsed = PhoneUtils.parse(phone);
+        effectivePhoneCountryCode = phoneCountryCode ?? parsed.countryCode;
+        effectivePhone = parsed.phone;
+      } else {
+        effectivePhone = PhoneUtils.cleanDigits(phone);
+      }
+    } else if (currentUser?.phone != null &&
+        currentUser!.phone.trim().isNotEmpty) {
+      final parsed = PhoneUtils.parse(currentUser!.phone);
+      effectivePhoneCountryCode = currentUser!.countryCode.isNotEmpty
+          ? currentUser!.countryCode
+          : parsed.countryCode;
+      effectivePhone = parsed.phone;
+    }
+
+    if (effectivePhone != null && effectivePhone.isNotEmpty) {
+      final err =
+          PhoneUtils.validate(effectivePhoneCountryCode, effectivePhone);
+      if (err != null) {
+        throw ArgumentError(err);
+      }
+    }
+
     final data = <String, dynamic>{
       'requesterId': uid,
       'requesterName': currentUser!.name,
@@ -695,8 +816,14 @@ class FirebaseBackend implements Backend {
       'units': units,
       'urgency': urgency.name,
       'bloodType': bloodType ?? 'Blood',
-      if (effectivePhone != null && effectivePhone.isNotEmpty)
+      if (effectivePhone != null && effectivePhone.isNotEmpty) ...{
         'phone': effectivePhone,
+        'phoneCountryCode': effectivePhoneCountryCode,
+        'fullPhoneNumber': PhoneUtils.toInternational(
+          effectivePhone,
+          countryCode: effectivePhoneCountryCode,
+        ),
+      },
       if (requiredDate != null)
         'requiredDate': fs.Timestamp.fromDate(requiredDate),
       if (notes != null && notes.isNotEmpty) 'notes': notes,
@@ -763,7 +890,16 @@ class FirebaseBackend implements Backend {
     void emit() {
       if (currentRequest == null || userDocs == null) return;
       final req = currentRequest!;
-      final destPoint = req.destination.location ?? req.requestLocation;
+      var destPoint = req.destination.location ?? req.requestLocation;
+      if (destPoint == null) {
+        final resolved = LocationDataService.resolve(
+          country: 'India',
+          city: req.requestLocationLabel,
+        );
+        if (resolved.hasCoordinates) {
+          destPoint = GeoPoint(resolved.latitude!, resolved.longitude!);
+        }
+      }
       final searchRadius = req.searchRadiusKm > 0 ? req.searchRadiusKm : 25.0;
       final acceptedMap = {for (final d in req.acceptedDonors) d.id: d};
       final declinedIds = req.declinedByDonorIds.toSet();
@@ -797,7 +933,17 @@ class FirebaseBackend implements Backend {
                     .contains(bloodGroup));
         if (!isCompatible && !isAccepted) continue;
 
-        final donorLocation = _pointFromMap(data['location'] as Map?);
+        var donorLocation = _pointFromMap(data['location'] as Map?);
+        if (donorLocation == null && data['city'] != null) {
+          final resolved = LocationDataService.resolve(
+            country: data['country'] as String? ?? 'India',
+            state: data['state'] as String?,
+            city: data['city'] as String?,
+          );
+          if (resolved.hasCoordinates) {
+            donorLocation = GeoPoint(resolved.latitude!, resolved.longitude!);
+          }
+        }
         double? distance;
         if (donorLocation != null && destPoint != null) {
           distance = _haversineKm(donorLocation, destPoint);
@@ -1381,6 +1527,7 @@ class FirebaseBackend implements Backend {
       requestLocationLabel: data['requestLocationLabel'] as String? ?? '',
       requestLocation: _pointFromMap(data['requestLocation'] as Map?),
       bloodType: (data['bloodType'] as String?) ?? 'Blood',
+      phoneCountryCode: data['phoneCountryCode'] as String? ?? '+91',
       phone: (data['phone'] as String?) ?? (data['patientPhone'] as String?),
       requiredDate: (data['requiredDate'] as fs.Timestamp?)?.toDate(),
       notes: data['notes'] as String?,

@@ -180,12 +180,41 @@ class FakeBackend implements Backend {
     required Destination destination,
     GeoPoint? requestLocation,
     String? bloodType,
+    String? phoneCountryCode,
     String? phone,
     DateTime? requiredDate,
     String? notes,
   }) async {
     createRequestCalls++;
     patientNames['req-$createRequestCalls'] = patientName;
+    String? effectivePhone;
+    String effectivePhoneCountryCode = phoneCountryCode ?? '+91';
+
+    if (phone != null && phone.trim().isNotEmpty) {
+      if (phone.trim().startsWith('+')) {
+        final parsed = PhoneUtils.parse(phone);
+        effectivePhoneCountryCode = phoneCountryCode ?? parsed.countryCode;
+        effectivePhone = parsed.phone;
+      } else {
+        effectivePhone = PhoneUtils.cleanDigits(phone);
+      }
+    } else if (currentUser?.phone != null &&
+        currentUser!.phone.trim().isNotEmpty) {
+      final parsed = PhoneUtils.parse(currentUser!.phone);
+      effectivePhoneCountryCode = currentUser!.countryCode.isNotEmpty
+          ? currentUser!.countryCode
+          : parsed.countryCode;
+      effectivePhone = parsed.phone;
+    }
+
+    if (effectivePhone != null && effectivePhone.isNotEmpty) {
+      final err =
+          PhoneUtils.validate(effectivePhoneCountryCode, effectivePhone);
+      if (err != null) {
+        throw ArgumentError(err);
+      }
+    }
+
     final created = BloodRequest(
       id: 'req-$createRequestCalls',
       requesterId: uid,
@@ -202,9 +231,8 @@ class FakeBackend implements Backend {
       requestLocationLabel: requestLocationLabel,
       requestLocation: requestLocation,
       bloodType: bloodType ?? 'Blood',
-      phone: (phone != null && phone.trim().isNotEmpty)
-          ? phone.trim()
-          : currentUser?.phone,
+      phoneCountryCode: effectivePhoneCountryCode,
+      phone: effectivePhone,
       requiredDate: requiredDate,
       notes: notes,
     );
@@ -541,25 +569,43 @@ class FakeBackend implements Backend {
     required String password,
     required String name,
     required String phone,
+    String countryCode = '+91',
+    String? countryIsoCode,
     required BloodGroup bloodGroup,
     required DateTime dateOfBirth,
     required Gender gender,
     required String country,
     required String state,
+    String? stateCode,
     required String city,
+    double? latitude,
+    double? longitude,
   }) async {
+    final cleanPhone = PhoneUtils.cleanDigits(phone);
+    final cleanCode =
+        countryCode.trim().isNotEmpty ? countryCode.trim() : '+91';
+    final phoneError = PhoneUtils.validate(cleanCode, cleanPhone);
+    if (phoneError != null) {
+      throw ArgumentError(phoneError);
+    }
+
     passwords[email] = password;
     final user = UserProfile(
       id: 'fake-uid-${registeredUsers.length + 1}',
       name: name,
       bloodGroup: bloodGroup,
-      phone: phone,
+      phone: cleanPhone,
+      countryCode: cleanCode,
+      countryIsoCode: countryIsoCode ?? 'IN',
       email: email,
       dateOfBirth: dateOfBirth,
       gender: gender,
       country: country,
       state: state,
+      stateCode: stateCode,
       city: city,
+      latitude: latitude,
+      longitude: longitude,
       isAdmin: false,
     );
     registeredUsers[email] = user;
@@ -574,21 +620,47 @@ class FakeBackend implements Backend {
     required DateTime dateOfBirth,
     required Gender gender,
     required String country,
+    String? countryIsoCode,
     required String state,
+    String? stateCode,
     required String city,
+    double? latitude,
+    double? longitude,
+    String? phone,
+    String? countryCode,
   }) async {
     final user = currentUser!;
+    final effectiveCode =
+        (countryCode != null && countryCode.trim().isNotEmpty)
+            ? countryCode.trim()
+            : user.countryCode;
+    final effectivePhone = (phone != null && phone.trim().isNotEmpty)
+        ? PhoneUtils.cleanDigits(phone)
+        : user.phone;
+
+    if (effectivePhone.isNotEmpty) {
+      final phoneError = PhoneUtils.validate(effectiveCode, effectivePhone);
+      if (phoneError != null) {
+        throw ArgumentError(phoneError);
+      }
+    }
+
     currentUser = UserProfile(
       id: user.id,
       name: name,
       bloodGroup: bloodGroup,
-      phone: user.phone,
+      phone: effectivePhone,
+      countryCode: effectiveCode,
+      countryIsoCode: countryIsoCode ?? user.countryIsoCode ?? 'IN',
       email: user.email,
       dateOfBirth: dateOfBirth,
       gender: gender,
       country: country,
       state: state,
+      stateCode: stateCode ?? user.stateCode,
       city: city,
+      latitude: latitude ?? user.latitude,
+      longitude: longitude ?? user.longitude,
       lastDonation: user.lastDonation,
       isAdmin: user.isAdmin,
       photo: user.photo,
