@@ -98,6 +98,26 @@ Firebase console, sign in once so the profile document appears, then set
 `isAdmin: true` on that document in Firestore. Every operator after that can be
 granted from the console's own Users page.
 
+## Tests
+
+```bash
+flutter test                    # app: screens, models, the real FirebaseBackend on in-memory fakes
+cd functions && npm test        # notification matching, push payloads, endpoint access
+cd functions && npm run test:rules   # Firestore security rules (needs Java; starts the emulator)
+```
+
+- **Screens** run against `FakeBackend` (`test/fakes.dart`). **`FirebaseBackend`** itself runs
+  against `fake_cloud_firestore` and `firebase_auth_mocks` (`test/firebase_backend*_test.dart`),
+  so what gets written to Firestore is checked too.
+- **Privacy and access** are covered in `functions/test/rules/`, which exercises the real
+  `firestore.rules`, and in `test/privacy_test.dart`.
+- Tests marked **KNOWN GAP** / `todo` describe behaviour that is still missing (for example the
+  admin-email rule and the unauthenticated notify endpoint). They are skipped or reported as
+  `todo` so the suite stays green; each turns into a normal failing test the moment it is
+  un-skipped, and into a pass once the gap is fixed.
+- Run the app against the Firebase emulators with
+  `flutter run -d chrome --dart-define=USE_FIREBASE_EMULATOR=true`.
+
 ## Local development boundaries
 
 The test suite uses `FakeBackend` from the test tree. Passing it is local test
