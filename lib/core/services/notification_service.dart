@@ -174,7 +174,18 @@ class NotificationService {
   }
 
   /// Requests notification permission from the system.
-  Future<NotificationSettings?> requestPermission() async {
+  ///
+  /// Several parts of the app ask at once when a donor signs in; the system
+  /// allows one prompt at a time and fails the rest, so they all share the
+  /// request that is already open.
+  Future<NotificationSettings?> requestPermission() =>
+      _permissionRequest ??= _askForPermission().whenComplete(
+        () => _permissionRequest = null,
+      );
+
+  Future<NotificationSettings?>? _permissionRequest;
+
+  Future<NotificationSettings?> _askForPermission() async {
     // Platform-specific local notification permissions
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       await _plugin
