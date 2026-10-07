@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -87,10 +89,30 @@ class LocationService {
     return _fetchPosition();
   }
 
+  /// How long address lookups may take. They go through the phone's Google
+  /// geocoder, which can fail to answer at all (no network behind it, or a
+  /// device without the service); without a limit the screen waits forever.
+  static const _geocodeTimeout = Duration(seconds: 5);
+
   Future<LocationResult> _fetchPosition() async {
-    final position = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    );
+    Position position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+    } on TimeoutException {
+      // No fresh GPS fix (indoors, cold start): use the last one the phone
+      // has rather than waiting indefinitely.
+      Position? last;
+      try {
+        last = await Geolocator.getLastKnownPosition();
+      } catch (_) {}
+      if (last == null) return const LocationServiceDisabled();
+      position = last;
+    }
     final point = GeoPoint(position.latitude, position.longitude);
     final label = await _reverseGeocode(point);
     return LocationGranted(point, label);
@@ -100,10 +122,9 @@ class LocationService {
     final geocoding = _geocodingOrNull;
     if (geocoding == null) return _coordsLabel(point);
     try {
-      final placemarks = await geocoding.placemarkFromCoordinates(
-        point.lat,
-        point.lng,
-      );
+      final placemarks = await geocoding
+          .placemarkFromCoordinates(point.lat, point.lng)
+          .timeout(_geocodeTimeout);
       if (placemarks.isEmpty) return _coordsLabel(point);
       final p = placemarks.first;
       final parts = <String>[
@@ -131,7 +152,9 @@ class LocationService {
     final geocoding = _geocodingOrNull;
     if (geocoding == null) return null;
     try {
-      final results = await geocoding.locationFromAddress(address);
+      final results = await geocoding
+          .locationFromAddress(address)
+          .timeout(_geocodeTimeout);
       if (results.isEmpty) return null;
       return GeoPoint(results.first.latitude, results.first.longitude);
     } catch (_) {
