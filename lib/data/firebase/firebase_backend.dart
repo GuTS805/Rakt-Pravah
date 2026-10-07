@@ -65,7 +65,42 @@ class FirebaseBackend implements Backend {
   /// DeviceLocationController so invitation distances can be computed
   /// without threading location through every call.
   @override
-  GeoPoint? myLocation;
+  GeoPoint? get myLocation => _myLocation;
+
+  /// Also saves the real position to the signed-in user's profile, so the
+  /// push-notification backend matches donors by where they are now rather
+  /// than the city centre stored at sign-up.
+  @override
+  set myLocation(GeoPoint? value) {
+    _myLocation = value;
+    _persistLocation(value);
+  }
+
+  GeoPoint? _myLocation;
+  GeoPoint? _lastSavedLocation;
+  String? _lastSavedFor;
+
+  void _persistLocation(GeoPoint? point) {
+    final user = _auth.currentUser;
+    if (point == null || user == null) return;
+    final last = _lastSavedFor == user.uid ? _lastSavedLocation : null;
+    // Skip tiny movements: GPS jitter shouldn't cost a write each time.
+    if (last != null && _haversineKm(last, point) < 0.3) return;
+    _lastSavedLocation = point;
+    _lastSavedFor = user.uid;
+    _users
+        .doc(user.uid)
+        .set({
+          'latitude': point.lat,
+          'longitude': point.lng,
+          'location': {'lat': point.lat, 'lng': point.lng},
+          'locationUpdatedAt': fs.FieldValue.serverTimestamp(),
+        }, fs.SetOptions(merge: true))
+        .catchError((_) {
+          // Not fatal: allow the next position update to retry.
+          _lastSavedLocation = last;
+        });
+  }
 
   /// Restores a session already active on this device (survives restarts).
   /// Returns null if there's no local session or its profile is missing.

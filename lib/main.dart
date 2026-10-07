@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,9 +12,23 @@ import 'core/theme/app_theme.dart';
 import 'data/providers.dart';
 import 'firebase_options.dart';
 
+/// Local-only: `--dart-define=USE_FIREBASE_EMULATOR=true` points Auth and
+/// Firestore at the Firebase emulators instead of the live project. Off by
+/// default, so a normal build never touches this. `EMULATOR_HOST` is for
+/// the Android emulator, which reaches the host machine at 10.0.2.2.
+const _useEmulator = bool.fromEnvironment('USE_FIREBASE_EMULATOR');
+const _emulatorHost = String.fromEnvironment(
+  'EMULATOR_HOST',
+  defaultValue: 'localhost',
+);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  if (_useEmulator) {
+    await FirebaseAuth.instance.useAuthEmulator(_emulatorHost, 9099);
+    FirebaseFirestore.instance.useFirestoreEmulator(_emulatorHost, 8080);
+  }
   await NotificationService.instance.init();
   runApp(const ProviderScope(child: RaktPravahApp()));
 }
