@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
@@ -114,6 +116,42 @@ void main() {
       );
       await b.setDonorProfile(_donor.copyWith(availability: DonorAvailability.off));
       expect(((await db.doc('users/u1').get()).data()!['donor'] as Map)['availability'], 'off');
+    });
+  });
+
+  group('a server that is slow to answer', () {
+    FirebaseBackend backend() {
+      final b = FirebaseBackend.forTesting(
+        FakeFirebaseFirestore(),
+        MockFirebaseAuth(signedIn: true, mockUser: MockUser(uid: 'u1', email: 'dana@example.com')),
+      );
+      b.ackTimeout = const Duration(milliseconds: 50);
+      b.transactionTimeout = const Duration(milliseconds: 50);
+      return b;
+    }
+
+    test('does not hold a change up: it stays queued on the device', () async {
+      final started = DateTime.now();
+      await backend().settleWrite(Completer<void>().future);
+      expect(DateTime.now().difference(started), lessThan(const Duration(seconds: 2)));
+    });
+
+    test('a change the server later refuses does not crash the app', () async {
+      final late = Completer<void>();
+      await backend().settleWrite(late.future);
+      late.completeError(fs.FirebaseException(plugin: 'cloud_firestore', code: 'permission-denied'));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    });
+
+    test('one that needs the server (a transaction) is reported, not awaited forever', () async {
+      await expectLater(
+        backend().settleOnline(Completer<void>().future),
+        throwsA(isA<BackendUnavailable>()),
+      );
+    });
+
+    test('a transaction that finishes in time returns its result', () async {
+      expect(await backend().settleOnline(Future.value(7)), 7);
     });
   });
 

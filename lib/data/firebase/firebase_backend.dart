@@ -60,20 +60,64 @@ class FirebaseBackend implements Backend {
   fs.CollectionReference<Map<String, dynamic>> get _requests =>
       _db.collection('blood_requests');
 
-  /// How long to wait for the server to confirm a write before finding out
-  /// why it hasn't.
-  static const _ackTimeout = Duration(seconds: 8);
+  /// How long to wait for the server to confirm a write. Firestore keeps the
+  /// change on the device and retries until the server takes it, so a slow or
+  /// missing connection must not hold the person up.
+  Duration _ackTimeout = const Duration(seconds: 2);
 
-  /// Waits for the server to confirm [write]. If it doesn't in time, asks the
-  /// server what is wrong and throws [BackendUnavailable] saying so, instead of
-  /// leaving the caller waiting forever.
-  Future<T> _ack<T>(Future<T> write) async {
+  /// How long a change that needs the server (a transaction can't be queued)
+  /// may take before it is reported as failed.
+  Duration _transactionTimeout = const Duration(seconds: 12);
+
+  @visibleForTesting
+  set ackTimeout(Duration value) => _ackTimeout = value;
+
+  @visibleForTesting
+  set transactionTimeout(Duration value) => _transactionTimeout = value;
+
+  @visibleForTesting
+  Future<void> settleWrite(Future<void> write) => _ack(write);
+
+  @visibleForTesting
+  Future<T> settleOnline<T>(Future<T> work) => _online(work);
+
+  /// Lets a change through once the device has it, without waiting for the
+  /// server: the screens read from Firestore's local copy, so the person sees
+  /// the result at once and the change reaches the server whenever the
+  /// connection allows. A change the server actually refuses (rules, missing
+  /// database) comes back quickly and is reported in plain words.
+  Future<void> _ack(Future<void> write) async {
     try {
-      return await write.timeout(_ackTimeout);
+      await write.timeout(_ackTimeout);
+    } on TimeoutException {
+      // Not confirmed yet; still queued on the device.
+    } on fs.FirebaseException catch (e) {
+      throw BackendUnavailable(_explain(e, internetUp: await _internetUp()));
+    }
+  }
+
+  /// For a change that can't be queued because it needs the server's answer
+  /// (a transaction): gives up after a while and says why instead of leaving
+  /// the screen waiting.
+  Future<T> _online<T>(Future<T> work) async {
+    try {
+      return await work.timeout(_transactionTimeout);
     } on TimeoutException {
       throw BackendUnavailable(await _diagnose());
     } on fs.FirebaseException catch (e) {
       throw BackendUnavailable(_explain(e, internetUp: await _internetUp()));
+    }
+  }
+
+  /// Reads a document, preferring the server but not waiting on it: if the
+  /// server is slow to answer, the copy already on the device is used.
+  Future<fs.DocumentSnapshot<Map<String, dynamic>>> _readDoc(
+    fs.DocumentReference<Map<String, dynamic>> ref,
+  ) async {
+    try {
+      return await ref.get().timeout(_ackTimeout * 2);
+    } on TimeoutException {
+      return ref.get(const fs.GetOptions(source: fs.Source.cache));
     }
   }
 
@@ -84,7 +128,7 @@ class FirebaseBackend implements Backend {
       await _users
           .doc(uid)
           .get(const fs.GetOptions(source: fs.Source.server))
-          .timeout(_ackTimeout);
+          .timeout(_ackTimeout * 4);
       return 'The server is reachable but did not confirm the change. '
           'Try again.';
     } on TimeoutException {
@@ -213,7 +257,7 @@ class FirebaseBackend implements Backend {
           tokenResult.claims?['admin'] == true ||
           tokenResult.claims?['role']?.toString().toLowerCase() == 'admin';
     } catch (_) {}
-    final doc = await _users.doc(user.uid).get();
+    final doc = await _readDoc(_users.doc(user.uid));
     if (!doc.exists) return null;
     return _applyProfileDoc(
       doc.data()!,
@@ -290,7 +334,7 @@ class FirebaseBackend implements Backend {
         ),
       ),
     };
-    await _users.doc(uid).set(data, fs.SetOptions(merge: true));
+    await _ack(_users.doc(uid).set(data, fs.SetOptions(merge: true)));
     return _applyProfileDoc(data);
   }
 
@@ -339,7 +383,7 @@ class FirebaseBackend implements Backend {
     // A saved GPS position is more exact than a city centre, so it stays
     // unless the caller gave coordinates of its own.
     final keepGps = _hasSavedGps && latitude == null && longitude == null;
-    await _users.doc(uid).set({
+    await _ack(_users.doc(uid).set({
       'name': name,
       'bloodGroup': bloodGroup.label,
       'dateOfBirth': fs.Timestamp.fromDate(dateOfBirth),
@@ -360,7 +404,7 @@ class FirebaseBackend implements Backend {
       // A nested map, not a 'donor.bloodGroup' key: set() treats dotted keys
       // as literal field names, so matching used to keep the old group.
       'donor': {'bloodGroup': bloodGroup.label},
-    }, fs.SetOptions(merge: true));
+    }, fs.SetOptions(merge: true)));
     currentUser = UserProfile(
       id: uid,
       name: name,
@@ -403,7 +447,7 @@ class FirebaseBackend implements Backend {
         throw ArgumentError('Invalid photo data: not a valid base64 payload.');
       }
     }
-    await _users.doc(uid).set({'photo': photo}, fs.SetOptions(merge: true));
+    await _ack(_users.doc(uid).set({'photo': photo}, fs.SetOptions(merge: true)));
     // Only the photo changes. Rebuilding the profile field by field here once
     // dropped the country code, so the donor's number was shared as +91.
     currentUser = currentUser!.copyWith(
@@ -415,7 +459,7 @@ class FirebaseBackend implements Backend {
     try {
       final snap = await _requests.where('requesterId', isEqualTo: uid).get();
       for (final doc in snap.docs) {
-        await doc.reference.update({'requesterPhoto': photo});
+        await _ack(doc.reference.update({'requesterPhoto': photo}));
       }
     } catch (_) {
       // Non-critical background sync
@@ -486,8 +530,8 @@ class FirebaseBackend implements Backend {
     required String password,
   }) async {
     await _createOrLinkAccount(email: email, password: password);
-    await _users.doc(uid).set({'email': email}, fs.SetOptions(merge: true));
-    final doc = await _users.doc(uid).get();
+    await _ack(_users.doc(uid).set({'email': email}, fs.SetOptions(merge: true)));
+    final doc = await _readDoc(_users.doc(uid));
     return _applyProfileDoc(doc.data()!);
   }
 
@@ -541,17 +585,17 @@ class FirebaseBackend implements Backend {
 
     try {
       final isDesignatedAdmin = _isDesignatedAdminEmail(email);
-      final doc = await _users.doc(userId).get();
+      final doc = await _readDoc(_users.doc(userId));
       if (doc.exists) {
         final docData = Map<String, dynamic>.from(doc.data()!);
         if (isDesignatedAdmin &&
             (docData['isAdmin'] != true || docData['role'] != 'admin')) {
           docData['isAdmin'] = true;
           docData['role'] = 'admin';
-          await _users.doc(userId).set({
+          await _ack(_users.doc(userId).set({
             'isAdmin': true,
             'role': 'admin',
-          }, fs.SetOptions(merge: true));
+          }, fs.SetOptions(merge: true)));
         }
         return _applyProfileDoc(
           docData,
@@ -574,7 +618,7 @@ class FirebaseBackend implements Backend {
         'approved': false,
         'lastDonation': null,
       };
-      await _users.doc(userId).set(data, fs.SetOptions(merge: true));
+      await _ack(_users.doc(userId).set(data, fs.SetOptions(merge: true)));
       return _applyProfileDoc(
         data,
         userId: userId,
@@ -905,7 +949,7 @@ class FirebaseBackend implements Backend {
     final now = fs.Timestamp.now();
 
     // 1. Maintain quick access list on the user's primary profile doc
-    await _users.doc(currentUid).set({
+    await _ack(_users.doc(currentUid).set({
       'fcmTokenList': fs.FieldValue.arrayUnion([token]),
       'fcmTokens': {
         sanitizedKey: {
@@ -915,7 +959,7 @@ class FirebaseBackend implements Backend {
           'updatedAt': now,
         }
       }
-    }, fs.SetOptions(merge: true));
+    }, fs.SetOptions(merge: true)));
 
     // 2. Store push-device information in dedicated collection
     final deviceData = {
@@ -931,14 +975,14 @@ class FirebaseBackend implements Backend {
     final deviceDocRef = _db.collection('push_devices').doc(deviceId);
     fs.DocumentSnapshot<Map<String, dynamic>>? existing;
     try {
-      existing = await deviceDocRef.get();
+      existing = await _readDoc(deviceDocRef);
     } catch (_) {
       existing = null;
     }
     if (existing == null || !existing.exists) {
       deviceData['created_at'] = now;
     }
-    await deviceDocRef.set(deviceData, fs.SetOptions(merge: true));
+    await _ack(deviceDocRef.set(deviceData, fs.SetOptions(merge: true)));
 
     // Also mirror into user's devices subcollection
     await _users
@@ -956,10 +1000,10 @@ class FirebaseBackend implements Backend {
     final sanitizedKey = token.replaceAll(RegExp(r'[/.\#$\[\]]'), '_');
     final now = fs.Timestamp.now();
 
-    await _users.doc(currentUid).update({
+    await _ack(_users.doc(currentUid).update({
       'fcmTokenList': fs.FieldValue.arrayRemove([token]),
       'fcmTokens.$sanitizedKey': fs.FieldValue.delete(),
-    }).catchError((_) {});
+    }).catchError((_) {}));
 
     final deactivation = {
       'is_active': false,
@@ -1052,7 +1096,7 @@ class FirebaseBackend implements Backend {
   @override
   Future<void> extendRequest(String id) async {
     final ref = _requests.doc(id);
-    await _db.runTransaction((tx) async {
+    await _online(_db.runTransaction((tx) async {
       final snap = await tx.get(ref);
       if (!snap.exists || snap.data()!['requesterId'] != uid) return;
       final now = DateTime.now();
@@ -1067,7 +1111,7 @@ class FirebaseBackend implements Backend {
         'expiresAt': fs.Timestamp.fromDate(now.add(const Duration(hours: 6))),
         'timeline': timeline,
       });
-    });
+    }));
   }
 
   @override
@@ -1177,7 +1221,10 @@ class FirebaseBackend implements Backend {
         'phone': effectivePhone,
       'bloodType': bloodType ?? 'Blood',
     }));
-    return _requestFromDoc(await ref.get());
+    // The server may not have it yet; the device already does.
+    return _requestFromDoc(
+      await ref.get(const fs.GetOptions(source: fs.Source.cache)),
+    );
   }
 
   @override
@@ -1329,21 +1376,21 @@ class FirebaseBackend implements Backend {
 
   @override
   Future<void> expandSearchRadius(String requestId, double newRadiusKm) async {
-    await _requests.doc(requestId).update({'searchRadiusKm': newRadiusKm});
+    await _ack(_requests.doc(requestId).update({'searchRadiusKm': newRadiusKm}));
   }
 
   @override
   Future<void> markInvitationViewed(String requestId) async {
     if (uid.isEmpty) return;
-    await _requests.doc(requestId).update({
+    await _ack(_requests.doc(requestId).update({
       'viewedByDonorIds': fs.FieldValue.arrayUnion([uid]),
-    });
+    }));
   }
 
   @override
   Future<void> withdrawFromRequest(String id) async {
     final ref = _requests.doc(id);
-    await _db.runTransaction((tx) async {
+    await _online(_db.runTransaction((tx) async {
       final snap = await tx.get(ref);
       if (!snap.exists) return;
       final data = snap.data()!;
@@ -1374,7 +1421,7 @@ class FirebaseBackend implements Backend {
         'declinedByDonorIds': fs.FieldValue.arrayUnion([uid]),
         'donorLiveLocations.$uid': fs.FieldValue.delete(),
       });
-    });
+    }));
   }
 
   Future<void> _transitionIfActive(
@@ -1383,7 +1430,7 @@ class FirebaseBackend implements Backend {
     String note,
   ) async {
     final ref = _requests.doc(id);
-    await _db.runTransaction((tx) async {
+    await _online(_db.runTransaction((tx) async {
       final snap = await tx.get(ref);
       if (!snap.exists) return;
       final current = RequestStatus.values.byNameOr(
@@ -1401,7 +1448,7 @@ class FirebaseBackend implements Backend {
         'donorLiveLocations': <String, dynamic>{},
         'requesterLiveLocation': fs.FieldValue.delete(),
       });
-    });
+    }));
   }
 
   // ---------------------------------------------------------------------
@@ -1522,7 +1569,7 @@ class FirebaseBackend implements Backend {
   /// be matched again too soon after giving blood).
   Future<void> _creditDonationIfNeeded(String requestId) async {
     final ref = _users.doc(uid);
-    await _db.runTransaction((tx) async {
+    await _online(_db.runTransaction((tx) async {
       final snap = await tx.get(ref);
       final data = snap.data() ?? <String, dynamic>{};
       final donorMap =
@@ -1541,7 +1588,7 @@ class FirebaseBackend implements Backend {
         },
         'lastDonation': fs.Timestamp.fromDate(DateTime.now()),
       }, fs.SetOptions(merge: true));
-    });
+    }));
   }
 
   /// Accept is a transaction so only the first donor to claim a request
@@ -1550,14 +1597,14 @@ class FirebaseBackend implements Backend {
   @override
   Future<void> respondToInvitation(String id, InvitationStatus status) async {
     if (status == InvitationStatus.declined) {
-      await _requests.doc(id).update({
+      await _ack(_requests.doc(id).update({
         'declinedByDonorIds': fs.FieldValue.arrayUnion([uid]),
-      });
+      }));
       return;
     }
     if (status != InvitationStatus.accepted) return;
 
-    await _db.runTransaction((tx) async {
+    await _online(_db.runTransaction((tx) async {
       final ref = _requests.doc(id);
       final snap = await tx.get(ref);
       if (!snap.exists) {
@@ -1618,7 +1665,7 @@ class FirebaseBackend implements Backend {
         'acceptedDonorIds': next.map((d) => d.id).toList(),
         'timeline': timeline,
       });
-    });
+    }));
   }
 
   /// Whether a request is close enough to show this donor. Distance decides
@@ -1717,12 +1764,12 @@ class FirebaseBackend implements Backend {
   Future<ChatMessage> sendMessage(String requestId, String text) async {
     final now = DateTime.now();
     final ref = _requests.doc(requestId).collection('messages').doc();
-    await ref.set({
+    await _ack(ref.set({
       'senderId': uid,
       'senderName': currentUser!.name,
       'text': text,
       'sentAt': fs.Timestamp.fromDate(now),
-    });
+    }));
     return ChatMessage(
       id: ref.id,
       requestId: requestId,
@@ -1749,15 +1796,15 @@ class FirebaseBackend implements Backend {
   }) async {
     final now = DateTime.now();
     if (isRequester) {
-      await _requests.doc(requestId).update({
+      await _ack(_requests.doc(requestId).update({
         'requesterLiveLocation': {
           'lat': point.lat,
           'lng': point.lng,
           'at': fs.Timestamp.fromDate(now),
         },
-      });
+      }));
     } else {
-      await _requests.doc(requestId).update({
+      await _ack(_requests.doc(requestId).update({
         'donorLiveLocations.$uid': {
           'lat': point.lat,
           'lng': point.lng,
@@ -1765,7 +1812,7 @@ class FirebaseBackend implements Backend {
           'transitStatus': transitStatus.name,
           'heading': ?headingDegrees,
         },
-      });
+      }));
     }
   }
 
@@ -1775,8 +1822,8 @@ class FirebaseBackend implements Backend {
     DonorTransitStatus status,
   ) async {
     final ref = _requests.doc(requestId);
-    await ref.update({'donorLiveLocations.$uid.transitStatus': status.name});
-    final snap = await ref.get();
+    await _ack(ref.update({'donorLiveLocations.$uid.transitStatus': status.name}));
+    final snap = await _readDoc(ref);
     if (snap.exists) {
       final timeline = List<Map<String, dynamic>>.from(
         (snap.data()!['timeline'] as List?) ?? const [],
@@ -1788,7 +1835,7 @@ class FirebaseBackend implements Backend {
           'Donor status: ${status.label}',
         ),
       );
-      await ref.update({'timeline': timeline});
+      await _ack(ref.update({'timeline': timeline}));
     }
   }
 
@@ -1798,13 +1845,13 @@ class FirebaseBackend implements Backend {
     bool isRequester = false,
   }) async {
     if (isRequester) {
-      await _requests.doc(requestId).update({
+      await _ack(_requests.doc(requestId).update({
         'requesterLiveLocation': fs.FieldValue.delete(),
-      });
+      }));
     } else {
-      await _requests.doc(requestId).update({
+      await _ack(_requests.doc(requestId).update({
         'donorLiveLocations.$uid': fs.FieldValue.delete(),
-      });
+      }));
     }
   }
 
