@@ -5,7 +5,7 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, kIsWeb, TargetPlatform;
+    show defaultTargetPlatform, kIsWeb, TargetPlatform, visibleForTesting;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/location/location_data.dart';
@@ -32,7 +32,15 @@ import '../models/models.dart';
 /// deterministic ABO/Rh compatibility table (spec §23). Accepting a request
 /// is a Firestore transaction so only the first donor to accept wins.
 class FirebaseBackend implements Backend {
-  FirebaseBackend._();
+  FirebaseBackend._()
+    : _db = fs.FirebaseFirestore.instance,
+      _auth = fb_auth.FirebaseAuth.instance;
+
+  /// A backend on the given Firestore and Auth, so tests can run the real
+  /// code against in-memory fakes instead of a live project.
+  @visibleForTesting
+  FirebaseBackend.forTesting(this._db, this._auth);
+
   static final FirebaseBackend instance = FirebaseBackend._();
 
   static bool _isDesignatedAdminEmail(String? email) {
@@ -42,8 +50,8 @@ class FirebaseBackend implements Backend {
         normalized == 'admin.vikky@gmail.com';
   }
 
-  final fs.FirebaseFirestore _db = fs.FirebaseFirestore.instance;
-  final fb_auth.FirebaseAuth _auth = fb_auth.FirebaseAuth.instance;
+  final fs.FirebaseFirestore _db;
+  final fb_auth.FirebaseAuth _auth;
 
   fs.CollectionReference<Map<String, dynamic>> get _users =>
       _db.collection('users');
@@ -80,6 +88,10 @@ class FirebaseBackend implements Backend {
   GeoPoint? _lastSavedLocation;
   String? _lastSavedFor;
 
+  /// Whether the profile holds a real device position. Editing the profile
+  /// must not replace that with the centre of the chosen city.
+  bool _hasSavedGps = false;
+
   void _persistLocation(GeoPoint? point) {
     final user = _auth.currentUser;
     if (point == null || user == null) return;
@@ -88,6 +100,7 @@ class FirebaseBackend implements Backend {
     if (last != null && _haversineKm(last, point) < 0.3) return;
     _lastSavedLocation = point;
     _lastSavedFor = user.uid;
+    _hasSavedGps = true;
     _users
         .doc(user.uid)
         .set({
@@ -238,6 +251,9 @@ class FirebaseBackend implements Backend {
     final effLat = latitude ?? resolvedLoc.latitude;
     final effLng = longitude ?? resolvedLoc.longitude;
 
+    // A saved GPS position is more exact than a city centre, so it stays
+    // unless the caller gave coordinates of its own.
+    final keepGps = _hasSavedGps && latitude == null && longitude == null;
     await _users.doc(uid).set({
       'name': name,
       'bloodGroup': bloodGroup.label,
@@ -248,10 +264,12 @@ class FirebaseBackend implements Backend {
       'state': state,
       'stateCode': effStateCode,
       'city': city,
-      'latitude': effLat,
-      'longitude': effLng,
-      if (effLat != null && effLng != null)
-        'location': {'lat': effLat, 'lng': effLng},
+      if (!keepGps) ...{
+        'latitude': effLat,
+        'longitude': effLng,
+        if (effLat != null && effLng != null)
+          'location': {'lat': effLat, 'lng': effLng},
+      },
       'phone': ?effectivePhone,
       if (effectiveCode.isNotEmpty) 'countryCode': effectiveCode,
       // A nested map, not a 'donor.bloodGroup' key: set() treats dotted keys
@@ -272,8 +290,8 @@ class FirebaseBackend implements Backend {
       state: state,
       stateCode: effStateCode,
       city: city,
-      latitude: effLat,
-      longitude: effLng,
+      latitude: keepGps ? currentUser!.latitude : effLat,
+      longitude: keepGps ? currentUser!.longitude : effLng,
       lastDonation: currentUser!.lastDonation,
       isAdmin: currentUser!.isAdmin,
       photo: currentUser!.photo,
@@ -301,22 +319,11 @@ class FirebaseBackend implements Backend {
       }
     }
     await _users.doc(uid).set({'photo': photo}, fs.SetOptions(merge: true));
-    final user = currentUser!;
-    currentUser = UserProfile(
-      id: user.id,
-      name: user.name,
-      bloodGroup: user.bloodGroup,
-      phone: user.phone,
-      email: user.email,
-      dateOfBirth: user.dateOfBirth,
-      gender: user.gender,
-      country: user.country,
-      state: user.state,
-      city: user.city,
-      lastDonation: user.lastDonation,
-      isAdmin: user.isAdmin,
+    // Only the photo changes. Rebuilding the profile field by field here once
+    // dropped the country code, so the donor's number was shared as +91.
+    currentUser = currentUser!.copyWith(
       photo: photo,
-      approved: user.approved,
+      clearPhoto: photo == null,
     );
 
     // Propagate updated photo across any blood requests authored by this user
@@ -564,6 +571,7 @@ class FirebaseBackend implements Backend {
       approved: data['approved'] as bool? ?? true,
     );
     currentUser = user;
+    _hasSavedGps = data['locationUpdatedAt'] != null;
     donorProfile = _donorFromMap(
       (data['donor'] as Map?)?.cast<String, dynamic>(),
       user.bloodGroup,

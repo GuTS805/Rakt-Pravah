@@ -147,6 +147,7 @@ class UserProfile {
     DateTime? lastDonation,
     bool? isAdmin,
     String? photo,
+    bool clearPhoto = false,
     bool? approved,
   }) {
     return UserProfile(
@@ -167,7 +168,7 @@ class UserProfile {
       longitude: longitude ?? this.longitude,
       lastDonation: lastDonation ?? this.lastDonation,
       isAdmin: isAdmin ?? this.isAdmin,
-      photo: photo ?? this.photo,
+      photo: clearPhoto ? null : (photo ?? this.photo),
       approved: approved ?? this.approved,
     );
   }
