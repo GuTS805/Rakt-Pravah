@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/app_card.dart';
+import '../../data/backend_error.dart';
 import '../../data/models/models.dart';
 import '../../data/providers.dart';
 
@@ -45,6 +46,18 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
     }
   }
 
+  /// Says why a change didn't go through: the backend's own explanation when
+  /// it has one (no connection, no database), otherwise [fallback].
+  void _fail(Object error, String fallback) {
+    if (!mounted) return;
+    final message = error is BackendUnavailable ? error.message : fallback;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 6)),
+      );
+  }
+
   Future<void> _toggle(bool on) async {
     if (on && !requireDonorProfile(context, ref)) return;
     final backend = ref.read(backendProvider);
@@ -58,14 +71,8 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
               : DonorAvailability.off,
         ),
       );
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Couldn\'t update Donor Mode. Try again.'),
-          ),
-        );
-      }
+    } catch (e) {
+      _fail(e, 'Couldn\'t update Donor Mode. Try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -107,14 +114,8 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
           ),
         );
       }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Couldn\'t record donation. Please try again.'),
-          ),
-        );
-      }
+    } catch (e) {
+      _fail(e, 'Couldn\'t record donation. Please try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -129,12 +130,8 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
           const SnackBar(content: Text('Cooldown reset. Donor Mode is ON.')),
         );
       }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Couldn\'t reset cooldown. Try again.')),
-        );
-      }
+    } catch (e) {
+      _fail(e, 'Couldn\'t reset cooldown. Try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

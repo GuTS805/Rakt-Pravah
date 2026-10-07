@@ -13,6 +13,7 @@ import '../../core/widgets/badges.dart';
 import '../../core/widgets/blood_group_picker.dart';
 import '../../core/widgets/buttons.dart';
 import '../../core/widgets/phone_number_field.dart';
+import '../../data/backend_error.dart';
 import '../../data/models/models.dart';
 import '../../data/providers.dart';
 
@@ -316,14 +317,22 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
             ),
           );
       if (mounted) context.pushReplacement(Routes.requestDetail(req.id));
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() => _submitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Couldn\'t create the request. Try again.'),
-          ),
-        );
+        // The backend explains a server it can't reach; anything else is
+        // shown with its own text so the cause isn't hidden.
+        final detail = e is BackendUnavailable
+            ? e.message
+            : 'Couldn\'t create the request. Try again. ($e)';
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(detail),
+              duration: const Duration(seconds: 8),
+            ),
+          );
       }
     }
   }

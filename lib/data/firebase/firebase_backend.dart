@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show InternetAddress;
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
@@ -12,6 +13,7 @@ import '../../core/location/location_data.dart';
 import '../../core/services/device_id_service.dart';
 import '../../core/services/photo_picker.dart';
 import '../backend.dart';
+import '../backend_error.dart';
 import '../models/models.dart';
 
 /// Real backend on Firebase (Firestore + Anonymous Auth). This replaces
@@ -57,6 +59,89 @@ class FirebaseBackend implements Backend {
       _db.collection('users');
   fs.CollectionReference<Map<String, dynamic>> get _requests =>
       _db.collection('blood_requests');
+
+  /// How long to wait for the server to confirm a write before finding out
+  /// why it hasn't.
+  static const _ackTimeout = Duration(seconds: 8);
+
+  /// Waits for the server to confirm [write]. If it doesn't in time, asks the
+  /// server what is wrong and throws [BackendUnavailable] saying so, instead of
+  /// leaving the caller waiting forever.
+  Future<T> _ack<T>(Future<T> write) async {
+    try {
+      return await write.timeout(_ackTimeout);
+    } on TimeoutException {
+      throw BackendUnavailable(await _diagnose());
+    } on fs.FirebaseException catch (e) {
+      throw BackendUnavailable(_explain(e, internetUp: await _internetUp()));
+    }
+  }
+
+  /// Reads one document straight from the server to learn why writes aren't
+  /// going through, and checks whether the phone can reach Google at all.
+  Future<String> _diagnose() async {
+    try {
+      await _users
+          .doc(uid)
+          .get(const fs.GetOptions(source: fs.Source.server))
+          .timeout(_ackTimeout);
+      return 'The server is reachable but did not confirm the change. '
+          'Try again.';
+    } on TimeoutException {
+      return _explain(null, internetUp: await _internetUp(), timedOut: true);
+    } on fs.FirebaseException catch (e) {
+      return _explain(e, internetUp: await _internetUp());
+    } catch (e) {
+      return _explain(null, internetUp: await _internetUp(), detail: '$e');
+    }
+  }
+
+  /// Whether this device can resolve Google's servers. Null where that can't
+  /// be checked (web).
+  static Future<bool?> _internetUp() async {
+    if (kIsWeb) return null;
+    try {
+      final found = await InternetAddress.lookup(
+        'firestore.googleapis.com',
+      ).timeout(const Duration(seconds: 4));
+      return found.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static String _explain(
+    fs.FirebaseException? e, {
+    bool? internetUp,
+    bool timedOut = false,
+    String? detail,
+  }) {
+    final tag = e != null
+        ? '[${e.code}]'
+        : timedOut
+        ? '[timed out]'
+        : detail != null
+        ? '[$detail]'
+        : '';
+    switch (e?.code) {
+      case 'not-found':
+        return 'The Firestore database is not set up for this Firebase '
+            'project. Create it in the Firebase console '
+            '(Build > Firestore Database). $tag';
+      case 'permission-denied':
+        return 'The server refused this change (security rules). $tag';
+      case 'failed-precondition':
+        return 'The Firestore database is not ready for this project: '
+            '${e?.message} $tag';
+    }
+    if (internetUp == false) {
+      return 'This phone can\'t reach Google servers. Check Wi-Fi or mobile '
+          'data; the change will sync once you are back online. $tag';
+    }
+    return 'The internet works but Firebase did not answer, so something is '
+        'blocking it (VPN, firewall, a network that blocks Google services, or '
+        'App Check). $tag';
+  }
 
   @override
   String get uid => _auth.currentUser!.uid;
@@ -764,9 +849,9 @@ class FirebaseBackend implements Backend {
   @override
   Future<DonorProfile> setDonorProfile(DonorProfile next) async {
     final withConfig = next.copyWith(cooldownConfig: _cooldownConfig);
-    await _users.doc(uid).set({
+    await _ack(_users.doc(uid).set({
       'donor': _donorToMap(withConfig),
-    }, fs.SetOptions(merge: true));
+    }, fs.SetOptions(merge: true)));
     donorProfile = withConfig;
     return withConfig;
   }
@@ -783,10 +868,10 @@ class FirebaseBackend implements Backend {
       totalDonations: donorProfile.totalDonations + 1,
       cooldownConfig: _cooldownConfig,
     );
-    await _users.doc(uid).set({
+    await _ack(_users.doc(uid).set({
       'lastDonation': fs.Timestamp.fromDate(when),
       'donor': _donorToMap(updated),
-    }, fs.SetOptions(merge: true));
+    }, fs.SetOptions(merge: true)));
     donorProfile = updated;
     return updated;
   }
@@ -798,10 +883,10 @@ class FirebaseBackend implements Backend {
       clearLastDonation: true,
       cooldownConfig: _cooldownConfig,
     );
-    await _users.doc(uid).set({
+    await _ack(_users.doc(uid).set({
       'lastDonation': null,
       'donor': _donorToMap(updated),
-    }, fs.SetOptions(merge: true));
+    }, fs.SetOptions(merge: true)));
     donorProfile = updated;
     return updated;
   }
@@ -1085,13 +1170,13 @@ class FirebaseBackend implements Backend {
       'declinedByDonorIds': <String>[],
       'viewedByDonorIds': <String>[],
     };
-    await ref.set(data);
-    await ref.collection('private').doc('patient').set({
+    await _ack(ref.set(data));
+    await _ack(ref.collection('private').doc('patient').set({
       'name': patientName,
       if (effectivePhone != null && effectivePhone.isNotEmpty)
         'phone': effectivePhone,
       'bloodType': bloodType ?? 'Blood',
-    });
+    }));
     return _requestFromDoc(await ref.get());
   }
 
