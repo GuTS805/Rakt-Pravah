@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, kIsWeb, TargetPlatform, debugPrint;
+    show defaultTargetPlatform, kIsWeb, TargetPlatform, debugPrint, visibleForTesting;
 import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -240,30 +240,59 @@ class NotificationService {
     Backend backend, {
     required bool isDonorOn,
   }) async {
+    _wantedDonorOn = isDonorOn;
+    // One sync at a time; a change that arrives meanwhile is picked up by the
+    // loop below once the current one finishes.
+    if (_syncing) return;
+    _syncing = true;
     try {
-      if (isDonorOn) {
-        await requestPermission();
-        final token = await getFcmToken();
-        if (token != null && token.isNotEmpty) {
-          _currentToken = token;
-          await backend.registerFcmToken(token);
-
-          // Setup token refresh listener if not already listening
-          _tokenRefreshSub ??= onTokenRefresh.listen((newToken) async {
-            _currentToken = newToken;
-            await backend.registerFcmToken(newToken);
-          });
+      while (_wantedDonorOn != _syncedDonorOn) {
+        final target = _wantedDonorOn!;
+        try {
+          await _syncTo(backend, target);
+        } catch (e) {
+          debugPrint('[NotificationService] Error syncing FCM token: $e');
         }
-      } else {
-        if (_currentToken != null) {
-          await backend.unregisterFcmToken(_currentToken!);
-          _currentToken = null;
-        }
+        // Recorded even after an error, so a failure isn't retried in a tight
+        // loop; the next change of Donor Mode tries again.
+        _syncedDonorOn = target;
       }
-    } catch (e) {
-      debugPrint('[NotificationService] Error syncing FCM token: $e');
+    } finally {
+      _syncing = false;
     }
   }
+
+  /// How many times the token has actually been synced (tests).
+  @visibleForTesting
+  int syncRuns = 0;
+
+  Future<void> _syncTo(Backend backend, bool isDonorOn) async {
+    syncRuns++;
+    if (isDonorOn) {
+      await requestPermission();
+      final token = await getFcmToken();
+      if (token != null && token.isNotEmpty && token != _currentToken) {
+        _currentToken = token;
+        await backend.registerFcmToken(token);
+
+        // Setup token refresh listener if not already listening
+        _tokenRefreshSub ??= onTokenRefresh.listen((newToken) async {
+          _currentToken = newToken;
+          await backend.registerFcmToken(newToken);
+        });
+      }
+    } else if (_currentToken != null) {
+      await backend.unregisterFcmToken(_currentToken!);
+      _currentToken = null;
+    }
+  }
+
+  bool _syncing = false;
+  bool? _wantedDonorOn;
+
+  /// The Donor Mode state the token was last synced for, so repeated calls
+  /// with the same state don't write again.
+  bool? _syncedDonorOn;
 
   /// Removes device token from backend upon logout.
   Future<void> unregisterCurrentToken(Backend backend) async {
@@ -274,6 +303,8 @@ class NotificationService {
       }
       await _tokenRefreshSub?.cancel();
       _tokenRefreshSub = null;
+      _syncedDonorOn = null;
+      _wantedDonorOn = null;
     } catch (e) {
       debugPrint('[NotificationService] Error unregistering token: $e');
     }

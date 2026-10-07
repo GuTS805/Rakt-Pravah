@@ -19,15 +19,15 @@ final notificationWatcherProvider = Provider<void>((ref) {
   if (user == null) return;
 
   final backend = ref.read(backendProvider);
-  final donor = ref.watch(donorProfileValueProvider);
+  // Only whether Donor Mode is on matters here. Watching the whole profile
+  // rebuilt this provider on every profile snapshot, and registering the
+  // token writes to the profile, so each registration triggered the next one
+  // in an endless loop that exhausted the phone's threads and crashed the app.
+  final donorOn = ref.watch(donorProfileValueProvider.select((d) => d.isOn));
   final service = NotificationService.instance;
 
   // Synchronize FCM token based on donor mode status
-  service.syncDeviceToken(backend, isDonorOn: donor.isOn);
-
-  ref.listen<DonorProfile>(donorProfileValueProvider, (_, next) {
-    service.syncDeviceToken(backend, isDonorOn: next.isOn);
-  });
+  service.syncDeviceToken(backend, isDonorOn: donorOn);
 
   service.onTap = (payload) {
     final router = ref.read(routerProvider);
