@@ -35,11 +35,10 @@ service cloud.firestore {
 
     function isDesignatedAdmin() {
       return isSignedIn()
-        && (request.auth.token.get('email', '').lower() in [
-              'vikky.code@gmail.com',
-              'admin.vikky@gmail.com'
-            ]
-            || request.auth.token.get('email', '').lower().matches('.*admin.*'));
+        && request.auth.token.get('email', '').lower() in [
+             'vikky.code@gmail.com',
+             'admin.vikky@gmail.com'
+           ];
     }
 
     // Operator access for the admin console (spec §27). The flag lives on the

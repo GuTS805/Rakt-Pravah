@@ -111,12 +111,10 @@ describe('users collection', () => {
     });
   });
 
-  describe('operator access (known issue)', () => {
-    // firestore.rules isDesignatedAdmin() accepts any email matching
-    // ".*admin.*". Email/password sign-up does not verify the address, so
-    // anyone can register "myadmin@anything.com" and become an operator.
+  describe('operator access', () => {
+    // Email/password sign-up does not verify the address, so an email that
+    // merely contains "admin" must not make someone an operator.
     it('an ordinary account whose email merely contains "admin" must NOT be an operator',
-      { todo: 'KNOWN SECURITY HOLE: firestore.rules isDesignatedAdmin() regex .*admin.*' },
       async () => {
         const evil = as(env, 'evil', 'myadmin@example.com');
         await assertFails(evil.doc('config/app').set({ requireApproval: false }));
