@@ -355,6 +355,7 @@ class MatchedDonor {
     required this.distanceKm,
     required this.status,
     this.phone,
+    this.phoneCountryCode,
     this.location,
     this.notifiedAt,
     this.isEligible = true,
@@ -367,6 +368,7 @@ class MatchedDonor {
   final double distanceKm;
   final DonorRequestInteractionStatus status;
   final String? phone;
+  final String? phoneCountryCode;
   final GeoPoint? location;
   final DateTime? notifiedAt;
   final bool isEligible;
@@ -387,6 +389,7 @@ class AcceptedDonor {
     this.bloodType = 'Blood',
     this.photoUrl,
     this.phone,
+    this.phoneCountryCode,
     this.distanceKm,
     this.location,
     this.status = 'Accepted',
@@ -401,13 +404,22 @@ class AcceptedDonor {
   final BloodGroup? bloodGroup;
   final String bloodType;
   final String? photoUrl;
+
+  /// The donor's registered number, copied from their profile when they accept.
   final String? phone;
+  final String? phoneCountryCode;
   final double? distanceKm;
   final GeoPoint? location;
   final String status;
   final DonorTransitStatus transitStatus;
   final bool isVerified;
   final bool isDonorModeOn;
+
+  /// Registered number with its country code, ready to dial.
+  String? get fullPhoneNumber {
+    if (phone == null || phone!.trim().isEmpty) return null;
+    return PhoneUtils.toInternational(phone, countryCode: phoneCountryCode);
+  }
 
   /// Approximate travel time in minutes based on distance (~30 km/h urban speed).
   int? get estimatedTravelMinutes =>
@@ -421,6 +433,7 @@ class AcceptedDonor {
     String? bloodType,
     String? photoUrl,
     String? phone,
+    String? phoneCountryCode,
     double? distanceKm,
     GeoPoint? location,
     String? status,
@@ -436,6 +449,7 @@ class AcceptedDonor {
       bloodType: bloodType ?? this.bloodType,
       photoUrl: photoUrl ?? this.photoUrl,
       phone: phone ?? this.phone,
+      phoneCountryCode: phoneCountryCode ?? this.phoneCountryCode,
       distanceKm: distanceKm ?? this.distanceKm,
       location: location ?? this.location,
       status: status ?? this.status,

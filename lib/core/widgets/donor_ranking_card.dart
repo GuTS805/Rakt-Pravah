@@ -29,8 +29,12 @@ class DonorRankingCard extends StatelessWidget {
     return (parts.first[0] + parts.last[0]).toUpperCase();
   }
 
-  Future<void> _makePhoneCall(BuildContext context, String rawPhone) async {
-    await PhoneUtils.makePhoneCall(context, rawPhone);
+  Future<void> _makePhoneCall(
+    BuildContext context,
+    String rawPhone,
+    String? countryCode,
+  ) async {
+    await PhoneUtils.makePhoneCall(context, rawPhone, countryCode: countryCode);
   }
 
   Future<void> _openDirections(BuildContext context) async {
@@ -289,7 +293,10 @@ class DonorRankingCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
               ],
-              if (donor.phone != null && donor.phone!.isNotEmpty) ...[
+              // A donor's number is only shared once they have accepted.
+              if (donor.status == DonorRequestInteractionStatus.accepted &&
+                  donor.phone != null &&
+                  donor.phone!.isNotEmpty) ...[
                 IconButton(
                   tooltip: 'Call Donor',
                   icon: Icon(Icons.phone_rounded, size: 20, color: c.success),
@@ -298,7 +305,11 @@ class DonorRankingCard extends StatelessWidget {
                     padding: const EdgeInsets.all(6),
                     minimumSize: const Size(34, 34),
                   ),
-                  onPressed: () => _makePhoneCall(context, donor.phone!),
+                  onPressed: () => _makePhoneCall(
+                    context,
+                    donor.phone!,
+                    donor.phoneCountryCode,
+                  ),
                 ),
                 const SizedBox(width: 6),
               ],

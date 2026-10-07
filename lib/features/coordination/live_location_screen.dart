@@ -336,6 +336,9 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
               ? req.requesterName
               : (firstDonor?.name ?? 'Assigned Donor');
           final partnerPhone = isDonor ? req.phone : firstDonor?.phone;
+          final partnerPhoneCountryCode = isDonor
+              ? req.phoneCountryCode
+              : firstDonor?.phoneCountryCode;
           final partnerBloodGroup = isDonor
               ? req.patientBloodGroup
               : firstDonor?.bloodGroup;
@@ -368,6 +371,7 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
                   request: req,
                   partnerName: partnerName,
                   partnerPhone: partnerPhone,
+                  partnerPhoneCountryCode: partnerPhoneCountryCode,
                   partnerBloodGroup: partnerBloodGroup,
                   partnerPhoto: isDonor ? req.requesterPhoto : firstDonor?.photoUrl,
                   isDonor: isDonor,

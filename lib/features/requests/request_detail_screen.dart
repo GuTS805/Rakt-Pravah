@@ -113,8 +113,12 @@ class _AcceptedDonorsSection extends StatefulWidget {
 class _AcceptedDonorsSectionState extends State<_AcceptedDonorsSection> {
   String? _selectedDonorId;
 
-  Future<void> _makePhoneCall(BuildContext context, String rawPhone) async {
-    await PhoneUtils.makePhoneCall(context, rawPhone);
+  Future<void> _makePhoneCall(
+    BuildContext context,
+    String rawPhone,
+    String? countryCode,
+  ) async {
+    await PhoneUtils.makePhoneCall(context, rawPhone, countryCode: countryCode);
   }
 
   @override
@@ -207,7 +211,7 @@ class _AcceptedDonorsSectionState extends State<_AcceptedDonorsSection> {
               request: widget.request,
               onSelect: () => setState(() => _selectedDonorId = alt.id),
               onCall: alt.phone != null && alt.phone!.isNotEmpty
-                  ? () => _makePhoneCall(context, alt.phone!)
+                  ? () => _makePhoneCall(context, alt.phone!, alt.phoneCountryCode)
                   : null,
               onChat: () => context.push(Routes.chat(widget.request.id)),
             ),

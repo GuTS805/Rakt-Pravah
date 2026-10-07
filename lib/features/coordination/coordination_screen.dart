@@ -24,14 +24,18 @@ class CoordinationScreen extends ConsumerWidget {
   const CoordinationScreen({super.key, required this.requestId});
   final String requestId;
 
-  Future<void> _makePhoneCall(BuildContext context, String? rawPhone) async {
+  Future<void> _makePhoneCall(
+    BuildContext context,
+    String? rawPhone, {
+    String? countryCode,
+  }) async {
     if (rawPhone == null || rawPhone.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Phone number is not available.')),
       );
       return;
     }
-    await PhoneUtils.makePhoneCall(context, rawPhone);
+    await PhoneUtils.makePhoneCall(context, rawPhone, countryCode: countryCode);
   }
 
   @override
@@ -68,7 +72,11 @@ class CoordinationScreen extends ConsumerWidget {
                 // Donor view: Requester and Patient details
                 _DonorViewOfRequester(
                   request: req,
-                  onCall: () => _makePhoneCall(context, req.phone),
+                  onCall: () => _makePhoneCall(
+                    context,
+                    req.phone,
+                    countryCode: req.phoneCountryCode,
+                  ),
                   onChat: () => context.push(Routes.chat(requestId)),
                   onNavigate: () => _openDirections(context, req.destination),
                 ),

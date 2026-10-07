@@ -17,6 +17,7 @@ class LiveTrackingSheet extends StatelessWidget {
     required this.request,
     required this.partnerName,
     this.partnerPhone,
+    this.partnerPhoneCountryCode,
     this.partnerBloodGroup,
     this.partnerPhoto,
     required this.isDonor,
@@ -32,6 +33,7 @@ class LiveTrackingSheet extends StatelessWidget {
   final BloodRequest request;
   final String partnerName;
   final String? partnerPhone;
+  final String? partnerPhoneCountryCode;
   final BloodGroup? partnerBloodGroup;
   final String? partnerPhoto;
   final bool isDonor;
@@ -50,16 +52,12 @@ class LiveTrackingSheet extends StatelessWidget {
     return (parts.first[0] + parts.last[0]).toUpperCase();
   }
 
-  Future<void> _callPartner(BuildContext context, String rawPhone) async {
-    final clean = rawPhone.replaceAll(RegExp(r'[^\d+]'), '');
-    final uri = Uri.parse('tel:$clean');
-    final opened = await launchUrl(uri);
-    if (!opened && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not place call to $rawPhone')),
+  Future<void> _callPartner(BuildContext context, String rawPhone) =>
+      PhoneUtils.makePhoneCall(
+        context,
+        rawPhone,
+        countryCode: partnerPhoneCountryCode,
       );
-    }
-  }
 
   Future<void> _openDirections(BuildContext context, Destination dest) async {
     final loc = dest.location;

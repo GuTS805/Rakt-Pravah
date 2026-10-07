@@ -40,8 +40,12 @@ class AcceptedDonorProfileCard extends StatelessWidget {
     return (parts.first[0] + parts.last[0]).toUpperCase();
   }
 
-  Future<void> _makePhoneCall(BuildContext context, String rawPhone) async {
-    await PhoneUtils.makePhoneCall(context, rawPhone);
+  Future<void> _makePhoneCall(
+    BuildContext context,
+    String rawPhone,
+    String? countryCode,
+  ) async {
+    await PhoneUtils.makePhoneCall(context, rawPhone, countryCode: countryCode);
   }
 
   @override
@@ -503,8 +507,11 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                       // Call button
                       if (donor.phone != null && donor.phone!.isNotEmpty) ...[
                         OutlinedButton(
-                          onPressed: () =>
-                              _makePhoneCall(context, donor.phone!),
+                          onPressed: () => _makePhoneCall(
+                            context,
+                            donor.phone!,
+                            donor.phoneCountryCode,
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: c.success,
                             side: BorderSide(
