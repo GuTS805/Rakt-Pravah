@@ -13,6 +13,7 @@ import '../../core/widgets/avatar.dart';
 import '../../core/widgets/badges.dart';
 import '../../core/widgets/buttons.dart';
 import '../../core/widgets/states.dart';
+import '../../core/utils/action_error.dart';
 import '../../data/models/models.dart';
 import '../../data/providers.dart';
 import 'map_panel.dart';
@@ -163,8 +164,14 @@ class CoordinationScreen extends ConsumerWidget {
   }
 
   Future<void> _fulfill(BuildContext context, WidgetRef ref) async {
-    await ref.read(backendProvider).markFulfilled(requestId);
-    if (context.mounted) context.pop();
+    try {
+      await ref.read(backendProvider).markFulfilled(requestId);
+      if (context.mounted) context.pop();
+    } catch (e) {
+      if (context.mounted) {
+        showActionError(context, e, 'Couldn\'t close the request. Try again.');
+      }
+    }
   }
 
   Future<void> _cancel(
@@ -180,8 +187,14 @@ class CoordinationScreen extends ConsumerWidget {
       confirmLabel: 'Cancel request',
     );
     if (ok != true) return;
-    await ref.read(backendProvider).cancelRequest(requestId);
-    if (context.mounted) context.pop();
+    try {
+      await ref.read(backendProvider).cancelRequest(requestId);
+      if (context.mounted) context.pop();
+    } catch (e) {
+      if (context.mounted) {
+        showActionError(context, e, 'Couldn\'t cancel the request. Try again.');
+      }
+    }
   }
 
   Future<void> _withdraw(BuildContext context, WidgetRef ref) async {

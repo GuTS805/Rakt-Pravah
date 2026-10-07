@@ -7,6 +7,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/theme/semantics.dart';
+import '../../core/utils/action_error.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/accepted_donor_profile_card.dart';
 import '../../core/widgets/app_card.dart';
@@ -838,8 +839,13 @@ class _ActionBar extends ConsumerWidget {
       confirmLabel: 'Cancel request',
       destructive: true,
     );
-    if (ok == true) {
+    if (ok != true) return;
+    try {
       await ref.read(backendProvider).cancelRequest(request.id);
+    } catch (e) {
+      if (context.mounted) {
+        showActionError(context, e, 'Couldn\'t cancel the request. Try again.');
+      }
     }
   }
 
@@ -851,8 +857,13 @@ class _ActionBar extends ConsumerWidget {
       confirmLabel: 'Mark fulfilled',
       destructive: false,
     );
-    if (ok == true) {
+    if (ok != true) return;
+    try {
       await ref.read(backendProvider).markFulfilled(request.id);
+    } catch (e) {
+      if (context.mounted) {
+        showActionError(context, e, 'Couldn\'t close the request. Try again.');
+      }
     }
   }
 }
