@@ -67,7 +67,7 @@ class FirebaseBackend implements Backend {
 
   /// How long a change that needs the server (a transaction can't be queued)
   /// may take before it is reported as failed.
-  Duration _transactionTimeout = const Duration(seconds: 12);
+  Duration _transactionTimeout = const Duration(seconds: 25);
 
   @visibleForTesting
   set ackTimeout(Duration value) => _ackTimeout = value;
@@ -110,14 +110,25 @@ class FirebaseBackend implements Backend {
   }
 
   /// Reads a document, preferring the server but not waiting on it: if the
-  /// server is slow to answer, the copy already on the device is used.
+  /// server is slow to answer, the copy already on the device is used. When
+  /// the device has no copy (a fresh install), it keeps waiting for the
+  /// server rather than failing or reporting the document as missing.
   Future<fs.DocumentSnapshot<Map<String, dynamic>>> _readDoc(
     fs.DocumentReference<Map<String, dynamic>> ref,
   ) async {
+    final fromServer = ref.get();
     try {
-      return await ref.get().timeout(_ackTimeout * 2);
+      return await fromServer.timeout(_ackTimeout * 2);
     } on TimeoutException {
-      return ref.get(const fs.GetOptions(source: fs.Source.cache));
+      try {
+        final cached = await ref.get(
+          const fs.GetOptions(source: fs.Source.cache),
+        );
+        if (cached.exists) return cached;
+      } catch (_) {
+        // Not on the device.
+      }
+      return fromServer;
     }
   }
 
@@ -172,6 +183,10 @@ class FirebaseBackend implements Backend {
         return 'The Firestore database is not set up for this Firebase '
             'project. Create it in the Firebase console '
             '(Build > Firestore Database). $tag';
+      case 'resource-exhausted':
+        return 'The app\'s free Firebase quota for today is used up, so changes '
+            'can\'t be saved right now. It resets at midnight US Pacific time '
+            '(about 12:30 pm in India). $tag';
       case 'permission-denied':
         return 'The server refused this change (security rules). $tag';
       case 'failed-precondition':
@@ -1604,6 +1619,27 @@ class FirebaseBackend implements Backend {
     }
     if (status != InvitationStatus.accepted) return;
 
+    try {
+      await _acceptTransaction(id);
+    } on BackendUnavailable {
+      // The answer may simply have been slow: the claim can still commit
+      // after we stopped waiting, so look before calling it a failure.
+      if (await _isOnAcceptedList(id)) return;
+      rethrow;
+    }
+  }
+
+  Future<bool> _isOnAcceptedList(String requestId) async {
+    try {
+      final snap = await _readDoc(_requests.doc(requestId));
+      final ids = (snap.data()?['acceptedDonorIds'] as List?) ?? const [];
+      return ids.contains(uid);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _acceptTransaction(String id) async {
     await _online(_db.runTransaction((tx) async {
       final ref = _requests.doc(id);
       final snap = await tx.get(ref);
@@ -1617,10 +1653,12 @@ class FirebaseBackend implements Backend {
       );
       final units = data['units'] as int? ?? 1;
       final donors = _acceptedDonorsFromData(data);
+      // Already on the list (a retry after a slow answer): nothing to do. This
+      // has to come before the capacity check, which a full request would fail.
+      if (donors.any((d) => d.id == uid)) return;
       if (current.isTerminal || donors.length >= units) {
         throw StateError('This request is no longer available.');
       }
-      if (donors.any((d) => d.id == uid)) return;
 
       final now = DateTime.now();
       final destPoint =

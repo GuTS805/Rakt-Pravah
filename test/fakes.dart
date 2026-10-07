@@ -95,6 +95,9 @@ class FakeBackend implements Backend {
   /// when another donor got there first.
   bool failNextInvitationResponse = false;
 
+  /// Thrown (once) by the next respondToInvitation, whatever it is.
+  Object? invitationResponseError;
+
   // --- Test-side controls ------------------------------------------------
 
   void emitRequests(List<BloodRequest> next) => _requests.value = next;
@@ -409,6 +412,11 @@ class FakeBackend implements Backend {
 
   @override
   Future<void> respondToInvitation(String id, InvitationStatus status) async {
+    final error = invitationResponseError;
+    if (error != null) {
+      invitationResponseError = null;
+      throw error;
+    }
     if (failNextInvitationResponse) {
       failNextInvitationResponse = false;
       throw StateError('another donor accepted first');

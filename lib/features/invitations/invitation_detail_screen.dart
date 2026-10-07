@@ -12,6 +12,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/badges.dart';
 import '../../core/widgets/buttons.dart';
 import '../../core/widgets/states.dart';
+import '../../data/backend_error.dart';
 import '../../data/models/models.dart';
 import '../../data/providers.dart';
 import 'health_check_sheet.dart';
@@ -314,7 +315,7 @@ class _InvitationDetailScreenState
       if (mounted) {
         context.pushReplacement(Routes.coordination(inv.requestId));
       }
-    } catch (_) {
+    } on StateError {
       // Another donor accepted first — the transaction lost the race.
       if (mounted) {
         setState(() => _busy = false);
@@ -323,7 +324,24 @@ class _InvitationDetailScreenState
             content: Text('Someone else already accepted this request.'),
           ),
         );
-        context.pop();
+        if (context.canPop()) context.pop();
+      }
+    } catch (e) {
+      // Anything else (no connection, slow server, refused) says nothing about
+      // other donors, so say what happened and stay on the request.
+      if (mounted) {
+        setState(() => _busy = false);
+        final message = e is BackendUnavailable
+            ? e.message
+            : 'Couldn\'t accept the request. Try again.';
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(message),
+              duration: const Duration(seconds: 6),
+            ),
+          );
       }
     }
   }

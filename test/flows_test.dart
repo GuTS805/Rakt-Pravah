@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rakt_pravah/core/router/routes.dart';
 import 'package:rakt_pravah/core/services/donor_gate.dart';
 import 'package:rakt_pravah/core/theme/app_theme.dart';
+import 'package:rakt_pravah/data/backend_error.dart';
 import 'package:rakt_pravah/data/models/models.dart';
 import 'package:rakt_pravah/data/providers.dart';
 import 'package:rakt_pravah/features/home/donor_status_card.dart';
@@ -944,6 +945,47 @@ void main() {
 
       expect(backend.invitationResponses, [('r9', InvitationStatus.accepted)]);
       expect(find.text('COORDINATION SCREEN'), findsOneWidget);
+    });
+
+    /// Answers the health questions with No and confirms.
+    Future<void> confirmAccept(WidgetTester tester) async {
+      final noChips = find.text('No');
+      final count = noChips.evaluate().length;
+      for (var i = 0; i < count; i++) {
+        await tester.tap(noChips.at(i));
+      }
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Accept & help').last);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('losing the race says someone else accepted', (tester) async {
+      final backend = await openInvitation(tester);
+      backend.invitationResponseError = StateError('This request is no longer available.');
+      await confirmAccept(tester);
+
+      expect(find.text('Someone else already accepted this request.'), findsOneWidget);
+      expect(find.text('COORDINATION SCREEN'), findsNothing);
+    });
+
+    testWidgets('a slow or unreachable server is not blamed on another donor', (tester) async {
+      final backend = await openInvitation(tester);
+      const reason = 'No connection. Check your internet and try again.';
+      backend.invitationResponseError = const BackendUnavailable(reason);
+      await confirmAccept(tester);
+
+      expect(find.text(reason), findsOneWidget);
+      expect(find.textContaining('Someone else'), findsNothing);
+      expect(find.text('Accept & help'), findsOneWidget, reason: 'stays on the request so it can be retried');
+    });
+
+    testWidgets('any other failure also stays put with a plain message', (tester) async {
+      final backend = await openInvitation(tester);
+      backend.invitationResponseError = Exception('boom');
+      await confirmAccept(tester);
+
+      expect(find.text("Couldn't accept the request. Try again."), findsOneWidget);
+      expect(find.textContaining('Someone else'), findsNothing);
     });
   });
 

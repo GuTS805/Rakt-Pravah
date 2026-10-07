@@ -155,6 +155,28 @@ void main() {
     });
   });
 
+  group('accepting when the answer is slow', () {
+    test('a claim that is already on the request counts as accepted', () async {
+      final db = FakeFirebaseFirestore();
+      await db.doc('blood_requests/r1').set({
+        'requesterId': 'someone',
+        'status': 'donorAccepted',
+        'units': 1,
+        'acceptedDonorIds': ['u1'],
+        'acceptedDonors': [
+          {'id': 'u1', 'name': 'Dana', 'acceptedAt': fs.Timestamp.now()},
+        ],
+        'timeline': <Map<String, dynamic>>[],
+      });
+      final b = FirebaseBackend.forTesting(
+        db,
+        MockFirebaseAuth(signedIn: true, mockUser: MockUser(uid: 'u1', email: 'dana@example.com')),
+      );
+      b.transactionTimeout = Duration.zero;
+      await b.respondToInvitation('r1', InvitationStatus.accepted);
+    });
+  });
+
   group('Donor Mode switch', () {
     const user = UserProfile(id: 'u1', name: 'Dana', bloodGroup: BloodGroup.aPos, phone: '4155550123');
 
