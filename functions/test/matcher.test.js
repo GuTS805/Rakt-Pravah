@@ -35,7 +35,21 @@ console.log('--- Running Matcher & Eligibility Unit Tests ---');
 
   // Explicit request bloodGroups list takes precedence
   assert.strictEqual(isBloodCompatible('O+', 'A+', ['A+', 'O+']), true);
+  // ...and is final: a donor outside the list is never matched, even if the
+  // ABO table would allow them
+  assert.strictEqual(isBloodCompatible('O+', 'O-', ['A+', 'O+']), false);
   console.log('✓ Deterministic ABO/Rh blood compatibility verified');
+}
+
+// 2b. Coordinates are read in every shape the app and Firestore produce
+{
+  const { readPoint } = require('../matcher');
+  assert.deepStrictEqual(readPoint({ lat: 18.5, lng: 73.8 }), { lat: 18.5, lng: 73.8 }); // app's maps
+  assert.deepStrictEqual(readPoint({ latitude: 18.5, longitude: 73.8 }), { lat: 18.5, lng: 73.8 }); // GeoPoint / flat
+  assert.strictEqual(readPoint({ lat: 18.5 }), null);
+  assert.strictEqual(readPoint({ lat: 'x', lng: 'y' }), null);
+  assert.strictEqual(readPoint(null), null);
+  console.log('✓ Coordinates are read from {lat,lng} and {latitude,longitude} shapes');
 }
 
 // 3. Multi-Device Token Extraction Tests

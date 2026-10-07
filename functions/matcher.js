@@ -51,14 +51,30 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
 }
 
 /**
+ * Reads a coordinate pair in any shape the app or Firestore produces:
+ * the client's { lat, lng } maps, { latitude, longitude } objects (GeoPoint),
+ * and flat latitude/longitude fields. Returns null unless both are finite.
+ */
+function readPoint(obj) {
+  if (!obj || typeof obj !== 'object') return null;
+  const lat = obj.lat ?? obj.latitude ?? obj._latitude;
+  const lng = obj.lng ?? obj.longitude ?? obj._longitude;
+  if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng };
+}
+
+/**
  * Checks whether donor's blood group is compatible with the patient's requirement.
  */
 function isBloodCompatible(patientGroup, donorGroup, requestBloodGroups = []) {
   if (!donorGroup) return false;
   
-  // If the request explicitly lists compatible blood groups, check against that list
+  // The requester chose exactly which donor groups the request is open to;
+  // that list is final. Falling through to the ABO table would notify donors
+  // the requester deliberately left out.
   if (Array.isArray(requestBloodGroups) && requestBloodGroups.length > 0) {
-    if (requestBloodGroups.includes(donorGroup)) return true;
+    return requestBloodGroups.includes(donorGroup);
   }
 
   // Fallback to standard ABO/Rh compatibility table
@@ -98,6 +114,14 @@ function evaluateDonorEligibility(
     : false;
   if (alreadyNotified) {
     return { eligible: false, reason: 'Already notified for this request' };
+  }
+
+  // 2b. Donors who already accepted or declined don't need another alert
+  if (
+    (Array.isArray(requestData.acceptedDonorIds) && requestData.acceptedDonorIds.includes(donorId)) ||
+    (Array.isArray(requestData.declinedByDonorIds) && requestData.declinedByDonorIds.includes(donorId))
+  ) {
+    return { eligible: false, reason: 'Donor already responded to this request' };
   }
 
   // 3. User account status
@@ -163,17 +187,23 @@ function evaluateDonorEligibility(
   }
 
   // 8. Location & Distance calculation
-  const reqLat =
-    requestData.destination?.location?.latitude ??
-    requestData.requestLocation?.latitude ??
-    requestData.latitude;
-  const reqLng =
-    requestData.destination?.location?.longitude ??
-    requestData.requestLocation?.longitude ??
-    requestData.longitude;
+  // The donor travels to the hospital, so that's the point that matters; the
+  // requester's own position is only a fallback.
+  const reqPoint =
+    readPoint(requestData.destination?.location) ||
+    readPoint(requestData.requestLocation) ||
+    readPoint(requestData);
+  const reqLat = reqPoint?.lat;
+  const reqLng = reqPoint?.lng;
 
-  const donorLat = donorDocData.latitude ?? donorProfile.latitude;
-  const donorLng = donorDocData.longitude ?? donorProfile.longitude;
+  // Prefer the donor's last saved real position over the city-centre
+  // coordinates stored at sign-up.
+  const donorPoint =
+    readPoint(donorDocData.location) ||
+    readPoint(donorDocData) ||
+    readPoint(donorProfile);
+  const donorLat = donorPoint?.lat;
+  const donorLng = donorPoint?.lng;
   const maxDistanceKm = typeof donorProfile.maxDistanceKm === 'number' ? donorProfile.maxDistanceKm : 30;
 
   let distanceKm = null;
@@ -239,6 +269,14 @@ async function processBloodRequestNotifications(admin, requestId, requestData) {
   if (!requestData || requestData.status !== 'searching') {
     console.log(`[PushService] Request ${requestId} is not in searching state. Skipping.`);
     return { notifiedCount: 0, skipped: true, reason: 'Not searching' };
+  }
+
+  // A multi-unit request stays 'searching' while donors join, so check the
+  // units too: once every unit has a donor, nobody else should be alerted.
+  const accepted = Array.isArray(requestData.acceptedDonorIds) ? requestData.acceptedDonorIds.length : 0;
+  if (typeof requestData.units === 'number' && accepted >= requestData.units) {
+    console.log(`[PushService] Request ${requestId} already has all units accepted. Skipping.`);
+    return { notifiedCount: 0, skipped: true, reason: 'Fully accepted' };
   }
 
   const alreadyNotified = new Set(requestData.notifiedDonorIds || []);
@@ -448,6 +486,7 @@ async function processBloodRequestNotifications(admin, requestId, requestData) {
 }
 
 module.exports = {
+  readPoint,
   haversineDistance,
   isBloodCompatible,
   evaluateDonorEligibility,
