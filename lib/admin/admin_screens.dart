@@ -1378,32 +1378,45 @@ class _EmergencyTableRow extends StatelessWidget {
           ),
           AdminCell(
             flex: 2,
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: c.brandSubtle,
-                    borderRadius: AppRadius.control,
-                  ),
-                  child: Text(
-                    request.bloodGroups.map((g) => g.label).join(' '),
-                    style: AppTypography.mono(
-                      size: 12,
-                      color: c.brand,
-                      weight: FontWeight.w700,
+            Tooltip(
+              message: request.bloodGroups.map((g) => g.label).join(', '),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: c.brandSubtle,
+                        borderRadius: AppRadius.control,
+                      ),
+                      child: Text(
+                        request.bloodGroups.length > 2
+                            ? '${request.bloodGroups.take(2).map((g) => g.label).join(" ")} +${request.bloodGroups.length - 2}'
+                            : request.bloodGroups.map((g) => g.label).join(' '),
+                        style: AppTypography.mono(
+                          size: 12,
+                          color: c.brand,
+                          weight: FontWeight.w700,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${request.units}u',
+                      style: AppTypography.mono(
+                        size: 12,
+                        color: c.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  '${request.units}u',
-                  style: AppTypography.mono(size: 12, color: c.textSecondary),
-                ),
-              ],
+              ),
             ),
           ),
           AdminCell(
@@ -1463,25 +1476,29 @@ class _EmergencyTableRow extends StatelessWidget {
           ),
           AdminCell(
             flex: 2,
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: 'View Details',
-                  icon: const Icon(Icons.visibility_outlined, size: 18),
-                  onPressed: onViewDetails,
-                ),
-                if (request.isOpen)
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   IconButton(
-                    tooltip: 'Resolve Case',
-                    icon: Icon(
-                      Icons.check_circle_outline_rounded,
-                      size: 18,
-                      color: c.brand,
-                    ),
-                    onPressed: onResolve,
+                    tooltip: 'View Details',
+                    icon: const Icon(Icons.visibility_outlined, size: 18),
+                    onPressed: onViewDetails,
                   ),
-              ],
+                  if (request.isOpen)
+                    IconButton(
+                      tooltip: 'Resolve Case',
+                      icon: Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 18,
+                        color: c.brand,
+                      ),
+                      onPressed: onResolve,
+                    ),
+                ],
+              ),
             ),
           ),
         ],
@@ -1533,33 +1550,39 @@ class _EmergencyMobileCard extends StatelessWidget {
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.xs,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: c.brandSubtle,
-                      borderRadius: AppRadius.control,
-                    ),
-                    child: Text(
-                      request.bloodGroups.map((g) => g.label).join(' '),
-                      style: AppTypography.mono(
-                        size: 13,
-                        color: c.brand,
-                        weight: FontWeight.w700,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: c.brandSubtle,
+                        borderRadius: AppRadius.control,
+                      ),
+                      child: Text(
+                        request.bloodGroups.length > 2
+                            ? '${request.bloodGroups.take(2).map((g) => g.label).join(" ")} +${request.bloodGroups.length - 2}'
+                            : request.bloodGroups.map((g) => g.label).join(' '),
+                        style: AppTypography.mono(
+                          size: 13,
+                          color: c.brand,
+                          weight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    '${request.units} ${request.units == 1 ? "unit" : "units"} needed',
-                    style: AppTypography.mono(size: 12, color: c.textSecondary),
-                  ),
-                ],
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      '${request.units} ${request.units == 1 ? "unit" : "units"} needed',
+                      style: AppTypography.mono(size: 12, color: c.textSecondary),
+                    ),
+                  ],
+                ),
               ),
               Text(
                 Fmt.relative(request.createdAt),

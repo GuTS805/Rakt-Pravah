@@ -15,11 +15,12 @@ AdminRequest _mockReq({
   RequestStatus status = RequestStatus.searching,
   Urgency urgency = Urgency.critical,
   String? donor,
+  List<BloodGroup>? bloodGroups,
 }) => AdminRequest(
   id: id,
   requesterId: 'u1',
   requesterName: requester,
-  bloodGroups: [BloodGroup.oNeg, BloodGroup.oPos],
+  bloodGroups: bloodGroups ?? [BloodGroup.oNeg, BloodGroup.oPos],
   units: 2,
   urgency: urgency,
   status: status,
@@ -55,7 +56,16 @@ AdminUser _mockUser({
 
 Widget _testWrapper(Widget screen) {
   final reqs = [
-    _mockReq(id: 'r1', urgency: Urgency.critical),
+    _mockReq(
+      id: 'r1',
+      urgency: Urgency.critical,
+      bloodGroups: [
+        BloodGroup.bPos,
+        BloodGroup.bNeg,
+        BloodGroup.oPos,
+        BloodGroup.oNeg,
+      ],
+    ),
     _mockReq(id: 'r2', urgency: Urgency.urgent, donor: 'Amit Kumar'),
   ];
   final users = [

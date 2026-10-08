@@ -280,33 +280,46 @@ class AdminRequestTable extends StatelessWidget {
                       const SizedBox(height: AppSpacing.sm),
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: c.brandSubtle,
-                              borderRadius: AppRadius.control,
-                            ),
-                            child: Text(
-                              r.bloodGroups.map((g) => g.label).join(' '),
-                              style: AppTypography.mono(
-                                size: 12,
-                                color: c.brand,
-                                weight: FontWeight.w700,
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: c.brandSubtle,
+                                      borderRadius: AppRadius.control,
+                                    ),
+                                    child: Text(
+                                      r.bloodGroups.length > 2
+                                          ? '${r.bloodGroups.take(2).map((g) => g.label).join(" ")} +${r.bloodGroups.length - 2}'
+                                          : r.bloodGroups.map((g) => g.label).join(' '),
+                                      style: AppTypography.mono(
+                                        size: 12,
+                                        color: c.brand,
+                                        weight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Text(
+                                    '${r.units} ${r.units == 1 ? "unit" : "units"}',
+                                    style: AppTypography.mono(
+                                      size: 12,
+                                      color: c.textSecondary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                           const SizedBox(width: AppSpacing.sm),
-                          Text(
-                            '${r.units} ${r.units == 1 ? "unit" : "units"}',
-                            style: AppTypography.mono(
-                              size: 12,
-                              color: c.textSecondary,
-                            ),
-                          ),
-                          const Spacer(),
                           Text(
                             r.urgency.label,
                             style: context.text.labelSmall?.copyWith(
@@ -414,7 +427,11 @@ class AdminRequestTable extends StatelessWidget {
                       AdminCell(
                         flex: 2,
                         Text(
-                          r.bloodGroups.map((g) => g.label).join(' '),
+                          r.bloodGroups.length > 2
+                              ? '${r.bloodGroups.take(2).map((g) => g.label).join(" ")} +${r.bloodGroups.length - 2}'
+                              : r.bloodGroups.map((g) => g.label).join(' '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: AppTypography.mono(size: 12.5, color: c.brand),
                         ),
                       ),

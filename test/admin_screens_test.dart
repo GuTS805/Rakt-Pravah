@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rakt_pravah/admin/admin_backend.dart';
 import 'package:rakt_pravah/admin/admin_widgets.dart' show AdminFilterChip;
 import 'package:rakt_pravah/admin/admin_providers.dart'
-    hide adminHospitalsProvider, adminNotificationsProvider;
+    hide adminHospitalsProvider;
 import 'package:rakt_pravah/admin/screens/admin_analytics_screen.dart';
 import 'package:rakt_pravah/admin/screens/admin_availability_screen.dart';
 import 'package:rakt_pravah/admin/screens/admin_connections_screen.dart';
