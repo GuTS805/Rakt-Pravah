@@ -26,6 +26,13 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
   String _filter = 'all'; // all, emergency, hospitals, donors
   AdminRequest? _selectedRequest;
 
+  // NOTE: Request, donor, and hospital markers use synthesized coordinates
+  // because `AdminRequest`, `AdminUser`, and `AdminHospital` Firestore documents
+  // do not yet carry `latitude`/`longitude` fields. Positions are approximate.
+  // To show real locations: add lat/lng to those documents, update the
+  // AdminBackend parsers, and replace the offset arithmetic below with the
+  // real field values.
+
   static const _defaultCenter = ll.LatLng(28.6139, 77.2090); // New Delhi / NCR
 
   @override
@@ -71,8 +78,12 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
         ),
         data: (allRequests) {
           final users = usersAsync.valueOrNull ?? const [];
+          // Live hospitals from Firestore (names are real; coordinates are
+          // approximate until lat/lng fields are added to the hospital documents).
+          final hospitals = ref.watch(adminHospitalsProvider).valueOrNull ?? const [];
 
-          // Synthesize realistic coordinates clustered around Delhi NCR for requests
+          // Synthesize coordinates clustered around Delhi NCR for requests.
+          // Replace with real lat/lng once Firestore documents carry those fields.
           final activeRequests = allRequests.where((r) => r.isOpen).toList();
           final emergencyRequests = activeRequests
               .where(
@@ -140,23 +151,25 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
             }
           }
 
-          // 2. Verified Hospitals
+          // 2. Verified Hospitals — names from live Firestore hospitals collection.
+          // Coordinates are approximate (offset around Delhi NCR) until the
+          // AdminHospital model and Firestore documents include lat/lng fields.
           if (_filter == 'all' || _filter == 'hospitals') {
-            final hospitalCoords = [
-              (const ll.LatLng(28.5672, 77.2100), 'AIIMS New Delhi'),
-              (const ll.LatLng(28.6304, 77.2177), 'Safdarjung Hospital'),
-              (const ll.LatLng(28.6500, 77.2400), 'Lok Nayak Hospital'),
-              (const ll.LatLng(28.5800, 77.2300), 'Max Super Speciality'),
-            ];
-
-            for (final (loc, name) in hospitalCoords) {
+            final verifiedHospitals = hospitals
+                .where((h) => h.isVerified)
+                .toList();
+            for (var i = 0; i < verifiedHospitals.length; i++) {
+              final h = verifiedHospitals[i];
+              // Approximate position until real coordinates are stored in Firestore.
+              final lat = 28.5672 + ((i % 4) - 1) * 0.040;
+              final lng = 77.2100 + (((i * 2) % 4) - 1) * 0.045;
               markers.add(
                 Marker(
-                  point: loc,
+                  point: ll.LatLng(lat, lng),
                   width: 36,
                   height: 36,
                   child: Tooltip(
-                    message: name,
+                    message: h.name,
                     child: Container(
                       decoration: BoxDecoration(
                         color: c.success,
@@ -297,6 +310,14 @@ class _AdminLiveMapScreenState extends ConsumerState<AdminLiveMapScreen> {
                             c.success,
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '⚠ Positions are approximate',
+                        style: AppTypography.mono(
+                          size: 9,
+                          color: c.textTertiary,
+                        ),
                       ),
                     ],
                   ),

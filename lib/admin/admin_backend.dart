@@ -454,10 +454,15 @@ class AdminUser {
   final int totalDonations;
   final DateTime? lastDonation;
 
+  /// Admins are never treated as donors — always returns false for admin accounts.
   bool get isDonorOn =>
-      donorAvailability != null && donorAvailability != DonorAvailability.off;
+      !isAdmin &&
+      donorAvailability != null &&
+      donorAvailability != DonorAvailability.off;
 
+  /// Admins are never in cooldown — always returns false for admin accounts.
   bool get isInCooldown {
+    if (isAdmin) return false;
     final last = lastDonation;
     return last != null &&
         DateTime.now().isBefore(last.add(DonorProfile.cooldownDuration));

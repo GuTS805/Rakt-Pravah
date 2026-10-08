@@ -5,7 +5,6 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/formatters.dart';
-import '../admin_backend.dart';
 import '../admin_providers.dart';
 import '../admin_shell.dart';
 import '../admin_widgets.dart';
@@ -13,14 +12,9 @@ import '../admin_widgets.dart';
 // ---------------------------------------------------------------------------
 // Notifications Management Screen
 // ---------------------------------------------------------------------------
-
-/// Provider for admin notifications from Firestore.
-final adminNotificationsProvider =
-    StreamProvider.autoDispose<List<AdminNotificationEntry>>((ref) {
-      final admin = ref.watch(adminBackendProvider);
-      if (admin == null) return Stream.value(const []);
-      return admin.adminNotifications;
-    });
+// Note: adminNotificationsProvider is defined canonically in admin_providers.dart.
+// Do NOT redeclare it here — that caused dual Firestore stream subscriptions and
+// shadowed the global provider used by the sidebar notification badge.
 
 class AdminNotificationsScreen extends ConsumerStatefulWidget {
   const AdminNotificationsScreen({super.key});

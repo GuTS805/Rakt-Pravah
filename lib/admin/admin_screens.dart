@@ -32,7 +32,8 @@ class AdminDashboardScreen extends ConsumerWidget {
     final users = ref.watch(adminUsersProvider).valueOrNull ?? const [];
     final audit = ref.watch(adminAuditProvider).valueOrNull ?? const [];
 
-    final availableDonors = users.where((u) => u.isDonorOn).length;
+    // Admins are excluded from donor counting: only regular users can donate.
+    final availableDonors = users.where((u) => !u.isAdmin && u.isDonorOn).length;
     final pendingVerification = users
         .where((u) => u.email == null && !u.isAdmin)
         .length;
@@ -1676,10 +1677,11 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
         data: (users) {
           var shown = switch (_filter) {
             _UserFilter.all => users,
+            // Donors filter: only non-admin users who have donor mode configured.
             _UserFilter.donors =>
-              users.where((u) => u.donorAvailability != null).toList(),
+              users.where((u) => !u.isAdmin && u.donorAvailability != null).toList(),
             _UserFilter.seekers =>
-              users.where((u) => u.donorAvailability == null).toList(),
+              users.where((u) => !u.isAdmin && u.donorAvailability == null).toList(),
             _UserFilter.admins => users.where((u) => u.isAdmin).toList(),
             _UserFilter.inactive => users.where((u) => !u.isActive).toList(),
             _UserFilter.waiting => users.where((u) => !u.approved).toList(),
@@ -1720,16 +1722,18 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                   ),
                   AdminFilterChip(
                     label: 'Donors',
+                    // Admins are not donors — exclude from count.
                     count: users
-                        .where((u) => u.donorAvailability != null)
+                        .where((u) => !u.isAdmin && u.donorAvailability != null)
                         .length,
                     selected: _filter == _UserFilter.donors,
                     onTap: () => setState(() => _filter = _UserFilter.donors),
                   ),
                   AdminFilterChip(
                     label: 'Blood Seekers',
+                    // Admins are neither donors nor seekers — exclude from count.
                     count: users
-                        .where((u) => u.donorAvailability == null)
+                        .where((u) => !u.isAdmin && u.donorAvailability == null)
                         .length,
                     selected: _filter == _UserFilter.seekers,
                     onTap: () => setState(() => _filter = _UserFilter.seekers),
@@ -1891,20 +1895,22 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                       'Account State',
                       user.isActive ? 'Active' : 'Deactivated',
                     ),
-                    _userField(
-                      'Donor Status',
-                      user.isInCooldown
-                          ? 'In Cooldown'
-                          : user.isDonorOn
-                          ? 'Available (Mode ON)'
-                          : 'Off / Seek Only',
-                    ),
-                    if (user.lastDonation != null)
+                    if (!user.isAdmin) ...[  
                       _userField(
-                        'Last Donation',
-                        '${Fmt.date(user.lastDonation!)} (${Fmt.relative(user.lastDonation!)})',
+                        'Donor Status',
+                        user.isInCooldown
+                            ? 'In Cooldown'
+                            : user.isDonorOn
+                            ? 'Available (Mode ON)'
+                            : 'Off / Seek Only',
                       ),
-                    _userField('Total Donations', '${user.totalDonations}'),
+                      if (user.lastDonation != null)
+                        _userField(
+                          'Last Donation',
+                          '${Fmt.date(user.lastDonation!)} (${Fmt.relative(user.lastDonation!)})',
+                        ),
+                      _userField('Total Donations', '${user.totalDonations}'),
+                    ],
                     const Divider(height: AppSpacing.xl),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2071,21 +2077,37 @@ class _UserRow extends ConsumerWidget {
           ),
           AdminCell(
             flex: 2,
-            Text(
-              user.isInCooldown
-                  ? 'Cooldown'
-                  : user.isDonorOn
-                  ? 'Available'
-                  : 'Off',
-              style: context.text.bodySmall?.copyWith(
-                color: user.isInCooldown
-                    ? c.warning
-                    : user.isDonorOn
-                    ? c.success
-                    : c.textTertiary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            user.isAdmin
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: c.brandSubtle,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'Admin',
+                      style: context.text.labelSmall?.copyWith(
+                        color: c.brand,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                      ),
+                    ),
+                  )
+                : Text(
+                    user.isInCooldown
+                        ? 'Cooldown'
+                        : user.isDonorOn
+                        ? 'Available'
+                        : 'Off',
+                    style: context.text.bodySmall?.copyWith(
+                      color: user.isInCooldown
+                          ? c.warning
+                          : user.isDonorOn
+                          ? c.success
+                          : c.textTertiary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
           ),
           AdminCell(
             flex: 1,
@@ -2212,6 +2234,7 @@ class _UserMobileCard extends StatelessWidget {
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.xs,
             children: [
+              if (!user.isAdmin)
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -2470,7 +2493,8 @@ class _AdminDonorsScreenState extends ConsumerState<AdminDonorsScreen> {
           message: 'Could not read: $e',
         ),
         data: (users) {
-          var donors = users.where((u) => u.donorAvailability != null).toList();
+          // Admins are never donors — exclude them from all donor counts and lists.
+          var donors = users.where((u) => !u.isAdmin && u.donorAvailability != null).toList();
 
           // Apply group filter
           if (_groupFilter != null) {
@@ -2512,12 +2536,12 @@ class _AdminDonorsScreenState extends ConsumerState<AdminDonorsScreen> {
           }
 
           final totalDonors = users
-              .where((u) => u.donorAvailability != null)
+              .where((u) => !u.isAdmin && u.donorAvailability != null)
               .length;
-          final availableCount = users.where((u) => u.isDonorOn).length;
-          final cooldownCount = users.where((u) => u.isInCooldown).length;
+          final availableCount = users.where((u) => !u.isAdmin && u.isDonorOn).length;
+          final cooldownCount = users.where((u) => !u.isAdmin && u.isInCooldown).length;
           final offCount = users
-              .where((u) => u.donorAvailability != null && !u.isDonorOn)
+              .where((u) => !u.isAdmin && u.donorAvailability != null && !u.isDonorOn)
               .length;
 
           return Column(

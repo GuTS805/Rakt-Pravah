@@ -824,6 +824,16 @@ class FirebaseBackend implements Backend {
   // ---------------------------------------------------------------------
   @override
   Stream<DonorProfile> get donorStream {
+    // Admins are not donors. Return a permanently-off, immutable profile
+    // so the Donate tab (if ever visible) shows nothing useful.
+    if (currentUser?.isAdmin == true) {
+      return Stream.value(
+        DonorProfile(
+          availability: DonorAvailability.off,
+          bloodGroup: currentUser?.bloodGroup ?? BloodGroup.oPos,
+        ),
+      );
+    }
     final configDoc = _db.collection('config').doc('app');
     final userDoc = _users.doc(uid);
     late final StreamController<DonorProfile> controller;
@@ -907,6 +917,8 @@ class FirebaseBackend implements Backend {
 
   @override
   Future<DonorProfile> setDonorProfile(DonorProfile next) async {
+    // Admins are not donors — silently discard any attempt to change donor state.
+    if (currentUser?.isAdmin == true) return donorProfile;
     final withConfig = next.copyWith(cooldownConfig: _cooldownConfig);
     await _ack(_users.doc(uid).set({
       'donor': _donorToMap(withConfig),
@@ -917,6 +929,8 @@ class FirebaseBackend implements Backend {
 
   @override
   Future<DonorProfile> recordDonation([DateTime? donatedAt]) async {
+    // Admins cannot donate blood.
+    if (currentUser?.isAdmin == true) return donorProfile;
     final when = donatedAt ?? DateTime.now();
     final isCooldownOn = _cooldownConfig.enabled;
     final updated = donorProfile.copyWith(
@@ -1296,6 +1310,8 @@ class FirebaseBackend implements Backend {
         if (declinedIds.contains(donorId)) continue;
 
         final data = doc.data() ?? {};
+        // Admins are excluded from donor matching entirely.
+        if (data['isAdmin'] == true) continue;
         final donorMap = (data['donor'] as Map?)?.cast<String, dynamic>();
         final bloodGroupStr =
             data['bloodGroup'] as String? ?? donorMap?['bloodGroup'] as String?;
@@ -1496,6 +1512,11 @@ class FirebaseBackend implements Backend {
       if (!controller.isClosed) controller.add(list);
     }
 
+    // Admins are not donors and must never see or receive blood-request invitations.
+    if (currentUser?.isAdmin == true) {
+      return Stream.value(const []);
+    }
+
     // New opportunities only reach a donor who has Donor Mode on and isn't
     // within the 90-day cooldown of their last donation. Enforced here, not
     // just in the UI, so Donor Mode off really means no requests. Requests
@@ -1583,6 +1604,8 @@ class FirebaseBackend implements Backend {
   /// what starts the real 90-day donation cooldown (spec: donors shouldn't
   /// be matched again too soon after giving blood).
   Future<void> _creditDonationIfNeeded(String requestId) async {
+    // Admins cannot have donations credited to them.
+    if (currentUser?.isAdmin == true) return;
     final ref = _users.doc(uid);
     await _online(_db.runTransaction((tx) async {
       final snap = await tx.get(ref);
@@ -1640,6 +1663,10 @@ class FirebaseBackend implements Backend {
   }
 
   Future<void> _acceptTransaction(String id) async {
+    // Admins cannot accept blood requests as donors.
+    if (currentUser?.isAdmin == true) {
+      throw StateError('Admin accounts cannot accept blood requests as donors.');
+    }
     await _online(_db.runTransaction((tx) async {
       final ref = _requests.doc(id);
       final snap = await tx.get(ref);

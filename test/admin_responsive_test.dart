@@ -64,7 +64,7 @@ Widget _testWrapper(Widget screen) {
       id: 'u2',
       name: 'Rohan Mehra',
       isAdmin: true,
-      donor: DonorAvailability.off,
+      donor: null,
       donations: 1,
     ),
   ];
