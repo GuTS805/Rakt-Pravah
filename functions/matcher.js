@@ -128,8 +128,10 @@ function evaluateDonorEligibility(
   if (donorDocData.disabled === true || donorDocData.isActive === false) {
     return { eligible: false, reason: 'User account is inactive or disabled' };
   }
-  if (donorDocData.approved === false) {
-    return { eligible: false, reason: 'User account is not approved' };
+  // Only a donor whose phone number was confirmed by SMS can accept (the
+  // security rules require it), so alerting anyone else is noise.
+  if (donorDocData.phoneVerified !== true) {
+    return { eligible: false, reason: 'Phone number not verified' };
   }
 
   const donorProfile = donorDocData.donor || {};

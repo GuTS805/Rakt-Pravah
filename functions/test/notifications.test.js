@@ -63,7 +63,7 @@ const donor = (id, group, extra = {}) => ({
   id,
   data: {
     name: id,
-    approved: true,
+    phoneVerified: true,
     latitude: 18.53,
     longitude: 73.86,
     fcmTokenList: [`tok_${id}`],
@@ -149,9 +149,9 @@ describe('who is alerted', () => {
     assert.deepStrictEqual(tokensSent(f.sent), ['tok_near']);
   });
 
-  it('not a disabled, inactive or unapproved account', async () => {
+  it('not a disabled or inactive account, or one without a verified phone', async () => {
     const f = fakeAdmin({
-      users: [donor('dis', 'A+', { disabled: true }), donor('ina', 'A+', { isActive: false }), donor('una', 'A+', { approved: false }), donor('ok', 'A+')],
+      users: [donor('dis', 'A+', { disabled: true }), donor('ina', 'A+', { isActive: false }), donor('unv', 'A+', { phoneVerified: false }), donor('none', 'A+', { phoneVerified: undefined }), donor('ok', 'A+')],
     });
     await processBloodRequestNotifications(f.admin, 'r1', request());
     assert.deepStrictEqual(tokensSent(f.sent), ['tok_ok']);

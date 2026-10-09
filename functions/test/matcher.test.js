@@ -90,6 +90,7 @@ console.log('--- Running Matcher & Eligibility Unit Tests ---');
   const validDonor = {
     name: 'Rahul Kumar',
     bloodGroup: 'A+',
+    phoneVerified: true,
     latitude: 28.6250,
     longitude: 77.2300,
     fcmTokenList: ['fcm_valid_123'],
@@ -122,6 +123,13 @@ console.log('--- Running Matcher & Eligibility Unit Tests ---');
   const resOff = evaluateDonorEligibility(offDonor, 'donor_2', baseRequest, now);
   assert.strictEqual(resOff.eligible, false);
   console.log('✓ Donors with Donor Mode OFF are excluded');
+
+  // 4c2. A donor whose phone isn't verified can't accept, so isn't alerted
+  const unverifiedDonor = { ...validDonor, phoneVerified: false };
+  const resUnverified = evaluateDonorEligibility(unverifiedDonor, 'donor_unverified', baseRequest, now);
+  assert.strictEqual(resUnverified.eligible, false);
+  assert.strictEqual(resUnverified.reason, 'Phone number not verified');
+  console.log('✓ Donors without a verified phone are excluded');
 
   // 4d. Duplicate notification prevention
   const reqWithNotified = {
