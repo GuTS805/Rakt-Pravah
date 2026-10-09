@@ -103,15 +103,21 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                 children: [
                   Icon(Icons.stars_rounded, size: 16, color: c.success),
                   const SizedBox(width: 6),
-                  Text(
-                    'Selected Donor · Primary Contact',
-                    style: AppTypography.mono(
-                      size: 11,
-                      weight: FontWeight.w700,
-                      color: c.success,
+                  // Shrinks on narrow phones instead of pushing the status
+                  // pill off the card.
+                  Expanded(
+                    child: Text(
+                      'Selected Donor · Primary Contact',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.mono(
+                        size: 11,
+                        weight: FontWeight.w700,
+                        color: c.success,
+                      ),
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
@@ -283,16 +289,18 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 5),
-                              Text(
-                                donor.isDonorModeOn
-                                    ? 'Available · Donor Mode ON'
-                                    : 'Donor Mode OFF',
-                                style: context.text.bodySmall?.copyWith(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: donor.isDonorModeOn
-                                      ? c.success
-                                      : c.textTertiary,
+                              Flexible(
+                                child: Text(
+                                  donor.isDonorModeOn
+                                      ? 'Available · Donor Mode ON'
+                                      : 'Donor Mode OFF',
+                                  style: context.text.bodySmall?.copyWith(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: donor.isDonorModeOn
+                                        ? c.success
+                                        : c.textTertiary,
+                                  ),
                                 ),
                               ),
                             ],
@@ -322,38 +330,59 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                       children: [
                         Icon(Icons.phone_rounded, size: 16, color: c.success),
                         const SizedBox(width: 8),
-                        Text(
-                          'Phone: ',
-                          style: context.text.bodySmall?.copyWith(
-                            fontSize: 12,
-                            color: c.textSecondary,
-                          ),
-                        ),
-                        Text(
-                          PhoneUtils.formatDisplay(null, donor.phone!),
-                          style: AppTypography.mono(
-                            size: 13,
-                            weight: FontWeight.w700,
-                            color: c.textPrimary,
-                          ),
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: c.successSubtle,
-                            borderRadius: BorderRadius.circular(AppRadius.pill),
-                          ),
-                          child: Text(
-                            'Shared on Accept',
-                            style: AppTypography.mono(
-                              size: 9,
-                              weight: FontWeight.w700,
-                              color: c.success,
-                            ),
+                        // The number is never cut short; on a narrow phone
+                        // the "Shared on Accept" tag moves under it instead.
+                        Expanded(
+                          child: Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: [
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(
+                                    'Phone: ',
+                                    style: context.text.bodySmall?.copyWith(
+                                      fontSize: 12,
+                                      color: c.textSecondary,
+                                    ),
+                                  ),
+                                  Text(
+                                    PhoneUtils.formatDisplay(
+                                      null,
+                                      donor.phone!,
+                                    ),
+                                    style: AppTypography.mono(
+                                      size: 13,
+                                      weight: FontWeight.w700,
+                                      color: c.textPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: c.successSubtle,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.pill,
+                                  ),
+                                ),
+                                child: Text(
+                                  'Shared on Accept',
+                                  style: AppTypography.mono(
+                                    size: 9,
+                                    weight: FontWeight.w700,
+                                    color: c.success,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

@@ -479,7 +479,8 @@ class _DonorViewOfRequester extends ConsumerWidget {
                     Icon(Icons.phone_rounded, size: 16, color: c.success),
                     const SizedBox(width: 8),
                     Text(
-                      'Requester Phone: ',
+                      // The number the requester gave on the request.
+                      'Contact phone: ',
                       style: context.text.bodySmall?.copyWith(
                         fontSize: 12,
                         color: c.textSecondary,
