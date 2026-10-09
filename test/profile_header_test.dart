@@ -13,12 +13,17 @@ import 'fakes.dart';
 // The "Verified" mark sits under the name, so a long name keeps the whole row
 // instead of being cut to make room for a badge beside it.
 
-UserProfile _user({String? email, String name = 'Photo Tester'}) => UserProfile(
+UserProfile _user({
+  String? email,
+  String name = 'Photo Tester',
+  bool phoneVerified = false,
+}) => UserProfile(
   id: 'u1',
   name: name,
   bloodGroup: BloodGroup.oPos,
   phone: '9876511111',
   email: email,
+  phoneVerified: phoneVerified,
 );
 
 void _phone(WidgetTester tester) {
@@ -48,7 +53,10 @@ void main() {
     testWidgets('a verified user is marked verified below their name', (
       tester,
     ) async {
-      await _openProfile(tester, _user(email: 'a@example.com'));
+      await _openProfile(
+        tester,
+        _user(email: 'a@example.com', phoneVerified: true),
+      );
 
       final name = tester.getRect(find.text('Photo Tester'));
       final badge = tester.getRect(find.byType(VerificationBadge));
@@ -61,7 +69,7 @@ void main() {
     ) async {
       await _openProfile(
         tester,
-        _user(email: 'a@example.com', name: 'Photo Tester'),
+        _user(email: 'a@example.com', name: 'Photo Tester', phoneVerified: true),
       );
 
       expect(find.text('Photo Tester'), findsOneWidget);
@@ -69,7 +77,8 @@ void main() {
     });
 
     testWidgets('someone who is not verified gets no mark', (tester) async {
-      await _openProfile(tester, _user());
+      // An email on file is not verification; only a phone confirmed by SMS.
+      await _openProfile(tester, _user(email: 'a@example.com'));
 
       expect(find.text('Verified Donor'), findsNothing);
       expect(find.text('Pending Verification'), findsNothing);

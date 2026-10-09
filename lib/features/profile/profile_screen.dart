@@ -68,7 +68,8 @@ class ProfileScreen extends ConsumerWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (user.email != null) ...[
+                        // Verified means the phone number was confirmed by SMS.
+                        if (user.phoneVerified) ...[
                           const SizedBox(height: 4),
                           const VerificationBadge(verified: true, dense: true),
                         ],

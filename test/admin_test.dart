@@ -45,10 +45,10 @@ AdminUser _user({
   DateTime? lastDonation,
   int donations = 0,
   String? email,
-  bool approved = true,
+  bool phoneVerified = true,
 }) => AdminUser(
   id: id,
-  approved: approved,
+  phoneVerified: phoneVerified,
   name: name,
   phone: '9876543210',
   bloodGroup: BloodGroup.oPos,
@@ -66,12 +66,8 @@ Widget _console({
   List<AdminUser> users = const [],
   List<AdminReport> reports = const [],
   List<AuditEntry> audit = const [],
-  bool requireApproval = false,
 }) => ProviderScope(
   overrides: [
-    adminRequireApprovalProvider.overrideWith(
-      (ref) => Stream.value(requireApproval),
-    ),
     currentUserProvider.overrideWithValue(
       const UserProfile(
         id: 'admin1',
@@ -393,89 +389,53 @@ void main() {
     });
   });
 
-  group('Approval', () {
+  group('Phone verification', () {
     Future<void> open(
       WidgetTester tester, {
       required List<AdminUser> users,
-      bool requireApproval = false,
     }) async {
       _wide(tester);
       await tester.pumpWidget(
-        _console(
-          screen: const AdminUsersScreen(),
-          users: users,
-          requireApproval: requireApproval,
-        ),
+        _console(screen: const AdminUsersScreen(), users: users),
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
     }
 
-    testWidgets('counts who is waiting and offers to approve them all', (
+    testWidgets('a filter shows who has not verified their phone yet', (
       tester,
     ) async {
       await open(
         tester,
         users: [
-          _user(id: 'a', name: 'Approved Person'),
-          _user(id: 'b', name: 'New Person', approved: false),
-          _user(id: 'c', name: 'Another New', approved: false),
+          _user(id: 'a', name: 'Verified Person'),
+          _user(id: 'b', name: 'New Person', phoneVerified: false),
+          _user(
+            id: 'c',
+            name: 'An Operator',
+            isAdmin: true,
+            phoneVerified: false,
+          ),
         ],
       );
+      expect(find.text('Verified Person'), findsOneWidget);
+      expect(find.text('Phone not verified  1'), findsOneWidget);
 
-      expect(find.text('2 waiting'), findsOneWidget);
-      expect(find.text('Approve all 2'), findsOneWidget);
-    });
-
-    testWidgets('nobody waiting means nothing to approve in bulk', (
-      tester,
-    ) async {
-      await open(
-        tester,
-        users: [_user(id: 'a', name: 'Approved Person')],
-      );
-
-      expect(find.text('0 waiting'), findsOneWidget);
-      expect(find.textContaining('Approve all'), findsNothing);
-    });
-
-    testWidgets('the Waiting filter shows only people who are not approved', (
-      tester,
-    ) async {
-      await open(
-        tester,
-        users: [
-          _user(id: 'a', name: 'Approved Person'),
-          _user(id: 'b', name: 'New Person', approved: false),
-        ],
-      );
-      expect(find.text('Approved Person'), findsOneWidget);
-      expect(find.text('Waiting  1'), findsOneWidget);
-
-      await tester.tap(find.text('Waiting  1'));
+      await tester.tap(find.text('Phone not verified  1'));
       await tester.pump();
 
       expect(find.text('New Person'), findsOneWidget);
-      expect(find.text('Approved Person'), findsNothing);
+      expect(find.text('Verified Person'), findsNothing);
+      // Operators don't need a verified phone, so they aren't listed.
+      expect(find.text('An Operator'), findsNothing);
     });
 
-    testWidgets('the panel says anyone can act while the switch is off', (
-      tester,
-    ) async {
+    testWidgets('there is no approval switch any more', (tester) async {
       await open(tester, users: [_user()]);
 
-      expect(
-        find.textContaining('Off. Anyone with an account'),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('the panel says who is held back while the switch is on', (
-      tester,
-    ) async {
-      await open(tester, users: [_user()], requireApproval: true);
-
-      expect(find.textContaining('On. An account that is not'), findsOneWidget);
+      expect(find.textContaining('Require approval'), findsNothing);
+      expect(find.textContaining('Approve all'), findsNothing);
+      expect(find.textContaining('Waiting'), findsNothing);
     });
   });
 

@@ -46,7 +46,7 @@ class UserProfile {
     this.lastDonation,
     this.isAdmin = false,
     this.photo,
-    this.approved = true,
+    this.phoneVerified = false,
   });
 
   final String id;
@@ -60,10 +60,9 @@ class UserProfile {
   /// A small JPEG, base64-encoded (see `Photos`). Null until the user adds one.
   final String? photo;
 
-  /// Whether an operator has cleared this account. New accounts start
-  /// unapproved; accounts that predate approval have no such field and count
-  /// as approved. It only matters while the console's approval switch is on.
-  final bool approved;
+  /// Whether [phone] has been confirmed with a code sent to it by SMS. Until
+  /// it is, the account can look around but cannot request blood or donate.
+  final bool phoneVerified;
 
   /// Collected at registration. Nullable only because accounts created before
   /// these fields existed don't have them — donor actions send those users to
@@ -148,7 +147,7 @@ class UserProfile {
     bool? isAdmin,
     String? photo,
     bool clearPhoto = false,
-    bool? approved,
+    bool? phoneVerified,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -169,7 +168,7 @@ class UserProfile {
       lastDonation: lastDonation ?? this.lastDonation,
       isAdmin: isAdmin ?? this.isAdmin,
       photo: clearPhoto ? null : (photo ?? this.photo),
-      approved: approved ?? this.approved,
+      phoneVerified: phoneVerified ?? this.phoneVerified,
     );
   }
 }

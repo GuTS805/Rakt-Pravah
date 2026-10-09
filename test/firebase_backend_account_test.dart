@@ -1,12 +1,12 @@
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mock_exceptions/mock_exceptions.dart';
-import 'package:rakt_pravah/data/backend.dart' show SignInFailure;
+import 'package:rakt_pravah/data/backend.dart'
+    show PhoneCodeSent, PhoneVerificationFailure, SignInFailure;
 import 'package:rakt_pravah/data/firebase/firebase_backend.dart';
 import 'package:rakt_pravah/data/models/models.dart';
 
@@ -57,7 +57,6 @@ Future<void> _profile(
   'state': 'Maharashtra',
   'stateCode': 'MH',
   'city': 'Pune',
-  'approved': true,
   'isAdmin': false,
   'latitude': 18.5204,
   'longitude': 73.8567,
@@ -89,20 +88,33 @@ void main() {
       expect(user.countryCode, '+1');
       expect(user.phone, '4155550123');
       expect(user.bloodGroup, BloodGroup.aPos);
-      expect(user.approved, isTrue);
+      expect(user.phoneVerified, isFalse);
       expect(b.donorProfile.maxDistanceKm, 25);
       expect(b.donorProfile.availability, DonorAvailability.available);
     });
 
-    test('an account from before approval existed counts as approved', () async {
+    test('a number linked in Auth counts as verified', () async {
       await _profile(db, 'u1');
-      await db.doc('users/u1').update({'approved': fs.FieldValue.delete()});
-      expect((await _backend(db, uid: 'u1').restoreSession())!.approved, isTrue);
+      final b = FirebaseBackend.forTesting(
+        db,
+        MockFirebaseAuth(
+          signedIn: true,
+          mockUser: MockUser(
+            uid: 'u1',
+            email: 'dana@example.com',
+            phoneNumber: '+14155550123',
+          ),
+        ),
+      );
+      expect((await b.restoreSession())!.phoneVerified, isTrue);
     });
 
-    test('an unapproved account is restored as unapproved', () async {
-      await _profile(db, 'u1', extra: {'approved': false});
-      expect((await _backend(db, uid: 'u1').restoreSession())!.approved, isFalse);
+    test('a profile that only says it is verified does not count', () async {
+      await _profile(db, 'u1', extra: {'phoneVerified': true});
+      expect(
+        (await _backend(db, uid: 'u1').restoreSession())!.phoneVerified,
+        isFalse,
+      );
     });
 
     group('who is an operator', () {
@@ -152,10 +164,11 @@ void main() {
       return (b, u);
     }
 
-    test('creates an unapproved, non-admin profile', () async {
+    test('creates a non-admin profile whose phone is not verified yet', () async {
       final (b, _) = await register();
       final d = await _doc(db, 'users/${b.uid}');
-      expect(d['approved'], isFalse);
+      expect(d['phoneVerified'], isFalse);
+      expect(d.containsKey('approved'), isFalse);
       expect(d['isAdmin'], isFalse);
       expect(d.containsKey('role'), isFalse);
       expect(d['name'], 'Nina New');
@@ -252,12 +265,12 @@ void main() {
       expect((await _doc(db, 'users/u1'))['isAdmin'], isFalse);
     });
 
-    test('an account made in the console gets an unapproved profile', () async {
+    test('an account made in the console gets a profile with an unverified phone', () async {
       final auth = MockFirebaseAuth(mockUser: MockUser(uid: 'c1', email: 'console@example.com'));
       final b = FirebaseBackend.forTesting(db, auth);
       await b.signInWithPassword(email: 'console@example.com', password: 'x');
       final d = await _doc(db, 'users/c1');
-      expect(d['approved'], isFalse);
+      expect(d['phoneVerified'], isFalse);
       expect(d['isAdmin'], isFalse);
     });
 
@@ -451,6 +464,128 @@ void main() {
       await b.respondToInvitation('r1', InvitationStatus.accepted);
       final donor = ((await _doc(db, 'blood_requests/r1'))['acceptedDonors'] as List).single as Map;
       expect(donor['phoneCountryCode'], '+1');
+    });
+  });
+
+  group('verifying the phone', () {
+    const sent = PhoneCodeSent(
+      phoneNumber: '+919876543210',
+      verificationId: 'v1',
+    );
+
+    // Each test signs in as its own uid: the mocks match failures by user,
+    // and users with one uid count as the same user.
+    Future<(FirebaseBackend, MockUser)> signedIn({
+      String? phone,
+      String uid = 'u1',
+    }) async {
+      await _profile(db, uid, extra: {'countryCode': '+91', 'phone': '9000000000'});
+      final user = MockUser(uid: uid, email: 'dana@example.com', phoneNumber: phone);
+      final b = FirebaseBackend.forTesting(
+        db,
+        MockFirebaseAuth(signedIn: true, mockUser: user),
+      );
+      await b.restoreSession();
+      return (b, user);
+    }
+
+    Future<void> expectFailure(Future<Object?> f, String text) => expectLater(
+      f,
+      throwsA(
+        isA<PhoneVerificationFailure>().having(
+          (e) => e.message,
+          'message',
+          contains(text),
+        ),
+      ),
+    );
+
+    test('a number already on another account is refused by name', () async {
+      final (b, user) = await signedIn();
+      whenCalling(Invocation.method(#linkWithCredential, null))
+          .on(user)
+          .thenThrow(fb_auth.FirebaseAuthException(code: 'credential-already-in-use'));
+      await expectFailure(
+        b.confirmPhoneCode(sent, '123456'),
+        'already verified on another account',
+      );
+      expect((await _doc(db, 'users/u1'))['phoneVerified'], isNot(true));
+    });
+
+    test('a wrong code says so', () async {
+      final (b, user) = await signedIn(uid: 'wrong-code');
+      whenCalling(Invocation.method(#linkWithCredential, null))
+          .on(user)
+          .thenThrow(fb_auth.FirebaseAuthException(code: 'invalid-verification-code'));
+      await expectFailure(b.confirmPhoneCode(sent, '000000'), 'code is wrong');
+    });
+
+    test('an unknown failure keeps its code for whoever reads it', () async {
+      final (b, user) = await signedIn(uid: 'unknown-failure');
+      whenCalling(Invocation.method(#linkWithCredential, null))
+          .on(user)
+          .thenThrow(fb_auth.FirebaseAuthException(code: 'internal-error'));
+      await expectFailure(b.confirmPhoneCode(sent, '123456'), '[internal-error]');
+    });
+
+    test('once Auth has the number, the profile carries it as verified', () async {
+      // Android confirmed it on its own while the code was being typed.
+      final (b, _) = await signedIn(phone: '+919876543210');
+      final user = await b.confirmPhoneCode(sent, '123456');
+      expect(user.phoneVerified, isTrue);
+      expect(user.phone, '9876543210');
+      final d = await _doc(db, 'users/u1');
+      expect(d['phoneVerified'], isTrue);
+      expect(d['countryCode'], '+91');
+      expect(d['phone'], '9876543210');
+    });
+
+    test('a verified number is not changed by editing the profile', () async {
+      final (b, _) = await signedIn(phone: '+919000000000');
+      await b.updateProfile(
+        name: 'Dana',
+        bloodGroup: BloodGroup.aPos,
+        dateOfBirth: DateTime(1990),
+        gender: Gender.female,
+        country: 'India',
+        state: 'Maharashtra',
+        city: 'Pune',
+        phone: '9111111111',
+        countryCode: '+91',
+      );
+      expect((await _doc(db, 'users/u1'))['phone'], '9000000000');
+    });
+
+    test('a refused send is explained', () async {
+      final (b, _) = await signedIn();
+      final auth = MockFirebaseAuth(
+        signedIn: true,
+        mockUser: MockUser(uid: 'u1', email: 'dana@example.com'),
+      );
+      whenCalling(Invocation.method(#verifyPhoneNumber, null))
+          .on(auth)
+          .thenThrow(fb_auth.FirebaseAuthException(code: 'too-many-requests'));
+      final failing = FirebaseBackend.forTesting(db, auth);
+      await failing.restoreSession();
+      await expectFailure(
+        failing.sendPhoneCode('+919876543210'),
+        'Too many attempts',
+      );
+      expect(b.currentUser!.phoneVerified, isFalse);
+    });
+
+    test('verified accounts may act, others may not', () async {
+      final (unverified, _) = await signedIn();
+      expect(await unverified.canActStream.first, isFalse);
+
+      final (verified, _) = await signedIn(phone: '+919000000000');
+      expect(await verified.canActStream.first, isTrue);
+    });
+
+    test('an account the console switched off may not act', () async {
+      final (b, _) = await signedIn(phone: '+919000000000');
+      await db.doc('users/u1').update({'isActive': false});
+      expect(await b.canActStream.first, isFalse);
     });
   });
 }

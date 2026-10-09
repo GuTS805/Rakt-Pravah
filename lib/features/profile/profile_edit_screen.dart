@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/router/routes.dart';
 import '../../core/services/photo_picker.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
@@ -210,6 +211,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider)!;
     final hasPhoto = user.photo != null;
+    final verifiedPhone = user.phoneVerified ? user.displayPhone : null;
     return Scaffold(
       appBar: AppBar(title: const Text('Edit profile')),
       body: Form(
@@ -250,11 +252,15 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             ),
             const SizedBox(height: AppSpacing.lg),
             const FieldLabel('Phone number'),
-            PhoneNumberField(
-              phoneController: _phone,
-              initialCountryCode: _countryCode,
-              onCountryChanged: (c) => setState(() => _countryCode = c.dialCode),
-            ),
+            if (verifiedPhone != null)
+              _VerifiedPhone(number: verifiedPhone)
+            else
+              PhoneNumberField(
+                phoneController: _phone,
+                initialCountryCode: _countryCode,
+                onCountryChanged: (c) =>
+                    setState(() => _countryCode = c.dialCode),
+              ),
             const SizedBox(height: AppSpacing.lg),
             const FieldLabel('Blood group'),
             BloodGroupPicker(
@@ -284,6 +290,37 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             PrimaryButton(label: 'Save changes', busy: _busy, onPressed: _save),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A verified number, shown instead of an editable field: changing it takes a
+/// new code, so it goes through the verification screen.
+class _VerifiedPhone extends StatelessWidget {
+  const _VerifiedPhone({required this.number});
+  final String number;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      padding: const EdgeInsets.only(left: AppSpacing.lg),
+      decoration: BoxDecoration(
+        border: Border.all(color: c.border),
+        borderRadius: AppRadius.inputRadius,
+      ),
+      child: Row(
+        children: [
+          Expanded(child: Text(number, style: context.text.bodyLarge)),
+          Icon(Icons.verified_rounded, size: 18, color: c.success),
+          const SizedBox(width: AppSpacing.xs),
+          Text('Verified', style: context.text.bodySmall),
+          TextButton(
+            onPressed: () => context.push(Routes.verifyPhone),
+            child: const Text('Change'),
+          ),
+        ],
       ),
     );
   }

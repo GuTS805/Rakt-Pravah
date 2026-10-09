@@ -1,6 +1,6 @@
 // Access rules for blood requests, the patient's private details and chat.
 const { describe, it, before, after, beforeEach } = require('node:test');
-const { setup, baseline, seed, as, ids, openRequest, assertSucceeds, assertFails } = require('./helpers');
+const { setup, baseline, seed, as, asUnverified, ids, openRequest, assertSucceeds, assertFails } = require('./helpers');
 
 describe('blood_requests', () => {
   let env;
@@ -46,23 +46,26 @@ describe('blood_requests', () => {
       await assertFails(create(ids.requester, { requesterPhoto: 'x'.repeat(60001) }));
     });
 
-    describe('when operators require account approval', () => {
-      beforeEach(async () => {
-        await seed(env, async (db) => {
-          await db.doc('config/app').set({ requireApproval: true });
-          await db.doc(`users/${ids.stranger}`).set({ name: 's', approved: false, isAdmin: false });
-        });
+    describe('a verified phone number', () => {
+      const accept = (db) => db.doc('blood_requests/r1').update({
+        acceptedDonorIds: [ids.stranger], acceptedDonors: [accepted(ids.stranger)], status: 'donorAccepted', timeline: [],
       });
-      it('an unapproved account cannot request blood', async () => {
+      it('is needed to request blood', async () => {
+        await assertFails(asUnverified(env, ids.stranger).doc('blood_requests/new').set(openRequest({ requesterId: ids.stranger })));
+      });
+      it('is needed to accept a request', async () => {
+        await assertFails(accept(asUnverified(env, ids.stranger)));
+      });
+      it('with one, the same account can accept', async () => {
+        await assertSucceeds(accept(as(env, ids.stranger)));
+      });
+      it('is not enough once an operator has switched the account off', async () => {
+        await seed(env, (db) => db.doc(`users/${ids.stranger}`).set({ isActive: false }, { merge: true }));
         await assertFails(create(ids.stranger));
+        await assertFails(accept(as(env, ids.stranger)));
       });
-      it('an approved account still can', async () => {
-        await assertSucceeds(create(ids.requester));
-      });
-      it('an unapproved account cannot accept a request either', async () => {
-        await assertFails(req(ids.stranger).update({
-          acceptedDonorIds: [ids.stranger], acceptedDonors: [accepted(ids.stranger)], status: 'donorAccepted', timeline: [],
-        }));
+      it('is not needed by an operator', async () => {
+        await assertSucceeds(asUnverified(env, ids.admin).doc('blood_requests/new').set(openRequest({ requesterId: ids.admin })));
       });
     });
   });

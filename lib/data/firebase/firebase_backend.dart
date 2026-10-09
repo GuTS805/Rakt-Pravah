@@ -338,9 +338,9 @@ class FirebaseBackend implements Backend {
         'location': {'lat': effLat, 'lng': effLng},
       'email': email,
       'isAdmin': false,
-      // Every new account starts unapproved; the rules refuse anything else.
-      // Whether that holds anyone back is the operators' switch.
-      'approved': false,
+      // Verified only once a code texted to the number comes back; the rules
+      // refuse a profile that claims otherwise.
+      'phoneVerified': false,
       'lastDonation': null,
       'donor': _donorToMap(
         DonorProfile(
@@ -369,11 +369,14 @@ class FirebaseBackend implements Backend {
     String? phone,
     String? countryCode,
   }) async {
+    // A verified number only changes through a new code (confirmPhoneCode).
+    final keepPhone = currentUser?.phoneVerified ?? false;
     final effectiveCode =
-        (countryCode != null && countryCode.trim().isNotEmpty)
+        (!keepPhone && countryCode != null && countryCode.trim().isNotEmpty)
             ? countryCode.trim()
             : (currentUser?.countryCode ?? '+91');
-    final effectivePhone = (phone != null && phone.trim().isNotEmpty)
+    final effectivePhone =
+        (!keepPhone && phone != null && phone.trim().isNotEmpty)
         ? PhoneUtils.cleanDigits(phone)
         : currentUser?.phone;
 
@@ -439,7 +442,7 @@ class FirebaseBackend implements Backend {
       lastDonation: currentUser!.lastDonation,
       isAdmin: currentUser!.isAdmin,
       photo: currentUser!.photo,
-      approved: currentUser!.approved,
+      phoneVerified: currentUser!.phoneVerified,
     );
     donorProfile = donorProfile.copyWith(bloodGroup: bloodGroup);
   }
@@ -628,9 +631,7 @@ class FirebaseBackend implements Backend {
         'email': email,
         'isAdmin': isDesignatedAdmin,
         'role': isDesignatedAdmin ? 'admin' : 'user',
-        // The rules only let a profile be created unapproved; admins pass
-        // the approval check regardless.
-        'approved': false,
+        'phoneVerified': false,
         'lastDonation': null,
       };
       await _ack(_users.doc(userId).set(data, fs.SetOptions(merge: true)));
@@ -712,7 +713,7 @@ class FirebaseBackend implements Backend {
       lastDonation: (data['lastDonation'] as fs.Timestamp?)?.toDate(),
       isAdmin: isAdmin,
       photo: data['photo'] as String?,
-      approved: data['approved'] as bool? ?? true,
+      phoneVerified: _hasVerifiedPhone,
     );
     currentUser = user;
     _hasSavedGps = data['locationUpdatedAt'] != null;
@@ -723,42 +724,44 @@ class FirebaseBackend implements Backend {
     return user;
   }
 
+  /// Whether the signed-in account has a phone number confirmed by SMS. The
+  /// sign-in token carries it, which is what the security rules check.
+  bool get _hasVerifiedPhone =>
+      _auth.currentUser?.phoneNumber?.isNotEmpty ?? false;
+
   @override
   Stream<bool> get canActStream {
-    final config = _db.collection('config').doc('app');
     final me = _users.doc(uid);
     late final StreamController<bool> out;
     final subs = <StreamSubscription<dynamic>>[];
-    bool? gateOn;
-    bool? approved;
-    var admin = false;
+    bool? verified;
+    bool? admin;
+    var active = true;
 
     void emit() {
-      if (gateOn == null || approved == null) return;
-      out.add(!gateOn! || approved! || admin);
+      if (verified == null || admin == null) return;
+      out.add(
+        admin! || (currentUser?.isAdmin ?? false) || (verified! && active),
+      );
     }
 
     out = StreamController<bool>(
       onListen: () {
         subs.add(
-          config.snapshots().listen(
-            (doc) {
-              gateOn = doc.data()?['requireApproval'] == true;
-              emit();
-            },
-            onError: (_) {
-              // No readable config means no switch: don't hold anyone back.
-              gateOn = false;
-              emit();
-            },
-          ),
+          _auth.userChanges().listen((user) {
+            verified = user?.phoneNumber?.isNotEmpty ?? false;
+            emit();
+          }, onError: out.addError),
         );
         subs.add(
           me.snapshots().listen((doc) {
             final data = doc.data();
-            // A missing field is an account from before approval existed.
-            approved = data?['approved'] as bool? ?? true;
-            admin = data?['isAdmin'] == true;
+            admin =
+                data?['isAdmin'] == true ||
+                data?['role'] == 'admin' ||
+                _isDesignatedAdminEmail(data?['email'] as String?);
+            // An operator can switch an account off from the console.
+            active = data?['isActive'] != false && data?['disabled'] != true;
             emit();
           }, onError: out.addError),
         );
@@ -771,6 +774,172 @@ class FirebaseBackend implements Backend {
     );
     return out.stream;
   }
+
+  // ---------------------------------------------------------------------
+  // Phone verification. The number is linked to the account in Firebase
+  // Auth, so it is in every sign-in token from then on: the rules let only
+  // such accounts request blood or donate, and one number can belong to one
+  // account only.
+  // ---------------------------------------------------------------------
+
+  @override
+  Future<PhoneCodeSent?> sendPhoneCode(
+    String phoneNumber, {
+    PhoneCodeSent? resend,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw const PhoneVerificationFailure('Sign in again, then try.');
+    }
+
+    if (kIsWeb) {
+      if (_hasVerifiedPhone) {
+        throw const PhoneVerificationFailure(
+          'Change your number from the Rakt Pravah phone app.',
+        );
+      }
+      try {
+        final result = await user.linkWithPhoneNumber(phoneNumber);
+        return PhoneCodeSent(
+          phoneNumber: phoneNumber,
+          verificationId: result.verificationId,
+          confirm: (code) => result.confirm(code),
+        );
+      } on fb_auth.FirebaseAuthException catch (e) {
+        throw PhoneVerificationFailure(_phoneMessage(e.code));
+      }
+    }
+
+    final sent = Completer<PhoneCodeSent?>();
+    try {
+      await _auth.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        forceResendingToken: resend?.resendToken,
+        timeout: const Duration(seconds: 60),
+        verificationCompleted: (credential) async {
+          // Android read the SMS itself, possibly after the code screen is
+          // already up. The screen hears about it through canActStream.
+          try {
+            await _usePhoneCredential(credential);
+            if (!sent.isCompleted) sent.complete(null);
+          } catch (e) {
+            if (!sent.isCompleted) sent.completeError(e);
+          }
+        },
+        verificationFailed: (e) {
+          if (!sent.isCompleted) {
+            sent.completeError(PhoneVerificationFailure(_phoneMessage(e.code)));
+          }
+        },
+        codeSent: (verificationId, resendToken) {
+          if (!sent.isCompleted) {
+            sent.complete(
+              PhoneCodeSent(
+                phoneNumber: phoneNumber,
+                verificationId: verificationId,
+                resendToken: resendToken,
+              ),
+            );
+          }
+        },
+        codeAutoRetrievalTimeout: (_) {},
+      );
+    } on fb_auth.FirebaseAuthException catch (e) {
+      throw PhoneVerificationFailure(_phoneMessage(e.code));
+    }
+    return sent.future;
+  }
+
+  @override
+  Future<UserProfile> confirmPhoneCode(PhoneCodeSent sent, String code) async {
+    // Android may have confirmed it on its own while the code was typed.
+    if (_auth.currentUser?.phoneNumber == sent.phoneNumber) return _savePhone();
+
+    final confirm = sent.confirm;
+    if (confirm != null) {
+      try {
+        await confirm(code.trim());
+      } on fb_auth.FirebaseAuthException catch (e) {
+        throw PhoneVerificationFailure(_phoneMessage(e.code));
+      }
+      await _auth.currentUser!.getIdToken(true);
+      return _savePhone();
+    }
+
+    return _usePhoneCredential(
+      fb_auth.PhoneAuthProvider.credential(
+        verificationId: sent.verificationId,
+        smsCode: code.trim(),
+      ),
+    );
+  }
+
+  /// Makes the number in [credential] this account's phone: links it the
+  /// first time, replaces it on a change of number.
+  Future<UserProfile> _usePhoneCredential(
+    fb_auth.PhoneAuthCredential credential,
+  ) async {
+    final user = _auth.currentUser!;
+    try {
+      if (_hasVerifiedPhone) {
+        await user.updatePhoneNumber(credential);
+      } else {
+        await user.linkWithCredential(credential);
+      }
+    } on fb_auth.FirebaseAuthException catch (e) {
+      throw PhoneVerificationFailure(_phoneMessage(e.code));
+    }
+    // The rules read the number from the sign-in token, so fetch one that
+    // carries it before writing anything that depends on it.
+    await _auth.currentUser!.getIdToken(true);
+    return _savePhone();
+  }
+
+  /// Copies the verified number onto the profile, where the app shows it.
+  Future<UserProfile> _savePhone() async {
+    final parsed = PhoneUtils.parse(_auth.currentUser!.phoneNumber);
+    await _ack(
+      _users.doc(uid).set({
+        'countryCode': parsed.countryCode,
+        'phone': parsed.phone,
+        'phoneVerified': true,
+      }, fs.SetOptions(merge: true)),
+    );
+    final user = currentUser!.copyWith(
+      countryCode: parsed.countryCode,
+      phone: parsed.phone,
+      phoneVerified: true,
+    );
+    currentUser = user;
+    return user;
+  }
+
+  String _phoneMessage(String code) => switch (code) {
+    'invalid-phone-number' || 'missing-phone-number' =>
+      'That phone number doesn\'t look right. Check it and try again.',
+    'invalid-verification-code' || 'missing-verification-code' =>
+      'That code is wrong. Check the SMS and try again.',
+    'session-expired' || 'code-expired' || 'invalid-verification-id' =>
+      'That code has expired. Send a new one.',
+    'credential-already-in-use' ||
+    'account-exists-with-different-credential' =>
+      'This number is already verified on another account.',
+    'provider-already-linked' =>
+      'This account already has a verified number.',
+    'too-many-requests' => 'Too many attempts. Wait a while and try again.',
+    'quota-exceeded' => 'No more codes can be sent today. Try again tomorrow.',
+    'operation-not-allowed' || 'billing-not-enabled' =>
+      'Phone verification isn\'t switched on for this app yet.',
+    'app-not-authorized' ||
+    'invalid-app-credential' ||
+    'missing-client-identifier' ||
+    'captcha-check-failed' =>
+      'This copy of the app can\'t send codes. Install the official app.',
+    'network-request-failed' =>
+      'No internet connection. Check it and try again.',
+    'requires-recent-login' => 'Sign out and sign in again, then try.',
+    _ => 'Couldn\'t verify the number. Try again. [$code]',
+  };
 
   @override
   Future<void> signOut() async {

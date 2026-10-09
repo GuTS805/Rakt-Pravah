@@ -20,17 +20,41 @@ service cloud.firestore {
       return photo == null || (photo is string && photo.size() <= 60000);
     }
 
-    // Whether an account may ask for blood or donate. The operators' switch
-    // lives in config/app (off when that document does not exist). While it
-    // is on, only approved accounts and operators pass. An account from
-    // before approval existed has no approved field and counts as approved.
+    // A phone number confirmed by SMS. Firebase Auth puts it in the sign-in
+    // token once it is linked to the account, so nobody can claim one they
+    // haven't received a code on, and one number belongs to one account.
+    function hasVerifiedPhone() {
+      return isSignedIn()
+        && request.auth.token.get('phone_number', null) is string;
+    }
+
+    // Whether an account may ask for blood or donate: its phone number is
+    // verified and the console hasn't switched it off. Operators always may.
     function canAct() {
-      return !exists(/databases/$(database)/documents/config/app)
-        || get(/databases/$(database)/documents/config/app)
-             .data.get('requireApproval', false) != true
-        || isAdmin()
-        || get(/databases/$(database)/documents/users/$(request.auth.uid))
-             .data.get('approved', true) == true;
+      return isAdmin()
+        || (hasVerifiedPhone()
+            && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid))
+                 .data.get('isActive', true) != false
+            && get(/databases/$(database)/documents/users/$(request.auth.uid))
+                 .data.get('disabled', false) != true);
+    }
+
+    // The phone on a profile is what donors and patients call. Once the
+    // account has a verified number, the profile can only carry that number,
+    // and only then may it say it is verified. Before that the number is
+    // free to change (to fix a typo before the code is sent).
+    function phoneFieldsOk(data) {
+      return hasVerifiedPhone()
+        ? (data.get('countryCode', '') + data.get('phone', ''))
+              == request.auth.token.phone_number
+          && data.get('phoneVerified', false) == true
+        : data.get('phoneVerified', false) != true;
+    }
+
+    function phoneFieldsChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['phone', 'countryCode', 'phoneVerified']);
     }
 
     function isDesignatedAdmin() {
@@ -67,8 +91,9 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.auth.uid == uid
         && (isDesignatedAdmin() || (
              request.resource.data.get('isAdmin', false) == false
-             && request.resource.data.get('role', 'user') != 'admin'
-             && request.resource.data.get('approved', null) == false))
+             && request.resource.data.get('role', 'user') != 'admin'))
+        && (request.resource.data.get('phoneVerified', false) != true
+            || phoneFieldsOk(request.resource.data))
         && photoOk(request.resource.data.get('photo', null));
 
       allow update: if isSignedIn() && (
@@ -76,11 +101,13 @@ service cloud.firestore {
           && (isDesignatedAdmin() || (
                request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false)
                && request.resource.data.get('role', 'user') == resource.data.get('role', 'user')
-               && request.resource.data.get('approved', null) == resource.data.get('approved', null)))
+               && request.resource.data.get('isActive', true) == resource.data.get('isActive', true)
+               && request.resource.data.get('disabled', false) == resource.data.get('disabled', false)))
+          && (!phoneFieldsChanged() || phoneFieldsOk(request.resource.data))
           && photoOk(request.resource.data.get('photo', null)))
         || (isAdmin()
           && request.resource.data.diff(resource.data)
-               .affectedKeys().hasOnly(['isAdmin', 'role', 'isActive', 'disabled', 'approved']))
+               .affectedKeys().hasOnly(['isAdmin', 'role', 'isActive', 'disabled']))
       );
 
       allow delete: if false;

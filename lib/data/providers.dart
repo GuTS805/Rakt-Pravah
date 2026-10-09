@@ -145,6 +145,12 @@ class AuthController extends Notifier<AuthState> {
     state = AuthState(AuthStatus.authenticated, user);
   }
 
+  /// Takes up the profile after its phone number was verified.
+  void phoneVerified(UserProfile user) {
+    if (state.user == null) return;
+    state = AuthState(state.status, user);
+  }
+
   Future<void> sendPasswordReset(String email) =>
       _backend.sendPasswordReset(email);
 
@@ -445,19 +451,23 @@ final nearbyDonorsProvider = StreamProvider.family<List<MatchedDonor>, String>((
   return backend.nearbyDonorsStream(requestId);
 });
 
-/// Whether this account may ask for blood or donate. Live: an operator's
-/// approval reaches the open app.
+/// Whether this account may ask for blood or donate: its phone number is
+/// verified. Live, so a verification counts at once.
 final canActProvider = StreamProvider<bool>((ref) {
-  if (ref.watch(currentUserProvider) == null) return const Stream.empty();
+  if (ref.watch(currentUserProvider.select((u) => u?.id)) == null) {
+    return const Stream.empty();
+  }
   return ref.watch(backendProvider).canActStream;
 });
 
-/// [canActProvider] as a plain answer. True until the stream says otherwise:
-/// the security rules are the real enforcement, so a slow first read shouldn't
-/// flash a warning at someone who is allowed.
-final canActValueProvider = Provider<bool>(
-  (ref) => ref.watch(canActProvider).valueOrNull ?? true,
-);
+/// [canActProvider] as a plain answer. Until the stream speaks, the profile
+/// that was just loaded answers.
+final canActValueProvider = Provider<bool>((ref) {
+  final live = ref.watch(canActProvider).valueOrNull;
+  if (live != null) return live;
+  final user = ref.watch(currentUserProvider);
+  return user != null && (user.phoneVerified || user.isAdmin);
+});
 
 /// Camera and gallery, behind a provider so tests can hand back a picture
 /// without a device.

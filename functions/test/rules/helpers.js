@@ -18,6 +18,8 @@ async function setup() {
   });
 }
 
+const PHONE = '9876543210';
+
 const ids = {
   requester: 'requester1',
   donor: 'donor1',
@@ -51,15 +53,22 @@ async function baseline(env) {
   await env.clearFirestore();
   await seed(env, async (db) => {
     for (const id of [ids.requester, ids.donor, ids.donor2, ids.stranger]) {
-      await db.doc(`users/${id}`).set({ name: id, email: `${id}@example.com`, approved: true, isAdmin: false, phone: '9876543210' });
+      await db.doc(`users/${id}`).set({ name: id, email: `${id}@example.com`, isAdmin: false, countryCode: '+91', phone: PHONE, phoneVerified: true });
     }
-    await db.doc(`users/${ids.admin}`).set({ name: 'Op', email: 'ops@example.com', approved: true, isAdmin: true });
+    await db.doc(`users/${ids.admin}`).set({ name: 'Op', email: 'ops@example.com', isAdmin: true });
     await db.doc('blood_requests/r1').set(openRequest());
     await db.doc('blood_requests/r1/private/patient').set({ name: 'Sunil', phone: '9000000000' });
     await db.doc('blood_requests/r1/messages/m0').set({ senderId: ids.requester, text: 'hi' });
   });
 }
 
-const as = (env, uid, email) => env.authenticatedContext(uid, { email: email || `${uid}@example.com` }).firestore();
+// Signed in with a phone number verified by SMS, which Firebase Auth puts in
+// the token as `phone_number`. Every seeded account has one.
+const as = (env, uid, email) =>
+  env.authenticatedContext(uid, { email: email || `${uid}@example.com`, phone_number: `+91${PHONE}` }).firestore();
 
-module.exports = { setup, baseline, seed, as, ids, openRequest, assertSucceeds, assertFails };
+// Signed in, but the phone number has not been verified yet.
+const asUnverified = (env, uid, email) =>
+  env.authenticatedContext(uid, { email: email || `${uid}@example.com` }).firestore();
+
+module.exports = { setup, baseline, seed, as, asUnverified, ids, openRequest, PHONE, assertSucceeds, assertFails };

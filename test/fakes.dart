@@ -104,8 +104,20 @@ class FakeBackend implements Backend {
   void emitInvitations(List<Invitation> next) => _invitations.value = next;
   void emitDonor(DonorProfile next) => _donor.value = next;
 
-  /// Flips whether the account may act, as an operator's approval would.
+  /// Flips whether the account may act, as verifying its phone would.
   void emitCanAct(bool next) => _canAct.value = next;
+
+  /// Numbers a code was texted to, in order.
+  final List<String> phoneCodesSentTo = [];
+
+  /// The code the fake SMS carries.
+  String phoneCode = '123456';
+
+  /// Thrown (once) by the next sendPhoneCode.
+  Object? sendPhoneCodeError;
+
+  /// The next sendPhoneCode verifies without a code, as Android can.
+  bool verifyWithoutCode = false;
 
   // --- Backend -----------------------------------------------------------
 
@@ -711,7 +723,7 @@ class FakeBackend implements Backend {
       lastDonation: user.lastDonation,
       isAdmin: user.isAdmin,
       photo: user.photo,
-      approved: user.approved,
+      phoneVerified: user.phoneVerified,
     );
   }
 
@@ -748,7 +760,7 @@ class FakeBackend implements Backend {
       lastDonation: user.lastDonation,
       isAdmin: user.isAdmin,
       photo: photo,
-      approved: user.approved,
+      phoneVerified: user.phoneVerified,
     );
 
     final currentRequests = _requests.value;
@@ -764,6 +776,50 @@ class FakeBackend implements Backend {
 
   @override
   Stream<bool> get canActStream => _canAct.stream;
+
+  @override
+  Future<PhoneCodeSent?> sendPhoneCode(
+    String phoneNumber, {
+    PhoneCodeSent? resend,
+  }) async {
+    final error = sendPhoneCodeError;
+    if (error != null) {
+      sendPhoneCodeError = null;
+      throw error;
+    }
+    phoneCodesSentTo.add(phoneNumber);
+    if (verifyWithoutCode) {
+      _verify(phoneNumber);
+      return null;
+    }
+    return PhoneCodeSent(
+      phoneNumber: phoneNumber,
+      verificationId: 'verification-${phoneCodesSentTo.length}',
+      resendToken: phoneCodesSentTo.length,
+    );
+  }
+
+  @override
+  Future<UserProfile> confirmPhoneCode(PhoneCodeSent sent, String code) async {
+    if (code != phoneCode) {
+      throw const PhoneVerificationFailure(
+        'That code is wrong. Check the SMS and try again.',
+      );
+    }
+    return _verify(sent.phoneNumber);
+  }
+
+  UserProfile _verify(String phoneNumber) {
+    final parsed = PhoneUtils.parse(phoneNumber);
+    final user = currentUser!.copyWith(
+      countryCode: parsed.countryCode,
+      phone: parsed.phone,
+      phoneVerified: true,
+    );
+    currentUser = user;
+    _canAct.value = true;
+    return user;
+  }
 
   @override
   Future<void> signOut() async => currentUser = null;

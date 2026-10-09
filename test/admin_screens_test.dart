@@ -100,7 +100,9 @@ AdminUser _user(
   phone: '98765${id.padLeft(5, '0')}',
   bloodGroup: group,
   isAdmin: false,
-  emailVerified: verified,
+  emailVerified: true,
+  // A verified donor confirmed their phone number by SMS.
+  phoneVerified: verified,
   city: city,
   donorAvailability: donor,
   lastDonation: lastDonation,

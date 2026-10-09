@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../data/models/models.dart';
 import '../../data/providers.dart';
 import '../router/routes.dart';
-import 'approval_gate.dart';
+import 'phone_gate.dart';
 
 /// Checks the things a donor action needs before it happens: turning Donor
 /// Mode on, or accepting a request. Returns true when the user can go ahead;
@@ -13,11 +13,11 @@ import 'approval_gate.dart';
 /// action.
 ///
 /// Requesting blood never checks age or profile state: anyone may ask for
-/// help. Approval, when the operators have switched it on, applies to both.
+/// help. Both need a verified phone number.
 bool requireDonorProfile(BuildContext context, WidgetRef ref) {
   final user = ref.read(currentUserProvider);
   if (user == null) return false;
-  if (!requireApproval(context, ref)) return false;
+  if (!requireVerifiedPhone(context, ref)) return false;
   final messenger = ScaffoldMessenger.of(context);
   final age = user.ageOn();
 

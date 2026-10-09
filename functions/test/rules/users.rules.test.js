@@ -1,6 +1,6 @@
 // Privacy and access rules for user profiles and their device records.
 const { describe, it, before, after, beforeEach } = require('node:test');
-const { setup, baseline, as, ids, assertSucceeds, assertFails } = require('./helpers');
+const { setup, baseline, as, asUnverified, ids, PHONE, assertSucceeds, assertFails } = require('./helpers');
 
 describe('users collection', () => {
   let env;
@@ -27,16 +27,22 @@ describe('users collection', () => {
   });
 
   describe('creating a profile', () => {
-    const newUser = (extra = {}) => ({ name: 'New', email: 'new@example.com', approved: false, isAdmin: false, ...extra });
-    const fresh = () => as(env, 'fresh', 'new@example.com');
-    it('a new account can create its own, unapproved profile', async () => {
+    const newUser = (extra = {}) => ({ name: 'New', email: 'new@example.com', isAdmin: false, countryCode: '+91', phone: PHONE, phoneVerified: false, ...extra });
+    const fresh = () => asUnverified(env, 'fresh', 'new@example.com');
+    it('a new account can create its own profile, not yet verified', async () => {
       await assertSucceeds(fresh().doc('users/fresh').set(newUser()));
     });
     it('cannot create a profile for someone else', async () => {
       await assertFails(fresh().doc('users/other').set(newUser()));
     });
-    it('cannot create itself already approved', async () => {
-      await assertFails(fresh().doc('users/fresh').set(newUser({ approved: true })));
+    it('cannot claim a verified phone it has no code for', async () => {
+      await assertFails(fresh().doc('users/fresh').set(newUser({ phoneVerified: true })));
+    });
+    it('with a verified phone, can say so for that same number', async () => {
+      await assertSucceeds(as(env, 'fresh', 'new@example.com').doc('users/fresh').set(newUser({ phoneVerified: true })));
+    });
+    it('with a verified phone, cannot put a different number on the profile as verified', async () => {
+      await assertFails(as(env, 'fresh', 'new@example.com').doc('users/fresh').set(newUser({ phone: '9111111111', phoneVerified: true })));
     });
     it('cannot create itself as an admin', async () => {
       await assertFails(fresh().doc('users/fresh').set(newUser({ isAdmin: true })));
@@ -54,8 +60,26 @@ describe('users collection', () => {
 
   describe('updating a profile', () => {
     const me = () => as(env, ids.donor).doc(`users/${ids.donor}`);
-    it('the owner can update their name, phone and saved GPS position', async () => {
-      await assertSucceeds(me().set({ name: 'Renamed', phone: '9111111111', latitude: 18.5, longitude: 73.8, location: { lat: 18.5, lng: 73.8 } }, { merge: true }));
+    it('the owner can update their name and saved GPS position', async () => {
+      await assertSucceeds(me().set({ name: 'Renamed', latitude: 18.5, longitude: 73.8, location: { lat: 18.5, lng: 73.8 } }, { merge: true }));
+    });
+    it('rewriting the same verified number is not a change', async () => {
+      await assertSucceeds(me().set({ name: 'Renamed', countryCode: '+91', phone: PHONE }, { merge: true }));
+    });
+    it('a verified number cannot be swapped for another on the profile', async () => {
+      await assertFails(me().set({ phone: '9111111111' }, { merge: true }));
+    });
+    it('before verifying, the owner can fix their number', async () => {
+      await env.withSecurityRulesDisabled((c) => c.firestore().doc(`users/${ids.donor}`).set({ phoneVerified: false }, { merge: true }));
+      await assertSucceeds(asUnverified(env, ids.donor).doc(`users/${ids.donor}`).set({ phone: '9111111111' }, { merge: true }));
+    });
+    it('before verifying, the owner cannot mark the number verified', async () => {
+      await env.withSecurityRulesDisabled((c) => c.firestore().doc(`users/${ids.donor}`).set({ phoneVerified: false }, { merge: true }));
+      await assertFails(asUnverified(env, ids.donor).doc(`users/${ids.donor}`).set({ phoneVerified: true }, { merge: true }));
+    });
+    it('once the code is confirmed, the owner marks that number verified', async () => {
+      await env.withSecurityRulesDisabled((c) => c.firestore().doc(`users/${ids.donor}`).set({ phone: '9000000000', phoneVerified: false }, { merge: true }));
+      await assertSucceeds(me().set({ countryCode: '+91', phone: PHONE, phoneVerified: true }, { merge: true }));
     });
     it('the owner cannot make themselves an admin', async () => {
       await assertFails(me().set({ isAdmin: true }, { merge: true }));
@@ -63,15 +87,22 @@ describe('users collection', () => {
     it('the owner cannot set role=admin', async () => {
       await assertFails(me().set({ role: 'admin' }, { merge: true }));
     });
-    it('the owner cannot approve their own account', async () => {
-      await env.withSecurityRulesDisabled((c) => c.firestore().doc(`users/${ids.donor}`).set({ approved: false }, { merge: true }));
-      await assertFails(me().set({ approved: true }, { merge: true }));
+    it('the owner cannot switch their account back on after an operator turned it off', async () => {
+      await env.withSecurityRulesDisabled((c) => c.firestore().doc(`users/${ids.donor}`).set({ isActive: false }, { merge: true }));
+      await assertFails(me().set({ isActive: true }, { merge: true }));
+    });
+    it('the owner cannot clear a disabled flag either', async () => {
+      await env.withSecurityRulesDisabled((c) => c.firestore().doc(`users/${ids.donor}`).set({ disabled: true }, { merge: true }));
+      await assertFails(me().set({ disabled: false }, { merge: true }));
     });
     it("another user cannot change someone else's profile", async () => {
       await assertFails(as(env, ids.stranger).doc(`users/${ids.donor}`).set({ name: 'Hacked' }, { merge: true }));
     });
-    it('an operator may approve an account', async () => {
-      await assertSucceeds(as(env, ids.admin).doc(`users/${ids.donor}`).update({ approved: true }));
+    it('an operator may switch an account off', async () => {
+      await assertSucceeds(as(env, ids.admin).doc(`users/${ids.donor}`).update({ isActive: false }));
+    });
+    it('an operator cannot change whether a number is verified', async () => {
+      await assertFails(as(env, ids.admin).doc(`users/${ids.donor}`).update({ phoneVerified: false }));
     });
     it('an operator may disable an account', async () => {
       await assertSucceeds(as(env, ids.admin).doc(`users/${ids.donor}`).update({ disabled: true }));

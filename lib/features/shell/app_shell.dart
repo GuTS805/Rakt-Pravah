@@ -20,8 +20,8 @@ class AppShell extends ConsumerWidget {
     final pending = ref.watch(pendingInvitationsProvider).length;
     final donorOn = ref.watch(donorProfileValueProvider).isOn;
     final processing = ref.watch(processingCountProvider);
-    // Kept listening for as long as the app is open, so an approval arrives
-    // live and the gate on requesting and donating is never stale.
+    // Kept listening for as long as the app is open, so a verified number
+    // counts at once and the gate on requesting and donating is never stale.
     ref.watch(canActProvider);
 
     return Scaffold(

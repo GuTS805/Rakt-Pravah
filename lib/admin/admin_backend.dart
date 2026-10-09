@@ -111,53 +111,6 @@ class AdminBackend {
     );
   }
 
-  /// Clears, or withdraws clearance from, one account. Only matters while
-  /// [requireApproval] is on.
-  Future<void> setApproved(String uid, bool approved) async {
-    await _users.doc(uid).set({
-      'approved': approved,
-    }, fs.SetOptions(merge: true));
-    await _writeAudit(
-      action: approved ? 'user.approve' : 'user.revokeApproval',
-      targetId: uid,
-    );
-  }
-
-  /// Approves everyone still waiting, in one go. Returns how many. For the
-  /// moment the switch goes on and accounts made while it was off would
-  /// otherwise be locked out.
-  Future<int> approveAllWaiting(List<String> uids) async {
-    if (uids.isEmpty) return 0;
-    final batch = db.batch();
-    for (final uid in uids) {
-      batch.set(_users.doc(uid), {
-        'approved': true,
-      }, fs.SetOptions(merge: true));
-    }
-    await batch.commit();
-    await _writeAudit(
-      action: 'user.approveAll',
-      targetId: 'users',
-      detail: '${uids.length} accounts',
-    );
-    return uids.length;
-  }
-
-  // --- Approval switch ---------------------------------------------------
-
-  /// Whether new accounts have to be approved before they can request blood
-  /// or donate. Off when the setting has never been written.
-  Stream<bool> get requireApproval =>
-      _config.snapshots().map((doc) => doc.data()?['requireApproval'] == true);
-
-  Future<void> setRequireApproval(bool on) async {
-    await _config.set({'requireApproval': on}, fs.SetOptions(merge: true));
-    await _writeAudit(
-      action: on ? 'approval.on' : 'approval.off',
-      targetId: 'config/app',
-    );
-  }
-
   // --- Cooldown configuration --------------------------------------------
 
   Stream<CooldownConfig> get cooldownConfig => _config.snapshots().map(
@@ -425,7 +378,7 @@ class AdminUser {
     required this.isAdmin,
     required this.emailVerified,
     this.isActive = true,
-    this.approved = true,
+    this.phoneVerified = false,
     this.photo,
     this.email,
     this.city,
@@ -445,8 +398,9 @@ class AdminUser {
 
   String get displayPhone => PhoneUtils.formatDisplay(countryCode, phone);
 
-  /// Missing on accounts that predate approval, which count as approved.
-  final bool approved;
+  /// The number was confirmed with a code sent to it by SMS. Until then the
+  /// account cannot request blood or donate.
+  final bool phoneVerified;
   final String? photo;
   final String? email;
   final String? city;
@@ -487,7 +441,7 @@ class AdminUser {
       isAdmin: m['isAdmin'] as bool? ?? false,
       isActive:
           (m['isActive'] as bool?) ?? (!(m['disabled'] as bool? ?? false)),
-      approved: m['approved'] as bool? ?? true,
+      phoneVerified: m['phoneVerified'] == true,
       photo: m['photo'] as String?,
       // Firebase owns the real claim; the doc only mirrors that an address
       // exists, so this is "has a verified address on file", not authority.

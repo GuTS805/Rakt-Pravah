@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rakt_pravah/core/router/routes.dart';
 import 'package:rakt_pravah/core/services/donor_gate.dart';
 import 'package:rakt_pravah/core/theme/app_theme.dart';
+import 'package:rakt_pravah/data/backend.dart';
 import 'package:rakt_pravah/data/backend_error.dart';
 import 'package:rakt_pravah/data/models/models.dart';
 import 'package:rakt_pravah/data/providers.dart';
@@ -17,6 +18,7 @@ import 'package:rakt_pravah/features/auth/login_screen.dart';
 import 'package:rakt_pravah/features/requests/request_detail_screen.dart';
 import 'package:rakt_pravah/features/requests/requests_screen.dart';
 import 'package:rakt_pravah/features/shell/app_shell.dart';
+import 'package:rakt_pravah/features/auth/verify_phone_screen.dart';
 import 'package:rakt_pravah/features/home/home_screen.dart';
 import 'package:rakt_pravah/features/invitations/invitation_detail_screen.dart';
 
@@ -34,11 +36,13 @@ UserProfile _user({
   String name = 'Alok Sharma',
   BloodGroup group = BloodGroup.oPos,
   String? city,
+  bool phoneVerified = true,
 }) => UserProfile(
   id: 'u1',
   name: name,
   bloodGroup: group,
   phone: '9876543210',
+  phoneVerified: phoneVerified,
   dateOfBirth: age == null
       ? null
       : DateTime.now().subtract(Duration(days: age * 366)),
@@ -107,6 +111,10 @@ Widget _app({
       GoRoute(
         path: Routes.createRequest,
         builder: (_, _) => const Scaffold(body: Text('CREATE REQUEST SCREEN')),
+      ),
+      GoRoute(
+        path: Routes.verifyPhone,
+        builder: (_, _) => const VerifyPhoneScreen(),
       ),
     ],
   );
@@ -593,117 +601,240 @@ void main() {
     });
   });
 
-  group('approval', () {
-    Future<void> openHome(WidgetTester tester, FakeBackend backend) async {
+  group('phone verification', () {
+    Future<void> openHome(
+      WidgetTester tester,
+      FakeBackend backend, {
+      UserProfile? user,
+    }) async {
       _useTallPhone(tester);
       await tester.pumpWidget(
-        _app(backend: backend, user: _user(), screen: const HomeScreen()),
+        _app(backend: backend, user: user ?? _user(phoneVerified: false), screen: const HomeScreen()),
       );
       await _pumpFrames(tester);
     }
 
-    testWidgets('an approved account sees no banner and can request', (
+    Future<bool?> tryDonorCheck(
+      WidgetTester tester,
+      FakeBackend backend,
+      UserProfile user,
+    ) async {
+      bool? allowed;
+      await tester.pumpWidget(
+        _app(
+          backend: backend,
+          user: user,
+          screen: Consumer(
+            builder: (context, ref, _) {
+              ref.watch(canActProvider); // the app shell does this
+              return Scaffold(
+                body: TextButton(
+                  onPressed: () => allowed = requireDonorProfile(context, ref),
+                  child: const Text('try'),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await _pumpFrames(tester);
+      await tester.tap(find.text('try'));
+      await _pumpFrames(tester);
+      return allowed;
+    }
+
+    testWidgets('a verified account sees no banner and can request', (
       tester,
     ) async {
-      await openHome(tester, FakeBackend(user: _user()));
+      await openHome(
+        tester,
+        FakeBackend(user: _user(phoneVerified: true)),
+        user: _user(phoneVerified: true),
+      );
 
-      expect(find.text('Waiting for approval'), findsNothing);
+      expect(find.text('Verify your phone number'), findsNothing);
       await tester.tap(find.text('Create blood request'));
       await _pumpFrames(tester);
       expect(find.text('CREATE REQUEST SCREEN'), findsOneWidget);
     });
 
-    testWidgets('a waiting account is told so, and cannot start a request', (
+    testWidgets('an unverified account is asked to verify before requesting', (
       tester,
     ) async {
-      final backend = FakeBackend(user: _user())..emitCanAct(false);
+      final backend = FakeBackend(user: _user(phoneVerified: false))..emitCanAct(false);
       await openHome(tester, backend);
 
-      expect(find.text('Waiting for approval'), findsOneWidget);
+      expect(find.text('Verify your phone number'), findsOneWidget);
       await tester.tap(find.text('Create blood request'));
       await _pumpFrames(tester);
 
       expect(find.text('CREATE REQUEST SCREEN'), findsNothing);
-      expect(find.textContaining('waiting for approval'), findsOneWidget);
+      expect(find.text('Verify phone number'), findsOneWidget);
     });
 
-    testWidgets('approval reaches the open app without a restart', (
+    testWidgets('the texted code verifies the number and unlocks requesting', (
       tester,
     ) async {
-      final backend = FakeBackend(user: _user())..emitCanAct(false);
+      final backend = FakeBackend(user: _user(phoneVerified: false))..emitCanAct(false);
       await openHome(tester, backend);
-      expect(find.text('Waiting for approval'), findsOneWidget);
 
-      backend.emitCanAct(true);
+      await tester.tap(find.text('Verify your phone number'));
+      await _pumpFrames(tester);
+      // The number given at registration is already filled in.
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        '9876543210',
+      );
+
+      await tester.tap(find.text('Send code'));
+      await _pumpFrames(tester);
+      expect(backend.phoneCodesSentTo, ['+919876543210']);
+      expect(find.textContaining('+91 98765 43210'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), '123456');
+      await tester.tap(find.text('Verify'));
       await _pumpFrames(tester);
 
-      expect(find.text('Waiting for approval'), findsNothing);
+      expect(find.text('Phone number verified.'), findsOneWidget);
+      expect(backend.currentUser!.phoneVerified, isTrue);
+      expect(find.text('Verify your phone number'), findsNothing);
+
       await tester.tap(find.text('Create blood request'));
       await _pumpFrames(tester);
       expect(find.text('CREATE REQUEST SCREEN'), findsOneWidget);
     });
 
-    testWidgets('a waiting account cannot turn Donor Mode on or accept', (
+    testWidgets('a wrong code is explained and nothing is verified', (
       tester,
     ) async {
-      final backend = FakeBackend(user: _user())..emitCanAct(false);
-      bool? allowed;
-      await tester.pumpWidget(
-        _app(
-          backend: backend,
-          user: _user(),
-          screen: Consumer(
-            builder: (context, ref, _) {
-              ref.watch(canActProvider); // the app shell does this
-              return Scaffold(
-                body: TextButton(
-                  onPressed: () => allowed = requireDonorProfile(context, ref),
-                  child: const Text('try'),
-                ),
-              );
-            },
-          ),
-        ),
-      );
+      final backend = FakeBackend(user: _user(phoneVerified: false))..emitCanAct(false);
+      await openHome(tester, backend);
+      await tester.tap(find.text('Verify your phone number'));
+      await _pumpFrames(tester);
+      await tester.tap(find.text('Send code'));
       await _pumpFrames(tester);
 
-      await tester.tap(find.text('try'));
-      await tester.pump();
+      await tester.enterText(find.byType(TextField), '000000');
+      await tester.tap(find.text('Verify'));
+      await _pumpFrames(tester);
+
+      expect(find.textContaining('That code is wrong'), findsOneWidget);
+      expect(backend.currentUser!.phoneVerified, isFalse);
+      expect(find.text('Verify phone number'), findsOneWidget);
+    });
+
+    testWidgets('a short code is caught before it is checked', (tester) async {
+      final backend = FakeBackend(user: _user(phoneVerified: false))..emitCanAct(false);
+      await openHome(tester, backend);
+      await tester.tap(find.text('Verify your phone number'));
+      await _pumpFrames(tester);
+      await tester.tap(find.text('Send code'));
+      await _pumpFrames(tester);
+
+      await tester.enterText(find.byType(TextField), '123');
+      await tester.tap(find.text('Verify'));
+      await _pumpFrames(tester);
+
+      expect(find.text('Enter the 6-digit code from the SMS.'), findsOneWidget);
+    });
+
+    testWidgets('a code that cannot be sent says why', (tester) async {
+      final backend = FakeBackend(user: _user(phoneVerified: false))
+        ..emitCanAct(false)
+        ..sendPhoneCodeError = const PhoneVerificationFailure(
+          'Phone verification isn\'t switched on for this app yet.',
+        );
+      await openHome(tester, backend);
+      await tester.tap(find.text('Verify your phone number'));
+      await _pumpFrames(tester);
+      await tester.tap(find.text('Send code'));
+      await _pumpFrames(tester);
+
+      expect(
+        find.text('Phone verification isn\'t switched on for this app yet.'),
+        findsOneWidget,
+      );
+      expect(find.text('Send code'), findsOneWidget);
+    });
+
+    testWidgets('a mistyped number can be corrected before resending', (
+      tester,
+    ) async {
+      final backend = FakeBackend(user: _user(phoneVerified: false))..emitCanAct(false);
+      await openHome(tester, backend);
+      await tester.tap(find.text('Verify your phone number'));
+      await _pumpFrames(tester);
+      await tester.tap(find.text('Send code'));
+      await _pumpFrames(tester);
+
+      await tester.tap(find.text('Change number'));
+      await _pumpFrames(tester);
+      await tester.enterText(find.byType(TextFormField), '9123456789');
+      await tester.tap(find.text('Send code'));
+      await _pumpFrames(tester);
+
+      expect(backend.phoneCodesSentTo, ['+919876543210', '+919123456789']);
+    });
+
+    testWidgets('resending waits 30 seconds', (tester) async {
+      final backend = FakeBackend(user: _user(phoneVerified: false))..emitCanAct(false);
+      await openHome(tester, backend);
+      await tester.tap(find.text('Verify your phone number'));
+      await _pumpFrames(tester);
+      await tester.tap(find.text('Send code'));
+      await _pumpFrames(tester);
+
+      expect(find.text('Resend code in 30s'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 30));
+      await tester.tap(find.text('Resend code'));
+      await _pumpFrames(tester);
+
+      expect(backend.phoneCodesSentTo, hasLength(2));
+    });
+
+    testWidgets('when Android reads the SMS itself, no code is needed', (
+      tester,
+    ) async {
+      final backend = FakeBackend(user: _user(phoneVerified: false))
+        ..emitCanAct(false)
+        ..verifyWithoutCode = true;
+      await openHome(tester, backend);
+      await tester.tap(find.text('Verify your phone number'));
+      await _pumpFrames(tester);
+      await tester.tap(find.text('Send code'));
+      await _pumpFrames(tester);
+
+      expect(find.text('Phone number verified.'), findsOneWidget);
+      expect(backend.currentUser!.phoneVerified, isTrue);
+    });
+
+    testWidgets('an unverified account cannot turn Donor Mode on or accept', (
+      tester,
+    ) async {
+      final backend = FakeBackend(user: _user(phoneVerified: false))..emitCanAct(false);
+      final allowed = await tryDonorCheck(tester, backend, _user(phoneVerified: false));
 
       expect(allowed, isFalse);
-      expect(find.textContaining('waiting for approval'), findsOneWidget);
+      expect(find.text('Verify phone number'), findsOneWidget);
     });
 
-    testWidgets('once approved the same donor check passes', (tester) async {
-      final backend = FakeBackend(user: _user());
-      bool? allowed;
-      await tester.pumpWidget(
-        _app(
-          backend: backend,
-          user: _user(),
-          screen: Consumer(
-            builder: (context, ref, _) {
-              ref.watch(canActProvider); // the app shell does this
-              return Scaffold(
-                body: TextButton(
-                  onPressed: () => allowed = requireDonorProfile(context, ref),
-                  child: const Text('try'),
-                ),
-              );
-            },
-          ),
-        ),
-      );
-      await _pumpFrames(tester);
+    testWidgets('a verified account the console switched off is told so', (
+      tester,
+    ) async {
+      final user = _user(phoneVerified: true);
+      final backend = FakeBackend(user: user)..emitCanAct(false);
+      final allowed = await tryDonorCheck(tester, backend, user);
 
-      await tester.tap(find.text('try'));
-      await tester.pump();
+      expect(allowed, isFalse);
+      expect(find.textContaining('switched off'), findsOneWidget);
+      expect(find.text('Verify phone number'), findsNothing);
+    });
+
+    testWidgets('once verified the same donor check passes', (tester) async {
+      final user = _user(phoneVerified: true);
+      final allowed = await tryDonorCheck(tester, FakeBackend(user: user), user);
 
       expect(allowed, isTrue);
-    });
-
-    test('an account from before approval existed counts as approved', () {
-      expect(_user().approved, isTrue);
     });
   });
 

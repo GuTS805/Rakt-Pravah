@@ -3,14 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
-import '../../core/services/approval_gate.dart';
+import '../../core/services/phone_gate.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/theme/semantics.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/app_card.dart';
-import '../../core/widgets/approval_banner.dart';
+import '../../core/widgets/phone_verify_banner.dart';
 import '../../core/widgets/badges.dart';
 import '../../data/models/models.dart';
 import '../../data/providers.dart';
@@ -102,8 +102,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xxl),
 
-                if (!ref.watch(canActValueProvider)) ...[
-                  const ApprovalBanner(),
+                if (!(user?.phoneVerified ?? true) &&
+                    !ref.watch(canActValueProvider)) ...[
+                  const PhoneVerifyBanner(),
                   const SizedBox(height: AppSpacing.lg),
                 ],
 
@@ -129,7 +130,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 _EmergencyCard(
                   compact: activeRequest != null,
                   onTap: () {
-                    if (requireApproval(context, ref)) {
+                    if (requireVerifiedPhone(context, ref)) {
                       context.push(Routes.createRequest);
                     }
                   },

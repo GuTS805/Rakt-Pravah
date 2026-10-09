@@ -34,9 +34,7 @@ class AdminDashboardScreen extends ConsumerWidget {
 
     // Admins are excluded from donor counting: only regular users can donate.
     final availableDonors = users.where((u) => !u.isAdmin && u.isDonorOn).length;
-    final pendingVerification = users
-        .where((u) => u.email == null && !u.isAdmin)
-        .length;
+    final pendingVerification = users.where(_unverified).length;
     final emergencyCount = (async.valueOrNull ?? const [])
         .where(
           (r) =>
@@ -286,7 +284,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   icon: Icons.verified_user_rounded,
                   value: '$pendingVerification',
                   label: 'Pending Verification',
-                  description: 'Need email verification',
+                  description: 'Phone not verified yet',
                   color: c.warning,
                   onTap: () => context.go(Routes.adminVerification),
                 ),
@@ -1664,7 +1662,11 @@ class _EmergencyMobileCard extends StatelessWidget {
 // Users Screen (Section 8 User Management)
 // ---------------------------------------------------------------------------
 
-enum _UserFilter { all, donors, seekers, admins, inactive, waiting }
+enum _UserFilter { all, donors, seekers, admins, inactive, unverified }
+
+/// Can't request blood or donate yet: no number confirmed by SMS. Operators
+/// don't need one.
+bool _unverified(AdminUser u) => !u.phoneVerified && !u.isAdmin;
 
 class AdminUsersScreen extends ConsumerStatefulWidget {
   const AdminUsersScreen({super.key});
@@ -1707,7 +1709,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
               users.where((u) => !u.isAdmin && u.donorAvailability == null).toList(),
             _UserFilter.admins => users.where((u) => u.isAdmin).toList(),
             _UserFilter.inactive => users.where((u) => !u.isActive).toList(),
-            _UserFilter.waiting => users.where((u) => !u.approved).toList(),
+            _UserFilter.unverified => users.where(_unverified).toList(),
           };
 
           if (_search.isNotEmpty) {
@@ -1726,13 +1728,6 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ApprovalPanel(
-                waiting: [
-                  for (final u in users)
-                    if (!u.approved) u.id,
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xl),
               Wrap(
                 spacing: AppSpacing.sm,
                 runSpacing: AppSpacing.sm,
@@ -1774,10 +1769,11 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                     onTap: () => setState(() => _filter = _UserFilter.inactive),
                   ),
                   AdminFilterChip(
-                    label: 'Waiting',
-                    count: users.where((u) => !u.approved).length,
-                    selected: _filter == _UserFilter.waiting,
-                    onTap: () => setState(() => _filter = _UserFilter.waiting),
+                    label: 'Phone not verified',
+                    count: users.where(_unverified).length,
+                    selected: _filter == _UserFilter.unverified,
+                    onTap: () =>
+                        setState(() => _filter = _UserFilter.unverified),
                   ),
                 ],
               ),
@@ -1789,7 +1785,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                   _UserFilter.seekers => 'Blood seekers',
                   _UserFilter.admins => 'System Administrators',
                   _UserFilter.inactive => 'Inactive Accounts',
-                  _UserFilter.waiting => 'Waiting for approval',
+                  _UserFilter.unverified => 'Phone not verified',
                 },
                 trailing: Text(
                   '${shown.length}',
@@ -1911,10 +1907,6 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                     _userField('Phone', user.phone),
                     _userField('Email', user.email ?? 'Not provided'),
                     _userField(
-                      'Email Verification',
-                      user.emailVerified ? 'Verified' : 'Pending Verification',
-                    ),
-                    _userField(
                       'Account State',
                       user.isActive ? 'Active' : 'Deactivated',
                     ),
@@ -1934,18 +1926,11 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                         ),
                       _userField('Total Donations', '${user.totalDonations}'),
                     ],
-                    const Divider(height: AppSpacing.xl),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Approved to request and donate',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        _ApprovalToggle(user: user),
-                      ],
+                    _userField(
+                      'Phone verification',
+                      user.phoneVerified ? 'Verified by SMS' : 'Not verified',
                     ),
-                    const SizedBox(height: AppSpacing.sm),
+                    const Divider(height: AppSpacing.xl),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -2082,9 +2067,31 @@ class _UserRow extends ConsumerWidget {
           AdminCell(flex: 1, BloodGroupBadge(user.bloodGroup)),
           AdminCell(
             flex: 2,
-            Text(
-              user.phone,
-              style: AppTypography.mono(size: 12, color: c.textSecondary),
+            Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    user.phone,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.mono(size: 12, color: c.textSecondary),
+                  ),
+                ),
+                if (!user.isAdmin) ...[
+                  const SizedBox(width: AppSpacing.xs),
+                  Tooltip(
+                    message: user.phoneVerified
+                        ? 'Phone verified by SMS'
+                        : 'Phone not verified',
+                    child: Icon(
+                      user.phoneVerified
+                          ? Icons.verified_rounded
+                          : Icons.error_outline_rounded,
+                      size: 14,
+                      color: user.phoneVerified ? c.success : c.warning,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           AdminCell(
@@ -2232,6 +2239,21 @@ class _UserMobileCard extends StatelessWidget {
                 user.phone,
                 style: AppTypography.mono(size: 12, color: c.textSecondary),
               ),
+              if (!user.isAdmin) ...[
+                const SizedBox(width: AppSpacing.xs),
+                Tooltip(
+                  message: user.phoneVerified
+                      ? 'Phone verified by SMS'
+                      : 'Phone not verified',
+                  child: Icon(
+                    user.phoneVerified
+                        ? Icons.verified_rounded
+                        : Icons.error_outline_rounded,
+                    size: 14,
+                    color: user.phoneVerified ? c.success : c.warning,
+                  ),
+                ),
+              ],
               if (user.city != null) ...[
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
@@ -2303,143 +2325,6 @@ class _UserMobileCard extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-/// The operators' switch for approval, and the one-click way to clear everyone
-/// who registered while it was off.
-class _ApprovalPanel extends ConsumerStatefulWidget {
-  const _ApprovalPanel({required this.waiting});
-
-  /// Ids of accounts not yet approved.
-  final List<String> waiting;
-
-  @override
-  ConsumerState<_ApprovalPanel> createState() => _ApprovalPanelState();
-}
-
-class _ApprovalPanelState extends ConsumerState<_ApprovalPanel> {
-  bool _busy = false;
-
-  Future<void> _run(Future<Object?> Function(AdminBackend admin) action) async {
-    final admin = ref.read(adminBackendProvider);
-    if (admin == null) return;
-    setState(() => _busy = true);
-    try {
-      await action(admin);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final on = ref.watch(adminRequireApprovalProvider).valueOrNull ?? false;
-    final waiting = widget.waiting.length;
-
-    return AdminPanel(
-      title: 'Approval',
-      trailing: Text(
-        '$waiting waiting',
-        style: AppTypography.mono(
-          size: 12,
-          color: waiting > 0 ? c.warning : c.textTertiary,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Wrap(
-          spacing: AppSpacing.lg,
-          runSpacing: AppSpacing.md,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          alignment: WrapAlignment.spaceBetween,
-          children: [
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Require approval for new accounts',
-                    style: context.text.titleSmall,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    on
-                        ? 'On. An account that is not approved can look around '
-                              'but cannot request blood or donate.'
-                        : 'Off. Anyone with an account can request blood and '
-                              'donate.',
-                    style: context.text.bodySmall?.copyWith(
-                      color: c.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (waiting > 0) ...[
-                  OutlinedButton(
-                    onPressed: _busy
-                        ? null
-                        : () =>
-                              _run((a) => a.approveAllWaiting(widget.waiting)),
-                    child: Text('Approve all $waiting'),
-                  ),
-                  const SizedBox(width: AppSpacing.lg),
-                ],
-                Switch(
-                  value: on,
-                  onChanged: _busy
-                      ? null
-                      : (v) => _run((a) => a.setRequireApproval(v)),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ApprovalToggle extends ConsumerStatefulWidget {
-  const _ApprovalToggle({required this.user});
-  final AdminUser user;
-
-  @override
-  ConsumerState<_ApprovalToggle> createState() => _ApprovalToggleState();
-}
-
-class _ApprovalToggleState extends ConsumerState<_ApprovalToggle> {
-  bool _busy = false;
-  late bool _value = widget.user.approved;
-
-  Future<void> _toggle(bool next) async {
-    final admin = ref.read(adminBackendProvider);
-    if (admin == null) return;
-    setState(() => _busy = true);
-    try {
-      await admin.setApproved(widget.user.id, next);
-      _value = next;
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_busy) {
-      return const SizedBox(
-        height: 16,
-        width: 16,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
-    }
-    return Switch(value: _value, onChanged: _toggle);
   }
 }
 
@@ -2795,8 +2680,8 @@ class _AdminDonorsScreenState extends ConsumerState<AdminDonorsScreen> {
                 _donorField('Contact Phone', donor.phone),
                 _donorField('Email', donor.email ?? 'Not provided'),
                 _donorField(
-                  'Email Verification',
-                  donor.emailVerified ? 'Verified' : 'Pending',
+                  'Phone verification',
+                  donor.phoneVerified ? 'Verified by SMS' : 'Not verified',
                 ),
                 _donorField(
                   'Donor Availability',
@@ -2929,9 +2814,9 @@ class _DonorRow extends StatelessWidget {
           AdminCell(
             flex: 2,
             StatusPill(
-              donor.emailVerified ? 'Verified' : 'Pending',
-              fg: donor.emailVerified ? c.success : c.warning,
-              bg: donor.emailVerified ? c.successSubtle : c.warningSubtle,
+              donor.phoneVerified ? 'Verified' : 'Pending',
+              fg: donor.phoneVerified ? c.success : c.warning,
+              bg: donor.phoneVerified ? c.successSubtle : c.warningSubtle,
             ),
           ),
           AdminCell(
@@ -3360,7 +3245,7 @@ class AdminReportsScreen extends ConsumerWidget {
         'Blood Group',
         'Phone',
         'Email',
-        'Email Verified',
+        'Phone Verified',
         'Is Admin',
         'Donor Mode',
         'Total Donations',
@@ -3373,7 +3258,7 @@ class AdminReportsScreen extends ConsumerWidget {
           u.bloodGroup.label,
           u.phone,
           u.email ?? '',
-          u.emailVerified ? 'YES' : 'NO',
+          u.phoneVerified ? 'YES' : 'NO',
           u.isAdmin ? 'YES' : 'NO',
           u.isDonorOn ? 'ON' : 'OFF',
           '${u.totalDonations}',

@@ -51,8 +51,9 @@ class _AdminVerificationScreenState
           final donors = users
               .where((u) => u.donorAvailability != null)
               .toList();
-          final pending = donors.where((u) => !u.emailVerified).toList();
-          final verified = donors.where((u) => u.emailVerified).toList();
+          // Verified means the donor confirmed their phone number by SMS.
+          final pending = donors.where((u) => !u.phoneVerified).toList();
+          final verified = donors.where((u) => u.phoneVerified).toList();
 
           var shown = switch (_tab) {
             'pending' => pending,
@@ -83,14 +84,14 @@ class _AdminVerificationScreenState
                     icon: Icons.pending_rounded,
                     value: '${pending.length}',
                     label: 'Pending Review',
-                    description: 'Awaiting verification',
+                    description: 'Phone not verified yet',
                     color: c.warning,
                   ),
                   AdminStatCard(
                     icon: Icons.verified_rounded,
                     value: '${verified.length}',
                     label: 'Verified',
-                    description: 'Approved donors',
+                    description: 'Phone verified by SMS',
                     color: c.success,
                   ),
                   AdminStatCard(
@@ -280,43 +281,15 @@ class _VerificationRow extends ConsumerWidget {
           AdminCell(
             flex: 2,
             StatusPill(
-              user.emailVerified ? 'Verified' : 'Pending',
-              fg: user.emailVerified ? c.success : c.warning,
-              bg: user.emailVerified ? c.successSubtle : c.warningSubtle,
+              user.phoneVerified ? 'Verified' : 'Pending',
+              fg: user.phoneVerified ? c.success : c.warning,
+              bg: user.phoneVerified ? c.successSubtle : c.warningSubtle,
             ),
           ),
           AdminCell(
             flex: 2,
             Row(
               children: [
-                if (!user.emailVerified)
-                  Tooltip(
-                    message: 'Verify donor',
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.verified_rounded,
-                        size: 18,
-                        color: c.success,
-                      ),
-                      onPressed: () async {
-                        final confirmed = await showAdminConfirmDialog(
-                          context,
-                          title: 'Verify ${user.name}?',
-                          message:
-                              'This will mark this donor as verified '
-                              'in the system. Ensure you have validated '
-                              'their identity and eligibility.',
-                          confirmLabel: 'Verify',
-                        );
-                        if (!confirmed || !context.mounted) return;
-                        showAdminToast(
-                          context,
-                          '${user.name} verification noted. Email '
-                          'verification is required via the app.',
-                        );
-                      },
-                    ),
-                  ),
                 Tooltip(
                   message: 'View details',
                   child: IconButton(
@@ -370,8 +343,8 @@ class _VerificationRow extends ConsumerWidget {
                     : 'Never',
               ),
               _DetailRow(
-                label: 'Email Verified',
-                value: user.emailVerified ? 'Yes' : 'No',
+                label: 'Phone verified',
+                value: user.phoneVerified ? 'Yes, by SMS' : 'No',
               ),
               _DetailRow(label: 'Admin', value: user.isAdmin ? 'Yes' : 'No'),
             ],

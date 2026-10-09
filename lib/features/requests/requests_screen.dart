@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
-import '../../core/services/approval_gate.dart';
+import '../../core/services/phone_gate.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/invitation_card.dart';
@@ -94,7 +94,7 @@ class _MyRequests extends ConsumerWidget {
             message: 'When you request blood, you\'ll track it here.',
             actionLabel: 'Request blood',
             onAction: () {
-              if (requireApproval(context, ref)) {
+              if (requireVerifiedPhone(context, ref)) {
                 context.push(Routes.createRequest);
               }
             },

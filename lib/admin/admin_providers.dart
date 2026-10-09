@@ -30,12 +30,6 @@ final adminUsersProvider = StreamProvider<List<AdminUser>>((ref) {
   return admin?.users ?? const Stream.empty();
 });
 
-/// The operators' switch: must new accounts be approved before acting.
-final adminRequireApprovalProvider = StreamProvider<bool>((ref) {
-  final admin = ref.watch(adminBackendProvider);
-  return admin?.requireApproval ?? const Stream.empty();
-});
-
 /// System-wide donor cooldown configuration (ON/OFF and duration in days).
 final adminCooldownConfigProvider = StreamProvider<CooldownConfig>((ref) async* {
   // 1. Immediately yield cached local preference to prevent resetting on page reload

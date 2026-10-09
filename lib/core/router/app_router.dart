@@ -18,6 +18,7 @@ import '../../data/providers.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/onboarding_screen.dart';
 import '../../features/auth/register_screen.dart';
+import '../../features/auth/verify_phone_screen.dart';
 import '../../features/coordination/chat_screen.dart';
 import '../../features/coordination/coordination_screen.dart';
 import '../../features/coordination/live_location_screen.dart';
@@ -44,7 +45,16 @@ final _rootKey = GlobalKey<NavigatorState>();
 final routerProvider = Provider<GoRouter>((ref) {
   final authListenable = ValueNotifier(ref.read(authControllerProvider));
   ref.onDispose(authListenable.dispose);
-  ref.listen(authControllerProvider, (_, next) => authListenable.value = next);
+  // Only what the redirect looks at re-runs it. A profile update (a verified
+  // phone, a new photo) re-running it mid-navigation would rebuild the screen
+  // that is just closing.
+  ref.listen(authControllerProvider, (previous, next) {
+    if (previous?.status != next.status ||
+        previous?.user?.id != next.user?.id ||
+        previous?.user?.isAdmin != next.user?.isAdmin) {
+      authListenable.value = next;
+    }
+  });
 
   return GoRouter(
     navigatorKey: _rootKey,
@@ -194,6 +204,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.secureAccount,
         builder: (_, _) => const SecureAccountScreen(),
+      ),
+      GoRoute(
+        path: Routes.verifyPhone,
+        builder: (_, _) => const VerifyPhoneScreen(),
       ),
       GoRoute(
         path: Routes.requestHistory,

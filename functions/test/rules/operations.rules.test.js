@@ -17,10 +17,10 @@ describe('operations collections', () => {
       await assertFails(env.unauthenticatedContext().firestore().doc('config/app').get());
     });
     it('an ordinary user cannot change it', async () => {
-      await assertFails(as(env, ids.stranger).doc('config/app').set({ requireApproval: false }));
+      await assertFails(as(env, ids.stranger).doc('config/app').set({ cooldownDays: 1 }));
     });
     it('an operator can change it', async () => {
-      await assertSucceeds(as(env, ids.admin).doc('config/app').set({ requireApproval: true, cooldownDays: 60 }));
+      await assertSucceeds(as(env, ids.admin).doc('config/app').set({ cooldownEnabled: true, cooldownDays: 60 }));
     });
   });
 

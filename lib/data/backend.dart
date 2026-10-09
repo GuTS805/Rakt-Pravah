@@ -10,6 +10,36 @@ class SignInFailure implements Exception {
   String toString() => message;
 }
 
+/// A phone check that failed for a reason worth showing someone, already
+/// phrased for them.
+class PhoneVerificationFailure implements Exception {
+  const PhoneVerificationFailure(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+/// A code on its way to [phoneNumber] by SMS. Handed back to
+/// [Backend.confirmPhoneCode] with what the person typed, or to
+/// [Backend.sendPhoneCode] to send another.
+class PhoneCodeSent {
+  const PhoneCodeSent({
+    required this.phoneNumber,
+    required this.verificationId,
+    this.resendToken,
+    this.confirm,
+  });
+
+  /// The full international number the code went to, e.g. "+919876543210".
+  final String phoneNumber;
+  final String verificationId;
+  final int? resendToken;
+
+  /// On the web the code is checked by the sign-in library itself, not by id.
+  final Future<void> Function(String code)? confirm;
+}
+
 /// Everything the app is allowed to ask of its data layer.
 ///
 /// Screens and providers depend on this, never on the Firebase implementation,
@@ -80,10 +110,26 @@ abstract class Backend {
   /// base64 JPEG kept on their profile. Requests made afterwards carry a copy.
   Future<void> setProfilePhoto(String? photo);
 
-  /// Whether this account may ask for blood or donate right now. False only
-  /// while the operators' approval switch is on and this account hasn't been
-  /// approved yet; live, so approval takes effect without restarting the app.
+  /// Whether this account may ask for blood or donate right now: true once
+  /// its phone number is verified, unless an operator switched the account
+  /// off (operators always may). Live, so either takes effect without
+  /// restarting the app.
   Stream<bool> get canActStream;
+
+  /// Texts a one-time code to [phoneNumber] (international form, e.g.
+  /// "+919876543210"). Pass the previous [resend] to send another. Completes
+  /// with null when the phone confirmed the number without a code (Android
+  /// can read the SMS itself) — the number is then already verified. Throws
+  /// [PhoneVerificationFailure] with something worth showing.
+  Future<PhoneCodeSent?> sendPhoneCode(
+    String phoneNumber, {
+    PhoneCodeSent? resend,
+  });
+
+  /// Checks the [code] the person typed and, when it matches, makes the
+  /// number this account's verified phone. Throws [PhoneVerificationFailure]
+  /// for a wrong or expired code or a number another account already has.
+  Future<UserProfile> confirmPhoneCode(PhoneCodeSent sent, String code);
 
   Future<void> signOut();
 

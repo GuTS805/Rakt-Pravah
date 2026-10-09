@@ -22,6 +22,7 @@ UserProfile _user({int age = 30}) => UserProfile(
   phone: '9876543210',
   dateOfBirth: DateTime.now().subtract(Duration(days: age * 366)),
   gender: Gender.female,
+  phoneVerified: true,
 );
 
 DonorProfile _donor({
