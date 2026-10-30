@@ -1,4 +1,42 @@
 workflows:
+  # Test build for one iPhone, installed with Sideloadly and a free Apple
+  # ID. Unsigned, and it talks to the Firebase emulators on a laptop on the
+  # same Wi-Fi, never to the live project. Not for the App Store.
+  ios-sideload-test:
+    name: iOS test build (sideload)
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        # The laptop's Wi-Fi address. Change it when starting the build if
+        # the laptop's address has changed.
+        EMULATOR_HOST: 192.168.1.7
+    scripts:
+      - name: Get packages
+        script: flutter pub get
+      - name: Allow the emulators on the local network
+        script: |
+          PLIST=ios/Runner/Info.plist
+          plutil -insert NSAppTransportSecurity -json '{"NSAllowsArbitraryLoads":true}' $PLIST
+          plutil -insert NSLocalNetworkUsageDescription -string "Test build: connects to the test server on this Wi-Fi." $PLIST
+          # A free Apple ID can't sign push notifications.
+          plutil -remove aps-environment ios/Runner/Runner.entitlements
+      - name: Build unsigned app
+        script: |
+          flutter build ios --release --no-codesign \
+            --dart-define=USE_FIREBASE_EMULATOR=true \
+            --dart-define=EMULATOR_HOST=$EMULATOR_HOST
+      - name: Package IPA
+        script: |
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qry RaktPravah-test.ipa Payload
+    artifacts:
+      - RaktPravah-test.ipa
+
   ios-release:
     name: iOS release
     instance_type: mac_mini_m2
