@@ -6,7 +6,7 @@
   "scripts": {
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
-    "start": "node server.js",
+    "start": "node init && node server.js",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
     "test": "node test/matcher.test.js && node test/notifications.test.js && node test/endpoints.test.js",
