@@ -39,7 +39,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             Text('Rakt Pravah', style: context.text.headlineMedium),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'Emergency blood, coordinated',
+              'An initiative of Vidya Bharati Purv Chatra Parishad',
+              textAlign: TextAlign.center,
               style: context.text.bodyMedium,
             ),
             const SizedBox(height: AppSpacing.xxxl),
