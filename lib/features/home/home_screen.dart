@@ -166,7 +166,6 @@ class _BrandRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
     return Row(
       children: [
         const BrandMark(size: 34),
@@ -176,10 +175,7 @@ class _BrandRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Rakt Pravah', style: context.text.titleLarge),
-              Text(
-                'Life, connected.',
-                style: context.text.bodySmall?.copyWith(color: c.textTertiary),
-              ),
+              const _InitiativeTicker(),
             ],
           ),
         ),
@@ -189,6 +185,77 @@ class _BrandRow extends StatelessWidget {
         ],
         _BellButton(hasUnread: hasUnread),
       ],
+    );
+  }
+}
+
+class _InitiativeTicker extends StatefulWidget {
+  const _InitiativeTicker();
+
+  static const _message = 'An initiative of Vidya Bharati Purv Chatra Parishad';
+
+  @override
+  State<_InitiativeTicker> createState() => _InitiativeTickerState();
+}
+
+class _InitiativeTickerState extends State<_InitiativeTicker>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 12),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = context.text.bodySmall?.copyWith(
+      color: context.colors.textTertiary,
+    );
+    final painter = TextPainter(
+      text: TextSpan(text: _InitiativeTicker._message, style: style),
+      textDirection: Directionality.of(context),
+      maxLines: 1,
+    )..layout();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (painter.width <= constraints.maxWidth) {
+          return Text(
+            _InitiativeTicker._message,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          );
+        }
+
+        const gap = AppSpacing.xl;
+        final travel = painter.width + gap;
+        return SizedBox(
+          height: painter.height,
+          child: ClipRect(
+            child: AnimatedBuilder(
+              animation: _controller,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_InitiativeTicker._message, style: style),
+                  const SizedBox(width: gap),
+                  Text(_InitiativeTicker._message, style: style),
+                ],
+              ),
+              builder: (context, child) => Transform.translate(
+                offset: Offset(-travel * _controller.value, 0),
+                child: child,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

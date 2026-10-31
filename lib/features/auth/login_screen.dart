@@ -100,6 +100,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Center(child: BrandMark(size: 72)),
+                    const SizedBox(height: AppSpacing.md),
+                    Center(
+                      child: Text(
+                        'Rakt Pravah',
+                        textAlign: TextAlign.center,
+                        style: context.text.titleLarge,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Center(
+                      child: Text(
+                        'An initiative of Vidya Bharati Purv Chatra Parishad',
+                        textAlign: TextAlign.center,
+                        style: context.text.bodySmall?.copyWith(
+                          color: c.textTertiary,
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: AppSpacing.xl),
                     Center(
                       child: Text(
