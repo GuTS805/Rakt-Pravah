@@ -118,9 +118,7 @@ void main() {
               transitStatus: DonorTransitStatus.onTheWay,
               distanceKm: 2.4,
               isSharingLocation: true,
-              isSimulating: false,
               onToggleSharing: () {},
-              onToggleSimulation: () {},
               onUpdateTransitStatus: (_) {},
             ),
           ),
@@ -142,6 +140,83 @@ void main() {
       expect(find.text('Call'), findsOneWidget);
       expect(find.text('Chat'), findsOneWidget);
       expect(find.text('Directions'), findsOneWidget);
+    });
+
+    testWidgets("without the donor's position, no distance or time is made up", (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: LiveTrackingSheet(
+              request: BloodRequest(
+                id: 'req-track',
+                requesterId: 'req-1',
+                requesterName: 'Vikram Mehta',
+                bloodGroups: const [BloodGroup.oPos],
+                units: 1,
+                urgency: Urgency.critical,
+                status: RequestStatus.coordinating,
+                createdAt: DateTime.now(),
+                destination: const Destination(
+                  name: 'Max Healthcare',
+                  address: 'Ring Rd',
+                ),
+                requestLocationLabel: 'Max Healthcare',
+              ),
+              partnerName: 'Aarav Sharma',
+              isDonor: false,
+              transitStatus: DonorTransitStatus.onTheWay,
+              distanceKm: null,
+              isSharingLocation: true,
+              onToggleSharing: () {},
+              onUpdateTransitStatus: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text("Waiting for the donor's location"), findsOneWidget);
+      expect(find.textContaining('km away'), findsNothing);
+      expect(find.textContaining('mins'), findsNothing);
+    });
+
+    testWidgets('a donor has no demo simulation button', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: LiveTrackingSheet(
+              request: BloodRequest(
+                id: 'req-track',
+                requesterId: 'req-1',
+                requesterName: 'Vikram Mehta',
+                bloodGroups: const [BloodGroup.oPos],
+                units: 1,
+                urgency: Urgency.critical,
+                status: RequestStatus.coordinating,
+                createdAt: DateTime.now(),
+                destination: const Destination(
+                  name: 'Max Healthcare',
+                  address: 'Ring Rd',
+                ),
+                requestLocationLabel: 'Max Healthcare',
+              ),
+              partnerName: 'Vikram Mehta',
+              isDonor: true,
+              transitStatus: DonorTransitStatus.onTheWay,
+              distanceKm: 3,
+              isSharingLocation: true,
+              onToggleSharing: () {},
+              onUpdateTransitStatus: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.textContaining('Simulat'), findsNothing);
+      expect(find.text('Sharing live location with requester'), findsOneWidget);
     });
 
     testWidgets(

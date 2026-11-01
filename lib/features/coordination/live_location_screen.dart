@@ -26,16 +26,14 @@ class LiveLocationScreen extends ConsumerStatefulWidget {
 }
 
 class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
-  static const _updateInterval = Duration(seconds: 5);
+  // Often enough to follow someone driving across a city, and a third of
+  // the database writes that every five seconds cost.
+  static const _updateInterval = Duration(seconds: 15);
 
   bool _sharing = false;
-  bool _simulating = false;
   Timer? _locationTimer;
-  Timer? _simulationTimer;
 
   DonorTransitStatus _transitStatus = DonorTransitStatus.onTheWay;
-  GeoPoint? _simulatedDonorPoint;
-  double _simProgress = 0.0;
 
   @override
   void initState() {
@@ -55,7 +53,6 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
   @override
   void dispose() {
     _locationTimer?.cancel();
-    _simulationTimer?.cancel();
     if (_sharing) {
       ref.read(backendProvider).stopLiveLocation(widget.requestId);
     }
@@ -119,12 +116,8 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
 
   void _stopSharing() {
     _locationTimer?.cancel();
-    _simulationTimer?.cancel();
     ref.read(backendProvider).stopLiveLocation(widget.requestId);
-    setState(() {
-      _sharing = false;
-      _simulating = false;
-    });
+    setState(() => _sharing = false);
   }
 
   void _toggleSharing() {
@@ -133,77 +126,6 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
     } else {
       _startSharing();
     }
-  }
-
-  void _toggleSimulation() {
-    if (_simulating) {
-      _simulationTimer?.cancel();
-      setState(() => _simulating = false);
-      return;
-    }
-
-    setState(() {
-      _simulating = true;
-      _sharing = true;
-      _simProgress = 0.0;
-    });
-
-    final req = ref.read(requestProvider(widget.requestId)).valueOrNull;
-    final dest = req?.destination.location ?? const GeoPoint(28.6139, 77.2090);
-
-    // Start simulated point ~4 km away from hospital
-    const startOffsetLat = 0.028;
-    const startOffsetLng = -0.025;
-    final startLat = dest.lat + startOffsetLat;
-    final startLng = dest.lng + startOffsetLng;
-
-    _simulatedDonorPoint = GeoPoint(startLat, startLng);
-
-    // Push initial simulated point
-    ref
-        .read(backendProvider)
-        .updateLiveLocation(
-          widget.requestId,
-          _simulatedDonorPoint!,
-          transitStatus: DonorTransitStatus.onTheWay,
-        );
-
-    _simulationTimer?.cancel();
-    _simulationTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      setState(() {
-        _simProgress += 0.12;
-        if (_simProgress >= 1.0) {
-          _simProgress = 1.0;
-          _transitStatus = DonorTransitStatus.reached;
-          _simulatedDonorPoint = dest;
-          timer.cancel();
-          _simulating = false;
-        } else {
-          final curLat = startLat + (dest.lat - startLat) * _simProgress;
-          final curLng = startLng + (dest.lng - startLng) * _simProgress;
-          _simulatedDonorPoint = GeoPoint(curLat, curLng);
-
-          if (_simProgress > 0.75) {
-            _transitStatus = DonorTransitStatus.nearHospital;
-          } else if (_simProgress > 0.1) {
-            _transitStatus = DonorTransitStatus.onTheWay;
-          }
-        }
-      });
-
-      ref
-          .read(backendProvider)
-          .updateLiveLocation(
-            widget.requestId,
-            _simulatedDonorPoint!,
-            transitStatus: _transitStatus,
-          );
-    });
   }
 
   void _updateTransitStatus(DonorTransitStatus next) {
@@ -303,34 +225,24 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
           final effectiveTransitStatus =
               donorPing?.transitStatus ?? _transitStatus;
 
+          // Only a real position: the last one shared, the one given when
+          // accepting, or this phone's own. Never a made-up point.
           final effectiveDonorPoint =
-              _simulatedDonorPoint ??
               donorPing?.point ??
               firstDonor?.location ??
               (isDonor
                   ? (ref.watch(deviceLocationProvider).point ??
                         ref.watch(backendProvider).myLocation)
-                  : null) ??
-              (req.destination.location != null
-                  ? GeoPoint(
-                      req.destination.location!.lat + 0.02,
-                      req.destination.location!.lng - 0.02,
-                    )
                   : null);
 
           final effectiveRequesterPoint =
               req.requesterLiveLocation?.point ??
               (isDonor ? null : ref.watch(deviceLocationProvider).point);
 
-          final double currentDistance;
-          if (effectiveDonorPoint != null && req.destination.location != null) {
-            currentDistance = _haversineKm(
-              effectiveDonorPoint,
-              req.destination.location!,
-            );
-          } else {
-            currentDistance = firstDonor?.distanceKm ?? 2.4;
-          }
+          final double? currentDistance =
+              effectiveDonorPoint != null && req.destination.location != null
+              ? _haversineKm(effectiveDonorPoint, req.destination.location!)
+              : firstDonor?.distanceKm;
 
           final partnerName = isDonor
               ? req.requesterName
@@ -378,9 +290,7 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
                   transitStatus: effectiveTransitStatus,
                   distanceKm: currentDistance,
                   isSharingLocation: _sharing,
-                  isSimulating: _simulating,
                   onToggleSharing: _toggleSharing,
-                  onToggleSimulation: _toggleSimulation,
                   onUpdateTransitStatus: _updateTransitStatus,
                 ),
               ),

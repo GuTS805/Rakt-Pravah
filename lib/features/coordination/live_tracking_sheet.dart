@@ -24,9 +24,7 @@ class LiveTrackingSheet extends StatelessWidget {
     required this.transitStatus,
     required this.distanceKm,
     required this.isSharingLocation,
-    required this.isSimulating,
     required this.onToggleSharing,
-    required this.onToggleSimulation,
     required this.onUpdateTransitStatus,
   });
 
@@ -38,11 +36,11 @@ class LiveTrackingSheet extends StatelessWidget {
   final String? partnerPhoto;
   final bool isDonor;
   final DonorTransitStatus transitStatus;
-  final double distanceKm;
+  /// How far the donor is from the hospital. Null until the donor's
+  /// position is known, so no distance or arrival time is made up.
+  final double? distanceKm;
   final bool isSharingLocation;
-  final bool isSimulating;
   final VoidCallback onToggleSharing;
-  final VoidCallback onToggleSimulation;
   final ValueChanged<DonorTransitStatus> onUpdateTransitStatus;
 
   String _initials(String name) {
@@ -164,10 +162,13 @@ class LiveTrackingSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final etaMinutes = (distanceKm / 0.5).round().clamp(2, 180);
-    final etaTime = DateFormat.jm().format(
-      DateTime.now().add(Duration(minutes: etaMinutes)),
-    );
+    final km = distanceKm;
+    final etaMinutes = km == null ? null : (km / 0.5).round().clamp(2, 180);
+    final etaTime = etaMinutes == null
+        ? null
+        : DateFormat.jm().format(
+            DateTime.now().add(Duration(minutes: etaMinutes)),
+          );
 
     return Container(
       decoration: BoxDecoration(
@@ -223,6 +224,8 @@ class LiveTrackingSheet extends StatelessWidget {
                                   ? 'Donation Completed'
                                   : transitStatus == DonorTransitStatus.reached
                                   ? 'Arrived at destination'
+                                  : etaMinutes == null
+                                  ? transitStatus.label
                                   : '$etaMinutes mins',
                               style: context.text.headlineMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
@@ -238,7 +241,9 @@ class LiveTrackingSheet extends StatelessWidget {
                               ? 'Blood donation has been completed successfully'
                               : transitStatus == DonorTransitStatus.reached
                               ? 'Donor has reached the hospital location'
-                              : '${distanceKm.toStringAsFixed(1)} km away • Arriving by $etaTime',
+                              : km == null
+                              ? "Waiting for the donor's location"
+                              : '${km.toStringAsFixed(1)} km away • Arriving by $etaTime',
                           style: context.text.bodyMedium?.copyWith(
                             color: c.textSecondary,
                             fontWeight: FontWeight.w500,
@@ -453,7 +458,7 @@ class LiveTrackingSheet extends StatelessWidget {
                 ],
               ),
 
-              // Donor Transit Controls (Simulation & Status Update)
+              // Donor transit controls: location sharing and status
               if (isDonor) ...[
                 const SizedBox(height: AppSpacing.lg),
                 Container(
@@ -527,38 +532,6 @@ class LiveTrackingSheet extends StatelessWidget {
                                   MaterialTapTargetSize.shrinkWrap,
                             ),
                         ],
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      // Simulate Movement toggle for interactive demo
-                      InkWell(
-                        onTap: onToggleSimulation,
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            children: [
-                              Icon(
-                                isSimulating
-                                    ? Icons.motion_photos_on_rounded
-                                    : Icons.play_circle_outline_rounded,
-                                size: 18,
-                                color: isSimulating ? c.success : c.brand,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  isSimulating
-                                      ? 'Simulating movement towards hospital (Active)'
-                                      : 'Simulate movement towards hospital (Demo)',
-                                  style: context.text.bodySmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: isSimulating ? c.success : c.brand,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ),
                     ],
                   ),
