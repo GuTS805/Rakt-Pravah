@@ -944,11 +944,109 @@ class FirebaseBackend implements Backend {
   @override
   Future<void> signOut() async {
     await _auth.signOut();
+    _forgetSession();
+  }
+
+  void _forgetSession() {
     currentUser = null;
     donorProfile = const DonorProfile(
       availability: DonorAvailability.available,
       bloodGroup: BloodGroup.oPos,
     );
+  }
+
+  @override
+  Future<void> deleteAccount({String? password}) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    final me = user.uid;
+
+    // Firebase only deletes a sign-in that was used recently, and this is
+    // also the moment to be sure it's really them.
+    if (!user.isAnonymous) {
+      final email = user.email;
+      if (email == null || password == null || password.isEmpty) {
+        throw const AccountDeletionFailure('Enter your password.');
+      }
+      try {
+        await user.reauthenticateWithCredential(
+          fb_auth.EmailAuthProvider.credential(email: email, password: password),
+        );
+      } on fb_auth.FirebaseAuthException catch (e) {
+        throw AccountDeletionFailure(switch (e.code) {
+          'wrong-password' ||
+          'invalid-credential' ||
+          'user-mismatch' => 'That password is wrong.',
+          'too-many-requests' =>
+            'Too many attempts. Wait a few minutes and try again.',
+          'network-request-failed' =>
+            'No internet connection. Connect and try again.',
+          _ => 'Couldn\'t confirm your password. Try again. [${e.code}]',
+        });
+      }
+    }
+
+    try {
+      // Requests they made: closed if still open, and their name, photo and
+      // number taken off. The record stays for the donors who answered it.
+      final mine = await _online(
+        _requests.where('requesterId', isEqualTo: me).get(),
+      );
+      for (final doc in mine.docs) {
+        await _transitionIfActive(
+          doc.id,
+          RequestStatus.cancelled,
+          'Cancelled: the requester deleted their account',
+        );
+        await _online(doc.reference.update({
+          'requesterName': 'Deleted account',
+          'requesterPhoto': null,
+          'phone': fs.FieldValue.delete(),
+          'phoneCountryCode': fs.FieldValue.delete(),
+          'fullPhoneNumber': fs.FieldValue.delete(),
+          'notes': fs.FieldValue.delete(),
+        }));
+        await _online(doc.reference.collection('private').doc('patient').set({
+          'name': 'Deleted account',
+          'phone': fs.FieldValue.delete(),
+        }, fs.SetOptions(merge: true)));
+      }
+
+      // Requests they accepted as a donor and haven't finished go back to
+      // searching, so the patient isn't left waiting on someone who's gone.
+      final accepted = await _online(
+        _requests.where('acceptedDonorIds', arrayContains: me).get(),
+      );
+      for (final doc in accepted.docs) {
+        await withdrawFromRequest(doc.id);
+      }
+
+      final devices = await _online(
+        _db.collection('push_devices').where('user_id', isEqualTo: me).get(),
+      );
+      for (final doc in devices.docs) {
+        await _online(doc.reference.delete());
+      }
+      for (final sub in ['devices', 'fcm_tokens']) {
+        final docs = await _online(_users.doc(me).collection(sub).get());
+        for (final doc in docs.docs) {
+          await _online(doc.reference.delete());
+        }
+      }
+      await _online(_users.doc(me).delete());
+
+      await user.delete();
+      await _auth.signOut();
+    } on BackendUnavailable catch (e) {
+      throw AccountDeletionFailure(
+        'Couldn\'t finish deleting your account. ${e.message}',
+      );
+    } on fb_auth.FirebaseAuthException catch (e) {
+      throw AccountDeletionFailure(
+        'Couldn\'t finish deleting your account. Try again. [${e.code}]',
+      );
+    }
+    _forgetSession();
   }
 
   CooldownConfig _cooldownConfig = const CooldownConfig();

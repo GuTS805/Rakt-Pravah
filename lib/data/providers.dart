@@ -174,6 +174,13 @@ class AuthController extends Notifier<AuthState> {
     await _backend.signOut();
     state = const AuthState(AuthStatus.unauthenticated);
   }
+
+  /// Deletes the account for good. Throws [AccountDeletionFailure] with a
+  /// message to show when it can't.
+  Future<void> deleteAccount({String? password}) async {
+    await _backend.deleteAccount(password: password);
+    state = const AuthState(AuthStatus.unauthenticated);
+  }
 }
 
 final authControllerProvider = NotifierProvider<AuthController, AuthState>(

@@ -110,7 +110,9 @@ service cloud.firestore {
                .affectedKeys().hasOnly(['isAdmin', 'role', 'isActive', 'disabled']))
       );
 
-      allow delete: if false;
+      // People may delete their own account (the app stores require it).
+      // Operators switch accounts off instead of deleting them.
+      allow delete: if isSignedIn() && request.auth.uid == uid;
 
       match /fcm_tokens/{tokenId} {
         allow read, write: if isSignedIn() && request.auth.uid == uid;

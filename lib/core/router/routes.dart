@@ -27,6 +27,7 @@ abstract class Routes {
   static const you = '/you';
   static const profileEdit = '/you/profile';
   static const secureAccount = '/you/secure';
+  static const deleteAccount = '/you/delete-account';
   static const verifyPhone = '/you/verify-phone';
   static const requestHistory = '/you/history/requests';
   static const donationHistory = '/you/history/donations';

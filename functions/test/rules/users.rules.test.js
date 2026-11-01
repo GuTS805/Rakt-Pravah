@@ -111,8 +111,11 @@ describe('users collection', () => {
       await assertFails(as(env, ids.admin).doc(`users/${ids.donor}`).update({ name: 'Edited by ops' }));
       await assertFails(as(env, ids.admin).doc(`users/${ids.donor}`).update({ phone: '1' }));
     });
-    it('profiles can never be deleted, even by the owner or an operator', async () => {
-      await assertFails(me().delete());
+    it('the owner can delete their own profile, to delete their account', async () => {
+      await assertSucceeds(me().delete());
+    });
+    it("nobody else can delete a profile, not even an operator", async () => {
+      await assertFails(as(env, ids.requester).doc(`users/${ids.donor}`).delete());
       await assertFails(as(env, ids.admin).doc(`users/${ids.donor}`).delete());
     });
   });

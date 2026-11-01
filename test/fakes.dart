@@ -119,6 +119,12 @@ class FakeBackend implements Backend {
   /// The next sendPhoneCode verifies without a code, as Android can.
   bool verifyWithoutCode = false;
 
+  /// The password deleteAccount accepts.
+  String accountPassword = 'secret123';
+
+  /// True once the account has been deleted.
+  bool accountDeleted = false;
+
   // --- Backend -----------------------------------------------------------
 
   @override
@@ -823,6 +829,15 @@ class FakeBackend implements Backend {
 
   @override
   Future<void> signOut() async => currentUser = null;
+
+  @override
+  Future<void> deleteAccount({String? password}) async {
+    if (!isDeviceOnlyAccount && password != accountPassword) {
+      throw const AccountDeletionFailure('That password is wrong.');
+    }
+    accountDeleted = true;
+    currentUser = null;
+  }
 }
 
 /// Location without the platform. Real [LocationService] calls Geolocator

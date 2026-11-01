@@ -222,6 +222,12 @@ class ProfileScreen extends ConsumerWidget {
                   danger: true,
                   onTap: () => _confirmLogout(context, ref),
                 ),
+                SettingsTile(
+                  icon: Icons.delete_outline_rounded,
+                  title: 'Delete account',
+                  danger: true,
+                  onTap: () => context.push(Routes.deleteAccount),
+                ),
               ],
             ),
           ],

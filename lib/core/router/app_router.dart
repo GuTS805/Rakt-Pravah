@@ -27,6 +27,7 @@ import '../../features/donate/donor_settings_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/invitations/invitation_detail_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
+import '../../features/profile/delete_account_screen.dart';
 import '../../features/profile/history_screen.dart';
 import '../../features/profile/privacy_screen.dart';
 import '../../features/profile/profile_edit_screen.dart';
@@ -204,6 +205,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.secureAccount,
         builder: (_, _) => const SecureAccountScreen(),
+      ),
+      GoRoute(
+        path: Routes.deleteAccount,
+        builder: (_, _) => const DeleteAccountScreen(),
       ),
       GoRoute(
         path: Routes.verifyPhone,

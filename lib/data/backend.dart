@@ -20,6 +20,16 @@ class PhoneVerificationFailure implements Exception {
   String toString() => message;
 }
 
+/// An account deletion that didn't go through, already phrased for the
+/// person. See [Backend.deleteAccount].
+class AccountDeletionFailure implements Exception {
+  const AccountDeletionFailure(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// A code on its way to [phoneNumber] by SMS. Handed back to
 /// [Backend.confirmPhoneCode] with what the person typed, or to
 /// [Backend.sendPhoneCode] to send another.
@@ -132,6 +142,19 @@ abstract class Backend {
   Future<UserProfile> confirmPhoneCode(PhoneCodeSent sent, String code);
 
   Future<void> signOut();
+
+  /// Deletes the signed-in account for good, as the app stores require.
+  ///
+  /// Open requests the person made are cancelled and stripped of their name,
+  /// photo and contact number; requests they accepted as a donor and haven't
+  /// finished are handed back to the search. Their profile, devices and
+  /// sign-in are then removed, which also frees their phone number.
+  ///
+  /// [password] confirms it is really them; accounts that exist only on this
+  /// device have none and pass null. Throws [AccountDeletionFailure] for a
+  /// wrong password or no connection, before anything is deleted. If it
+  /// fails part way, running it again picks up where it stopped.
+  Future<void> deleteAccount({String? password});
 
   /// Signs in with an email and password. Throws [SignInFailure] when those
   /// don't match an account. Used by the app and by the operations console:
