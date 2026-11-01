@@ -3056,10 +3056,7 @@ class AdminReportsScreen extends ConsumerWidget {
                 child: reports.isEmpty
                     ? const AdminEmpty(
                         icon: Icons.flag_outlined,
-                        message:
-                            'No reports have been filed. The mobile app has '
-                            'no Report screen yet, so nothing can reach this '
-                            'queue until that is built.',
+                        message: 'No reports have been filed.',
                       )
                     : AdminTableScroll(
                         minWidth: 680,

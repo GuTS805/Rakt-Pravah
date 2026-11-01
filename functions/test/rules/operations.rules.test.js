@@ -56,6 +56,16 @@ describe('operations collections', () => {
     it('cannot file one in someone else\'s name', async () => {
       await assertFails(as(env, ids.stranger).doc('reports/x1').set(report(ids.donor)));
     });
+    it('cannot file one already marked resolved', async () => {
+      await assertFails(as(env, ids.stranger).doc('reports/x1')
+        .set({ ...report(ids.stranger), status: 'resolved' }));
+    });
+    it('cannot attach a very long text', async () => {
+      await assertSucceeds(as(env, ids.stranger).doc('reports/x1')
+        .set({ ...report(ids.stranger), detail: 'x'.repeat(2000) }));
+      await assertFails(as(env, ids.stranger).doc('reports/x2')
+        .set({ ...report(ids.stranger), detail: 'x'.repeat(2001) }));
+    });
     it('the reporter cannot read reports back, only operators can', async () => {
       await seed(env, (db) => db.doc('reports/x1').set(report(ids.stranger)));
       await assertFails(as(env, ids.stranger).doc('reports/x1').get());

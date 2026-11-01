@@ -440,13 +440,13 @@ void main() {
   });
 
   group('honest empty states', () {
-    testWidgets('Reports explains why it is empty', (tester) async {
+    testWidgets('Reports says when nothing has been filed', (tester) async {
       _wide(tester);
       await tester.pumpWidget(_console(screen: const AdminReportsScreen()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.textContaining('no Report screen yet'), findsOneWidget);
+      expect(find.text('No reports have been filed.'), findsOneWidget);
     });
 
     testWidgets('Audit log explains what will appear there', (tester) async {

@@ -140,9 +140,8 @@ class AdminBackend {
 
   // --- Reports -----------------------------------------------------------
 
-  /// Reports filed by users against a request or another user. The mobile
-  /// Report screen that files these is not built yet, so this is expected to
-  /// be empty until it is — the screen says so rather than inventing rows.
+  /// Reports filed from the app: from "Report a problem" on the You tab, or
+  /// about the other person from a chat.
   Stream<List<AdminReport>> get reports => _reports
       .orderBy('createdAt', descending: true)
       .limit(200)

@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/avatar.dart';
+import '../../core/widgets/report_sheet.dart';
 import '../../core/widgets/states.dart';
 import '../../data/models/models.dart';
 import '../../data/providers.dart';
@@ -73,10 +74,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ? req.requesterPhoto
         : req?.acceptedDonors.firstOrNull?.photoUrl;
     final partnerInitials = Fmt.initials(partnerName);
+    final partnerId = isDonor
+        ? req.requesterId
+        : req?.acceptedDonors.firstOrNull?.id;
 
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Report',
+            icon: const Icon(Icons.flag_outlined),
+            onPressed: () => showReportSheet(
+              context,
+              title: 'Report this chat',
+              prompt:
+                  'Tell us what happened. Our team reviews every report and '
+                  'can switch off accounts that misuse Rakt Pravah.',
+              requestId: widget.requestId,
+              userId: partnerId,
+            ),
+          ),
+        ],
         title: Row(
           children: [
             Avatar(

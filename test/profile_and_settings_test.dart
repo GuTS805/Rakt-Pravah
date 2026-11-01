@@ -166,26 +166,18 @@ void main() {
       expect(b.currentUser, isNull);
     });
 
-    testWidgets('"Report a problem" opens a form and thanks the user', (tester) async {
-      await _pumpProfile(tester);
+    testWidgets('"Report a problem" sends the report to the operators', (
+      tester,
+    ) async {
+      final (backend, _) = await _pumpProfile(tester);
       await _tapRow(tester, 'Report a problem');
       expect(find.text('Describe the problem…'), findsOneWidget);
       await tester.enterText(find.byType(TextField), 'Someone is misusing a request');
       await tester.tap(find.text('Submit report'));
       await tester.pumpAndSettle();
-      expect(find.text('Report submitted. Thank you.'), findsOneWidget);
+      expect(find.text('Report sent. Thank you.'), findsOneWidget);
+      expect(backend.reports, [('Someone is misusing a request', null, null)]);
     });
-
-    testWidgets(
-      'KNOWN GAP: a submitted report actually reaches the operators',
-      (tester) async {
-        // The sheet says "Our team reviews every report", the rules allow
-        // writing to /reports and the console reads it, but the Submit button
-        // only closes the sheet. Nothing is sent or stored.
-        fail('no code path writes a report');
-      },
-      skip: true,
-    );
   });
 
   group('Settings', () {

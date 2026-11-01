@@ -9,6 +9,7 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/avatar.dart';
 import '../../core/widgets/badges.dart';
 import '../../core/widgets/profile_photo_sheet.dart';
+import '../../core/widgets/report_sheet.dart';
 import '../../data/providers.dart';
 import '../../shared/settings_widgets.dart';
 
@@ -197,7 +198,7 @@ class ProfileScreen extends ConsumerWidget {
                 SettingsTile(
                   icon: Icons.flag_outlined,
                   title: 'Report a problem',
-                  onTap: () => _showReport(context),
+                  onTap: () => showReportSheet(context),
                 ),
               ],
             ),
@@ -229,58 +230,6 @@ class ProfileScreen extends ConsumerWidget {
                   onTap: () => context.push(Routes.deleteAccount),
                 ),
               ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showReport(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          0,
-          AppSpacing.lg,
-          AppSpacing.xxl,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Report a problem', style: context.text.titleLarge),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'Tell us what went wrong — misuse, a safety concern, or a bug. '
-              'Our team reviews every report.',
-              style: context.text.bodyMedium,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            const TextField(
-              maxLines: 4,
-              decoration: InputDecoration(hintText: 'Describe the problem…'),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Report submitted. Thank you.'),
-                    ),
-                  );
-                },
-                style: FilledButton.styleFrom(
-                  backgroundColor: context.colors.brand,
-                  minimumSize: const Size.fromHeight(48),
-                ),
-                child: const Text('Submit report'),
-              ),
             ),
           ],
         ),

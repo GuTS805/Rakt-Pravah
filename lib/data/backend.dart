@@ -143,6 +143,16 @@ abstract class Backend {
 
   Future<void> signOut();
 
+  /// Files a report for the operators to look at: a bug, misuse, or a person
+  /// or request that made someone feel unsafe. [requestId] and [userId] say
+  /// what it is about, when it's about something specific. Throws
+  /// [BackendUnavailable] when the report can't reach the server.
+  Future<void> fileReport({
+    required String detail,
+    String? requestId,
+    String? userId,
+  });
+
   /// Deletes the signed-in account for good, as the app stores require.
   ///
   /// Open requests the person made are cancelled and stripped of their name,

@@ -947,6 +947,26 @@ class FirebaseBackend implements Backend {
     _forgetSession();
   }
 
+  @override
+  Future<void> fileReport({
+    required String detail,
+    String? requestId,
+    String? userId,
+  }) async {
+    await _online(_db.collection('reports').add({
+      'reporterId': uid,
+      'reporterName': currentUser?.name,
+      'reason': userId != null
+          ? 'A person'
+          : (requestId != null ? 'A request' : 'Problem report'),
+      'detail': detail,
+      'targetRequestId': ?requestId,
+      'targetUserId': ?userId,
+      'status': 'open',
+      'createdAt': fs.Timestamp.now(),
+    }));
+  }
+
   void _forgetSession() {
     currentUser = null;
     donorProfile = const DonorProfile(

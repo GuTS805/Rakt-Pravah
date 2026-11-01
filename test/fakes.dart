@@ -830,6 +830,16 @@ class FakeBackend implements Backend {
   @override
   Future<void> signOut() async => currentUser = null;
 
+  /// Reports filed, as (detail, requestId, userId).
+  final List<(String, String?, String?)> reports = [];
+
+  @override
+  Future<void> fileReport({
+    required String detail,
+    String? requestId,
+    String? userId,
+  }) async => reports.add((detail, requestId, userId));
+
   @override
   Future<void> deleteAccount({String? password}) async {
     if (!isDeviceOnlyAccount && password != accountPassword) {
