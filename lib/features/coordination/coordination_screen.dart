@@ -43,7 +43,6 @@ class CoordinationScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(requestProvider(requestId));
     final me = ref.watch(currentUserProvider);
-    final myLocation = ref.watch(deviceLocationProvider).point;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Coordination')),
@@ -93,10 +92,6 @@ class CoordinationScreen extends ConsumerWidget {
               const SizedBox(height: AppSpacing.lg),
               MapPanel(
                 destination: req.destination,
-                myLocation: myLocation,
-                onLocateMe: () async =>
-                    (await ref.read(deviceLocationProvider.notifier).request())
-                        .point,
                 trackedLocations: iAmDonor
                     ? const []
                     : [for (final p in req.donorLiveLocations.values) p.point],

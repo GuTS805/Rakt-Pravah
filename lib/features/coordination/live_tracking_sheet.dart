@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/router/routes.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/utils/maps_links.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/avatar.dart';
@@ -36,6 +36,7 @@ class LiveTrackingSheet extends StatelessWidget {
   final String? partnerPhoto;
   final bool isDonor;
   final DonorTransitStatus transitStatus;
+
   /// How far the donor is from the hospital. Null until the donor's
   /// position is known, so no distance or arrival time is made up.
   final double? distanceKm;
@@ -56,22 +57,6 @@ class LiveTrackingSheet extends StatelessWidget {
         rawPhone,
         countryCode: partnerPhoneCountryCode,
       );
-
-  Future<void> _openDirections(BuildContext context, Destination dest) async {
-    final loc = dest.location;
-    final query = loc != null
-        ? '${loc.lat},${loc.lng}'
-        : Uri.encodeComponent('${dest.name}, ${dest.address}');
-    final uri = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=$query&travelmode=driving',
-    );
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!opened && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open maps for directions.')),
-      );
-    }
-  }
 
   Widget _buildStepIndicator(BuildContext context) {
     final c = context.colors;
@@ -451,8 +436,10 @@ class LiveTrackingSheet extends StatelessWidget {
                           borderRadius: BorderRadius.circular(AppRadius.md),
                         ),
                       ),
-                      onPressed: () =>
-                          _openDirections(context, request.destination),
+                      onPressed: () => openInMaps(
+                        context,
+                        MapsLinks.directions(request.destination),
+                      ),
                     ),
                   ),
                 ],

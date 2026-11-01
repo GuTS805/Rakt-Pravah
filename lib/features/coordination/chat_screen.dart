@@ -162,8 +162,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       message: m,
                       mine: mine,
                       avatarPhoto: mine ? me?.photo : partnerPhoto,
-                      avatarInitials:
-                          mine ? (me?.initials ?? 'Me') : partnerInitials,
+                      avatarInitials: mine
+                          ? (me?.initials ?? 'Me')
+                          : partnerInitials,
                     );
                   },
                 );
@@ -210,10 +211,7 @@ class _Bubble extends StatelessWidget {
             : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (!mine) ...[
-            avatar,
-            const SizedBox(width: AppSpacing.xs),
-          ],
+          if (!mine) ...[avatar, const SizedBox(width: AppSpacing.xs)],
           Flexible(
             child: Container(
               padding: const EdgeInsets.symmetric(

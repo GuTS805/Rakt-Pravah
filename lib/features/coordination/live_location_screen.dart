@@ -235,10 +235,6 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
                         ref.watch(backendProvider).myLocation)
                   : null);
 
-          final effectiveRequesterPoint =
-              req.requesterLiveLocation?.point ??
-              (isDonor ? null : ref.watch(deviceLocationProvider).point);
-
           final double? currentDistance =
               effectiveDonorPoint != null && req.destination.location != null
               ? _haversineKm(effectiveDonorPoint, req.destination.location!)
@@ -257,20 +253,16 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
 
           return Stack(
             children: [
-              // Full-screen Map
+              // Who is coming, and links to Google Maps
               Positioned.fill(
                 child: LiveTrackingMap(
                   destination: req.destination,
                   donorLocation: effectiveDonorPoint,
-                  requesterLocation: effectiveRequesterPoint,
                   donorName: isDonor ? me?.name : firstDonor?.name,
                   donorBloodGroup: isDonor
                       ? me?.bloodGroup
                       : firstDonor?.bloodGroup,
                   transitStatus: effectiveTransitStatus,
-                  onLocateMe: () async {
-                    await ref.read(deviceLocationProvider.notifier).request();
-                  },
                 ),
               ),
 
@@ -285,7 +277,9 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
                   partnerPhone: partnerPhone,
                   partnerPhoneCountryCode: partnerPhoneCountryCode,
                   partnerBloodGroup: partnerBloodGroup,
-                  partnerPhoto: isDonor ? req.requesterPhoto : firstDonor?.photoUrl,
+                  partnerPhoto: isDonor
+                      ? req.requesterPhoto
+                      : firstDonor?.photoUrl,
                   isDonor: isDonor,
                   transitStatus: effectiveTransitStatus,
                   distanceKm: currentDistance,
