@@ -147,6 +147,48 @@ void main() {
       );
     });
 
+    for (final (label, setUp) in [
+      ('none are found', (FakeBackend f) => f.customMatchedDonors = const []),
+      (
+        'the list is refused',
+        (FakeBackend f) => f.nearbyDonorsError = Exception('permission-denied'),
+      ),
+    ]) {
+      testWidgets('says the search is running when $label', (tester) async {
+        final fake = FakeBackend();
+        setUp(fake);
+        final req = await fake.createRequest(
+          patientName: 'Kavita Roy',
+          patientBloodGroup: BloodGroup.oPos,
+          bloodGroups: [BloodGroup.oPos],
+          units: 1,
+          urgency: Urgency.critical,
+          requestLocationLabel: 'Metro Hospital',
+          destination: const Destination(
+            name: 'Metro Hospital',
+            address: 'Sector 4',
+          ),
+        );
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [backendProvider.overrideWithValue(fake)],
+            child: MaterialApp(
+              theme: AppTheme.light(),
+              home: RequestDetailScreen(requestId: req.id),
+            ),
+          ),
+        );
+        // The search animation never settles; a few frames are enough.
+        for (var i = 0; i < 5; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+
+        expect(find.text('Alerting donors within 25 km'), findsOneWidget);
+        expect(find.textContaining('as soon as one accepts'), findsOneWidget);
+        expect(find.textContaining('No donors within'), findsNothing);
+      });
+    }
+
     testWidgets(
       'RequestDetailScreen shows Nearby & Matched Donors and radius chips',
       (tester) async {

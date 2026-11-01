@@ -89,6 +89,10 @@ class FakeBackend implements Backend {
   final List<String> viewedInvitationRequestIds = [];
   final List<(String, double)> expandedRadiusCalls = [];
   List<MatchedDonor>? customMatchedDonors;
+
+  /// Makes the nearby donor list fail, as it does for a requester when the
+  /// rules keep donor profiles private.
+  Object? nearbyDonorsError;
   int createRequestCalls = 0;
 
   /// Makes the next accept lose the race, the way a real transaction does
@@ -344,6 +348,7 @@ class FakeBackend implements Backend {
 
   @override
   Stream<List<MatchedDonor>> nearbyDonorsStream(String requestId) {
+    if (nearbyDonorsError != null) return Stream.error(nearbyDonorsError!);
     if (customMatchedDonors != null) {
       return Stream.value(customMatchedDonors!);
     }

@@ -212,7 +212,11 @@ class _AcceptedDonorsSectionState extends State<_AcceptedDonorsSection> {
               request: widget.request,
               onSelect: () => setState(() => _selectedDonorId = alt.id),
               onCall: alt.phone != null && alt.phone!.isNotEmpty
-                  ? () => _makePhoneCall(context, alt.phone!, alt.phoneCountryCode)
+                  ? () => _makePhoneCall(
+                      context,
+                      alt.phone!,
+                      alt.phoneCountryCode,
+                    )
                   : null,
               onChat: () => context.push(Routes.chat(widget.request.id)),
             ),
@@ -364,6 +368,46 @@ class _NearbyDonorsSection extends ConsumerWidget {
         ? request.searchRadiusKm
         : 25.0;
 
+    Widget searching() => AppCard(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(
+                Icons.travel_explore_rounded,
+                size: 36,
+                color: c.textTertiary,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Alerting donors within ${currentRadius.round()} km',
+                style: context.text.titleSmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Donors nearby with a matching blood group can see '
+                "this request. You'll see a donor here as soon as "
+                'one accepts. Widen the search to reach more people.',
+                textAlign: TextAlign.center,
+                style: context.text.bodySmall,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              SecondaryButton(
+                label: 'Expand to ${(currentRadius + 25).round()} km',
+                icon: Icons.zoom_out_map_rounded,
+                onPressed: () {
+                  ref
+                      .read(backendProvider)
+                      .expandSearchRadius(request.id, currentRadius + 25);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -433,55 +477,16 @@ class _NearbyDonorsSection extends ConsumerWidget {
         const SizedBox(height: AppSpacing.md),
         nearbyAsync.when(
           loading: () => const CardSkeleton(),
-          error: (_, _) => const SizedBox.shrink(),
+          // Donor profiles are private, so the list can come back refused;
+          // the search is still running either way.
+          error: (_, _) => searching(),
           data: (donors) {
             final acceptedIds = request.acceptedDonorIds.toSet();
             final unaccepted = donors
                 .where((d) => !acceptedIds.contains(d.id))
                 .toList();
 
-            if (unaccepted.isEmpty) {
-              return AppCard(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.travel_explore_rounded,
-                          size: 36,
-                          color: c.textTertiary,
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          'No donors within ${currentRadius.round()} km yet',
-                          style: context.text.titleSmall,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Expand search radius to notify donors in surrounding areas.',
-                          textAlign: TextAlign.center,
-                          style: context.text.bodySmall,
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        SecondaryButton(
-                          label: 'Expand to ${(currentRadius + 25).round()} km',
-                          icon: Icons.zoom_out_map_rounded,
-                          onPressed: () {
-                            ref
-                                .read(backendProvider)
-                                .expandSearchRadius(
-                                  request.id,
-                                  currentRadius + 25,
-                                );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }
+            if (unaccepted.isEmpty) return searching();
 
             return Column(
               children: [
