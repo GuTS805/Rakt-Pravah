@@ -30,7 +30,11 @@ final _donor = AcceptedDonor(
   distanceKm: 1.6,
 );
 
-Future<void> _pump(WidgetTester tester, {double textScale = 1}) async {
+Future<void> _pump(
+  WidgetTester tester, {
+  double textScale = 1,
+  BloodRequest? request,
+}) async {
   // A OnePlus Nord CE 2: 1080 px wide at 2.625 dpr, about 411 dp.
   tester.view.physicalSize = const Size(1080, 2400);
   tester.view.devicePixelRatio = 2.625;
@@ -48,7 +52,7 @@ Future<void> _pump(WidgetTester tester, {double textScale = 1}) async {
               padding: const EdgeInsets.all(16),
               child: AcceptedDonorProfileCard(
                 donor: _donor,
-                request: _request,
+                request: request ?? _request,
               ),
             ),
           ),
@@ -65,6 +69,39 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Shared on Accept'), findsOneWidget);
     expect(find.textContaining('+91 98765 01111'), findsOneWidget);
+  });
+
+  testWidgets('while the donor is coming, it is live', (tester) async {
+    await _pump(tester);
+    expect(find.text('Active'), findsOneWidget);
+    expect(find.text('Track Donor (Live)'), findsOneWidget);
+    expect(find.text('1.6 km away'), findsOneWidget);
+  });
+
+  testWidgets('once fulfilled, it is a record of the donation', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      request: _request.copyWith(status: RequestStatus.fulfilled),
+    );
+    expect(find.text('Donated'), findsOneWidget);
+    expect(find.text('Active'), findsNothing);
+    expect(find.text('Track Donor (Live)'), findsNothing);
+    expect(find.textContaining('Donor Mode'), findsNothing);
+    expect(find.textContaining('km away'), findsNothing);
+    // Calling or messaging to say thank you still works.
+    expect(find.text('Chat'), findsOneWidget);
+    expect(find.text('Call'), findsOneWidget);
+  });
+
+  testWidgets('a cancelled request says so', (tester) async {
+    await _pump(
+      tester,
+      request: _request.copyWith(status: RequestStatus.cancelled),
+    );
+    expect(find.text(RequestStatus.cancelled.label), findsOneWidget);
+    expect(find.text('Track Donor (Live)'), findsNothing);
   });
 
   testWidgets('still fits with large system text', (tester) async {

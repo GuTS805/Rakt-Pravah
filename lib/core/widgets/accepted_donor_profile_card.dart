@@ -51,20 +51,24 @@ class AcceptedDonorProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // Once the request is over, the card is a record: nothing is live, and
+    // the donor's availability from when they accepted is out of date.
+    final closed = request.status.isTerminal;
+    final fulfilled = request.status == RequestStatus.fulfilled;
     final livePing = request.donorLiveLocations[donor.id];
-    final effectiveTransitStatus =
-        livePing?.transitStatus ?? donor.transitStatus;
+    final effectiveTransitStatus = fulfilled
+        ? DonorTransitStatus.donationCompleted
+        : livePing?.transitStatus ?? donor.transitStatus;
 
-    final double effectiveDistance;
-    if (livePing != null && request.destination.location != null) {
-      // Calculate real-time distance from live ping to destination
-      final p1 = livePing.point;
-      final p2 = request.destination.location!;
-      effectiveDistance = _haversineKm(p1, p2);
-    } else {
-      effectiveDistance = donor.distanceKm ?? 2.4;
-    }
-    final travelMins = (effectiveDistance / 0.5).round().clamp(2, 180);
+    // A real distance or none: from the live position, else the one given
+    // when the donor accepted.
+    final double? effectiveDistance =
+        livePing != null && request.destination.location != null
+        ? _haversineKm(livePing.point, request.destination.location!)
+        : donor.distanceKm;
+    final travelMins = effectiveDistance == null
+        ? null
+        : (effectiveDistance / 0.5).round().clamp(2, 180);
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -137,17 +141,25 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                           width: 6,
                           height: 6,
                           decoration: BoxDecoration(
-                            color: c.success,
+                            color: closed && !fulfilled
+                                ? c.textTertiary
+                                : c.success,
                             shape: BoxShape.circle,
                           ),
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'Active',
+                          fulfilled
+                              ? 'Donated'
+                              : closed
+                              ? request.status.label
+                              : 'Active',
                           style: AppTypography.mono(
                             size: 10,
                             weight: FontWeight.w700,
-                            color: c.success,
+                            color: closed && !fulfilled
+                                ? c.textTertiary
+                                : c.success,
                           ),
                         ),
                       ],
@@ -274,37 +286,39 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          // Donor availability / status indicator
-                          Row(
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: donor.isDonorModeOn
-                                      ? c.success
-                                      : c.textTertiary,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                              Flexible(
-                                child: Text(
-                                  donor.isDonorModeOn
-                                      ? 'Available · Donor Mode ON'
-                                      : 'Donor Mode OFF',
-                                  style: context.text.bodySmall?.copyWith(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
+                          if (!closed) ...[
+                            const SizedBox(height: 6),
+                            // Donor availability / status indicator
+                            Row(
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
                                     color: donor.isDonorModeOn
                                         ? c.success
                                         : c.textTertiary,
+                                    shape: BoxShape.circle,
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
+                                const SizedBox(width: 5),
+                                Flexible(
+                                  child: Text(
+                                    donor.isDonorModeOn
+                                        ? 'Available · Donor Mode ON'
+                                        : 'Donor Mode OFF',
+                                    style: context.text.bodySmall?.copyWith(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: donor.isDonorModeOn
+                                          ? c.success
+                                          : c.textTertiary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -390,106 +404,107 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                   ),
                 ],
 
-                // Distance & ETA metrics
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: c.surfaceMuted,
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                          border: Border.all(
-                            color: c.border.withValues(alpha: 0.5),
+                // Distance & ETA metrics, while the donor is still coming.
+                if (!closed && effectiveDistance != null)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: c.surfaceMuted,
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            border: Border.all(
+                              color: c.border.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.near_me_rounded,
+                                size: 16,
+                                color: c.brand,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Distance',
+                                      style: context.text.bodySmall?.copyWith(
+                                        fontSize: 10,
+                                        color: c.textTertiary,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${effectiveDistance.toStringAsFixed(1)} km away',
+                                      style: AppTypography.mono(
+                                        size: 12,
+                                        weight: FontWeight.w700,
+                                        color: c.textPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.near_me_rounded,
-                              size: 16,
-                              color: c.brand,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Distance',
-                                    style: context.text.bodySmall?.copyWith(
-                                      fontSize: 10,
-                                      color: c.textTertiary,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${effectiveDistance.toStringAsFixed(1)} km away',
-                                    style: AppTypography.mono(
-                                      size: 12,
-                                      weight: FontWeight.w700,
-                                      color: c.textPrimary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: c.surfaceMuted,
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                          border: Border.all(
-                            color: c.border.withValues(alpha: 0.5),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: c.surfaceMuted,
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            border: Border.all(
+                              color: c.border.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.directions_car_rounded,
+                                size: 16,
+                                color: c.brand,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Travel ETA',
+                                      style: context.text.bodySmall?.copyWith(
+                                        fontSize: 10,
+                                        color: c.textTertiary,
+                                      ),
+                                    ),
+                                    Text(
+                                      '~$travelMins min travel',
+                                      style: AppTypography.mono(
+                                        size: 12,
+                                        weight: FontWeight.w700,
+                                        color: c.textPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.directions_car_rounded,
-                              size: 16,
-                              color: c.brand,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Travel ETA',
-                                    style: context.text.bodySmall?.copyWith(
-                                      fontSize: 10,
-                                      color: c.textTertiary,
-                                    ),
-                                  ),
-                                  Text(
-                                    '~$travelMins min travel',
-                                    style: AppTypography.mono(
-                                      size: 12,
-                                      weight: FontWeight.w700,
-                                      color: c.textPrimary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
 
                 const SizedBox(height: AppSpacing.lg),
 
@@ -509,30 +524,36 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                   // Primary action buttons: Track Donor, Call, Chat
                   Row(
                     children: [
-                      // Track Donor button
-                      Expanded(
-                        flex: 3,
-                        child: ElevatedButton.icon(
-                          onPressed:
-                              onTrackLive ??
-                              () =>
-                                  context.push(Routes.liveLocation(request.id)),
-                          icon: const Icon(Icons.navigation_rounded, size: 16),
-                          label: const Text('Track Donor (Live)'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: c.brand,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppRadius.button,
-                              ),
+                      // Track Donor button, only while the donor is coming.
+                      if (!closed) ...[
+                        Expanded(
+                          flex: 3,
+                          child: ElevatedButton.icon(
+                            onPressed:
+                                onTrackLive ??
+                                () => context.push(
+                                  Routes.liveLocation(request.id),
+                                ),
+                            icon: const Icon(
+                              Icons.navigation_rounded,
+                              size: 16,
                             ),
-                            elevation: 0,
+                            label: const Text('Track Donor (Live)'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: c.brand,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.button,
+                                ),
+                              ),
+                              elevation: 0,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
+                        const SizedBox(width: AppSpacing.sm),
+                      ],
                       // Call button
                       if (donor.phone != null && donor.phone!.isNotEmpty) ...[
                         OutlinedButton(
