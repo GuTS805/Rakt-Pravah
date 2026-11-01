@@ -61,7 +61,7 @@ void main() {
         ),
       );
       expect(find.text('Rakt Pravah'), findsOneWidget);
-      expect(find.text('Emergency blood, coordinated'), findsOneWidget);
+      expect(find.text('An initiative of Vidya Bharati Purv Chatra Parishad'), findsOneWidget);
       expect(container.read(authControllerProvider).status, AuthStatus.unknown);
 
       await tester.pump(const Duration(milliseconds: 1000));
