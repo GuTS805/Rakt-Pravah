@@ -132,33 +132,29 @@ flutter run --dart-define=USE_FIREBASE_EMULATOR=true \
 - The manual notification endpoints need the requester or an operator.
 - The request page no longer claims there are no donors nearby.
 - Medical disclaimer in Settings.
+- Privacy policy, terms and account deletion pages in `hosting_public/`.
+  Settings links to them. They go live when hosting is deployed.
+- No OpenStreetMap tiles in the app: buttons open Google Maps instead.
+  The operators' console still has its map.
+- App ID changed to `com.raktpravah.app` (see below).
 
 **Code, still to do:**
 
-1. **Privacy policy and terms page:** host it on Firebase Hosting under
-   `hosting_public/`. Then wire up the "Terms & privacy policy" tile in
-   `lib/features/profile/settings_screen.dart`, which does nothing today.
-   It needs the organisation's legal name and a contact email from the
-   owner.
-2. **Account deletion web page** (Google Play needs a URL): explain the in-app
-   path and give a contact email.
-3. **Map tiles:** the OpenStreetMap tile server's policy doesn't allow
-   production apps. Switch to an "Open in Google Maps" button or a paid tile
-   provider; the owner decides.
-4. **Showing donors to the requester:** "Nearby & matched donors" needs
+1. **Release signing key** for Android (and its SHA in Firebase).
+2. **Showing donors to the requester:** "Nearby & matched donors" needs
    server-side matching (Cloud Functions, so Blaze) before it can list
    donors to a requester.
-5. **Firebase setup when going live:**
+3. **Firebase setup when going live:**
    - App Check.
    - Limit SMS to India in the Auth settings.
    - Add a test phone number with a fixed code for the app reviewers.
-6. **App ID:** now `com.raktpravah.app` on both platforms. Its Firebase
+4. **App ID:** now `com.raktpravah.app` on both platforms. Its Firebase
    apps are registered, with this laptop's debug SHA-1 and SHA-256. Add the
    release key's SHA once it exists. The old `com.bloodlink.bloodlink` apps
    stay registered so the old APK keeps working. The Android namespace and
    Kotlin package are still `com.bloodlink.bloodlink`, which is internal and
    fine.
-7. **Push setting for App Store builds:** confirm the build ends up with
+5. **Push setting for App Store builds:** confirm the build ends up with
    `aps-environment = production`. Xcode normally handles this.
 
 **The owner does these, in the browser:**
