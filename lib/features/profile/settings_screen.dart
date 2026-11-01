@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/config/links.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/providers.dart';
@@ -13,6 +15,11 @@ const medicalDisclaimer =
     'someone can donate, and every transfusion, is decided by the hospital '
     'or blood bank after their own screening and tests. In an emergency, '
     'contact a hospital or call 112.';
+
+/// Opens [url] in the browser. Replaceable in tests, which have no browser.
+@visibleForTesting
+Future<bool> Function(String url) openLink = (url) =>
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -75,9 +82,14 @@ class SettingsScreen extends ConsumerWidget {
                 trailing: Text('1.0.0', style: context.text.bodyMedium),
               ),
               SettingsTile(
+                icon: Icons.privacy_tip_outlined,
+                title: 'Privacy policy',
+                onTap: () => _open(context, Links.privacy),
+              ),
+              SettingsTile(
                 icon: Icons.description_outlined,
-                title: 'Terms & privacy policy',
-                onTap: () {},
+                title: 'Terms of use',
+                onTap: () => _open(context, Links.terms),
               ),
               SettingsTile(
                 icon: Icons.health_and_safety_outlined,
@@ -101,6 +113,16 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _open(BuildContext context, String url) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final opened = await openLink(url);
+    if (!opened) {
+      messenger.showSnackBar(
+        SnackBar(content: Text("Couldn't open the page. It's at $url")),
+      );
+    }
   }
 
   IconData _icon(ThemeMode m) => switch (m) {

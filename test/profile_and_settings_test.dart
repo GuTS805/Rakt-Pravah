@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rakt_pravah/core/config/links.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -198,6 +199,37 @@ void main() {
       await tester.pumpAndSettle();
       return container;
     }
+
+    testWidgets('opens the privacy policy and terms on the website', (
+      tester,
+    ) async {
+      final opened = <String>[];
+      final original = openLink;
+      openLink = (url) async {
+        opened.add(url);
+        return true;
+      };
+      addTearDown(() => openLink = original);
+
+      await pump(tester);
+      await tester.tap(find.text('Privacy policy'));
+      await tester.tap(find.text('Terms of use'));
+      await tester.pump();
+
+      expect(opened, [Links.privacy, Links.terms]);
+    });
+
+    testWidgets('says where the page is if it cannot open it', (tester) async {
+      final original = openLink;
+      openLink = (_) async => false;
+      addTearDown(() => openLink = original);
+
+      await pump(tester);
+      await tester.tap(find.text('Privacy policy'));
+      await tester.pump();
+
+      expect(find.textContaining(Links.privacy), findsOneWidget);
+    });
 
     testWidgets('says the app is not a medical service', (tester) async {
       await pump(tester);
