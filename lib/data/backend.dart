@@ -201,7 +201,9 @@ abstract class Backend {
   /// Automatically turns Donor Mode OFF and starts the 3-month waiting period.
   Future<DonorProfile> recordDonation([DateTime? donatedAt]);
 
-  /// Resets the donation cooldown (clears lastDonation and restores Donor Mode ON).
+  /// Undoes a donation recorded by mistake: takes it off the count, clears
+  /// the waiting period and turns Donor Mode back ON. The app only offers
+  /// this for a day after the donation is recorded.
   Future<DonorProfile> resetDonationCooldown();
 
   /// Registers an FCM push-notification device token for this account.

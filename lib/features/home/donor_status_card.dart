@@ -127,11 +127,11 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
       await ref.read(backendProvider).resetDonationCooldown();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cooldown reset. Donor Mode is ON.')),
+          const SnackBar(content: Text('Donation removed. Donor Mode is ON.')),
         );
       }
     } catch (e) {
-      _fail(e, 'Couldn\'t reset cooldown. Try again.');
+      _fail(e, 'Couldn\'t undo that. Try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -268,11 +268,13 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
                         color: c.warning,
                       ),
                       const SizedBox(width: AppSpacing.xs),
-                      Text(
-                        'Next eligible donation date (3 months later):',
-                        style: context.text.labelSmall?.copyWith(
-                          color: c.warning,
-                          fontWeight: FontWeight.w600,
+                      Expanded(
+                        child: Text(
+                          'Next eligible donation date (3 months later):',
+                          style: context.text.labelSmall?.copyWith(
+                            color: c.warning,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -290,18 +292,27 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
                     children: [
                       Icon(Icons.timer_outlined, size: 15, color: c.warning),
                       const SizedBox(width: AppSpacing.xs),
-                      Text(
-                        'Time remaining: ',
-                        style: context.text.bodySmall?.copyWith(
-                          color: c.textSecondary,
-                        ),
-                      ),
-                      Text(
-                        Fmt.countdown(donor.cooldownRemaining),
-                        style: AppTypography.mono(
-                          size: 13,
-                          weight: FontWeight.w700,
-                          color: c.warning,
+                      // Wraps the countdown under the label on narrow
+                      // screens and with large system text.
+                      Expanded(
+                        child: Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              'Time remaining: ',
+                              style: context.text.bodySmall?.copyWith(
+                                color: c.textSecondary,
+                              ),
+                            ),
+                            Text(
+                              Fmt.countdown(donor.cooldownRemaining),
+                              style: AppTypography.mono(
+                                size: 13,
+                                weight: FontWeight.w700,
+                                color: c.warning,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -314,25 +325,32 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
                       color: c.textTertiary,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: _busy ? null : _resetCooldown,
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                  // Only to fix a mistaken tap. Waiting 90 days between
+                  // donations protects the donor, so it can't be skipped
+                  // later on.
+                  if (donor.lastDonation != null &&
+                      now.difference(donor.lastDonation!) <
+                          const Duration(hours: 24)) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: _busy ? null : _resetCooldown,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          visualDensity: VisualDensity.compact,
                         ),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      icon: const Icon(Icons.refresh_rounded, size: 14),
-                      label: const Text(
-                        'Reset waiting period',
-                        style: TextStyle(fontSize: 11),
+                        icon: const Icon(Icons.undo_rounded, size: 14),
+                        label: const Text(
+                          "Undo: I didn't donate",
+                          style: TextStyle(fontSize: 11),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

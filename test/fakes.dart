@@ -166,6 +166,9 @@ class FakeBackend implements Backend {
     final updated = donorProfile.copyWith(
       availability: DonorAvailability.available,
       clearLastDonation: true,
+      totalDonations: donorProfile.totalDonations > 0
+          ? donorProfile.totalDonations - 1
+          : 0,
     );
     setDonorProfileCalls.add(updated);
     _donor.value = updated;

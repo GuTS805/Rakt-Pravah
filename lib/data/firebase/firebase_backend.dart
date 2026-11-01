@@ -1241,6 +1241,7 @@ class FirebaseBackend implements Backend {
     final updated = donorProfile.copyWith(
       availability: DonorAvailability.available,
       clearLastDonation: true,
+      totalDonations: math.max(0, donorProfile.totalDonations - 1),
       cooldownConfig: _cooldownConfig,
     );
     await _ack(_users.doc(uid).set({
