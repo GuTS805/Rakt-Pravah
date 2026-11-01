@@ -122,45 +122,40 @@ flutter run --dart-define=USE_FIREBASE_EMULATOR=true \
 
 ## Work left before publishing
 
-**Code, in rough priority order:**
+**Done since this note was first written (2 Nov 2026):**
+- iPhone-only build and the encryption flag.
+- "Report a problem" and reporting from a chat now reach the console.
+- The live tracking demo simulation is gone, and positions are shared every
+  15 seconds.
+- "Reset waiting period" is now a 24-hour "Undo: I didn't donate".
+- The accepted donor card reads as a record once a request is over.
+- The manual notification endpoints need the requester or an operator.
+- The request page no longer claims there are no donors nearby.
+- Medical disclaimer in Settings.
 
-1. **iPhone only:** set `TARGETED_DEVICE_FAMILY = 1` in
-   `ios/Runner.xcodeproj/project.pbxproj`. It's `"1,2"` now, and an iPad build
-   would mean iPad screenshots too.
-2. **Encryption flag:** add `ITSAppUsesNonExemptEncryption = false` to
-   `Info.plist`.
-3. **Privacy policy and terms page:** host it on Firebase Hosting under
+**Code, still to do:**
+
+1. **Privacy policy and terms page:** host it on Firebase Hosting under
    `hosting_public/`. Then wire up the "Terms & privacy policy" tile in
    `lib/features/profile/settings_screen.dart`, which does nothing today.
-4. **Account deletion web page** (Google Play needs a URL): explain the in-app
+   It needs the organisation's legal name and a contact email from the
+   owner.
+2. **Account deletion web page** (Google Play needs a URL): explain the in-app
    path and give a contact email.
-5. **"Report a problem"** in `profile_screen.dart` only shows a snackbar.
-   Make it write to the `reports` collection, which the rules already allow.
-   Apple asks apps with user content to have working reporting.
-6. **Live location:**
-   - Remove the demo simulation in the live location screen.
-   - Write the position every 15 seconds, not every 5.
-7. **Accepted donor card:** after a request is fulfilled, the card still shows
-   "Active", "Donor Mode ON" and the "Accepted" journey step.
-8. **Reset waiting period:** this button is available to donors themselves.
-   It should be operator-only.
-9. **"Nearby & matched donors"** on the request page is always empty, because
-   profiles aren't readable by other users. Do the matching server-side.
-10. **Map tiles:** the OpenStreetMap tile server's policy doesn't allow
-    production apps. Switch to a "Open in Google Maps" button or a paid tile
-    provider.
-11. **Notifications:**
-    - Deploy Cloud Functions (needs Blaze).
-    - `apiNotifyRequest` has no authentication; fix that before deploying.
-12. **Firebase setup when going live:**
-    - App Check.
-    - Limit SMS to India in the Auth settings.
-    - Add a test phone number with a fixed code for the app reviewers.
-13. **App ID:** it's `com.bloodlink.bloodlink` and is fixed after the first
-    store upload. Ask the owner whether to change it before then.
-14. **Medical disclaimer:** "connects donors, not medical advice".
-15. **Push setting for App Store builds:** confirm the build ends up with
-    `aps-environment = production`. Xcode normally handles this.
+3. **Map tiles:** the OpenStreetMap tile server's policy doesn't allow
+   production apps. Switch to an "Open in Google Maps" button or a paid tile
+   provider; the owner decides.
+4. **Showing donors to the requester:** "Nearby & matched donors" needs
+   server-side matching (Cloud Functions, so Blaze) before it can list
+   donors to a requester.
+5. **Firebase setup when going live:**
+   - App Check.
+   - Limit SMS to India in the Auth settings.
+   - Add a test phone number with a fixed code for the app reviewers.
+6. **App ID:** it's `com.bloodlink.bloodlink` and is fixed after the first
+   store upload. Ask the owner whether to change it before then.
+7. **Push setting for App Store builds:** confirm the build ends up with
+   `aps-environment = production`. Xcode normally handles this.
 
 **The owner does these, in the browser:**
 - Apple Developer Program as an organisation ($99 a year, D-U-N-S number).
