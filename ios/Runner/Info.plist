@@ -43,7 +43,7 @@
 			<array>
 				<!-- Firebase phone sign-in: return address for the reCAPTCHA check
 				     used when silent push isn't available (encoded iOS app id). -->
-				<string>app-1-458287363105-ios-0c00cfe8296dc836005f60</string>
+				<string>app-1-458287363105-ios-72dfec9ca0b61e30005f60</string>
 			</array>
 		</dict>
 	</array>

@@ -62,7 +62,7 @@
       "android": {
         "default": {
           "projectId": "nobloodlink",
-          "appId": "1:458287363105:android:086daa00fa4171b3005f60",
+          "appId": "1:458287363105:android:1c4306fb661dc799005f60",
           "fileOutput": "android/app/google-services.json"
         }
       },
@@ -70,8 +70,8 @@
         "lib/firebase_options.dart": {
           "projectId": "nobloodlink",
           "configurations": {
-            "android": "1:458287363105:android:086daa00fa4171b3005f60",
-            "ios": "1:458287363105:ios:0c00cfe8296dc836005f60",
+            "android": "1:458287363105:android:1c4306fb661dc799005f60",
+            "ios": "1:458287363105:ios:72dfec9ca0b61e30005f60",
             "web": "1:458287363105:web:09a1f9af7fc04b6d005f60"
           }
         }

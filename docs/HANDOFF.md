@@ -99,7 +99,7 @@ flutter run --dart-define=USE_FIREBASE_EMULATOR=true \
    `flutter doctor`.
 3. Clone the repo and run `flutter pub get`.
 4. The owner downloads `GoogleService-Info.plist` from the Firebase console
-   (project `nobloodlink`, iOS app `com.bloodlink.bloodlink`) into
+   (project `nobloodlink`, iOS app `com.raktpravah.app`) into
    `ios/Runner/`. It isn't in the repo yet. It's client config, not a
    secret, so it can be committed the same way
    `android/app/google-services.json` already is.
@@ -152,8 +152,12 @@ flutter run --dart-define=USE_FIREBASE_EMULATOR=true \
    - App Check.
    - Limit SMS to India in the Auth settings.
    - Add a test phone number with a fixed code for the app reviewers.
-6. **App ID:** it's `com.bloodlink.bloodlink` and is fixed after the first
-   store upload. Ask the owner whether to change it before then.
+6. **App ID:** now `com.raktpravah.app` on both platforms. Its Firebase
+   apps are registered, with this laptop's debug SHA-1 and SHA-256. Add the
+   release key's SHA once it exists. The old `com.bloodlink.bloodlink` apps
+   stay registered so the old APK keeps working. The Android namespace and
+   Kotlin package are still `com.bloodlink.bloodlink`, which is internal and
+   fine.
 7. **Push setting for App Store builds:** confirm the build ends up with
    `aps-environment = production`. Xcode normally handles this.
 

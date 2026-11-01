@@ -57,7 +57,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCb3czPJsBF6E9tl10QSuTUFvyS2he7YNU',
-    appId: '1:458287363105:android:086daa00fa4171b3005f60',
+    appId: '1:458287363105:android:1c4306fb661dc799005f60',
     messagingSenderId: '458287363105',
     projectId: 'nobloodlink',
     storageBucket: 'nobloodlink.firebasestorage.app',
@@ -65,10 +65,10 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyB_CHPUWE4PcHLIpZs7iGdl-pFoIfTpmOk',
-    appId: '1:458287363105:ios:0c00cfe8296dc836005f60',
+    appId: '1:458287363105:ios:72dfec9ca0b61e30005f60',
     messagingSenderId: '458287363105',
     projectId: 'nobloodlink',
     storageBucket: 'nobloodlink.firebasestorage.app',
-    iosBundleId: 'com.bloodlink.bloodlink',
+    iosBundleId: 'com.raktpravah.app',
   );
 }

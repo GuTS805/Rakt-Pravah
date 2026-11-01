@@ -3,7 +3,7 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.bloodlink.bloodlink",
+      "package_name": "com.raktpravah.app",
       "sha256_cert_fingerprints": [
         "D4:52:56:FC:05:40:74:71:DB:CD:F8:F9:87:5D:2D:9F:7E:AB:3A:CF:01:73:8A:14:C7:0C:68:94:BE:BC:4D:5F"
       ]

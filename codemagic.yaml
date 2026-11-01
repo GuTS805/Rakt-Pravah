@@ -49,11 +49,11 @@ workflows:
       cocoapods: default
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.bloodlink.bloodlink
+        bundle_identifier: com.raktpravah.app
       vars:
-        BUNDLE_ID: com.bloodlink.bloodlink
+        BUNDLE_ID: com.raktpravah.app
         # Base64 of the GoogleService-Info.plist downloaded from the Firebase
-        # console (project nobloodlink, iOS app com.bloodlink.bloodlink).
+        # console (project nobloodlink, iOS app com.raktpravah.app).
         # Add it as a secure variable named IOS_GOOGLE_SERVICE_INFO_PLIST.
       groups:
         - firebase
