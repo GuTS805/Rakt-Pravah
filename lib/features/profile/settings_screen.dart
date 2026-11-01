@@ -6,6 +6,14 @@ import '../../core/theme/app_theme.dart';
 import '../../data/providers.dart';
 import '../../shared/settings_widgets.dart';
 
+/// What Rakt Pravah is and isn't, for anyone relying on it in an emergency.
+const medicalDisclaimer =
+    'Rakt Pravah connects people who need blood with volunteer donors. It '
+    'is not a medical service and does not give medical advice. Whether '
+    'someone can donate, and every transfusion, is decided by the hospital '
+    'or blood bank after their own screening and tests. In an emergency, '
+    'contact a hospital or call 112.';
+
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -70,6 +78,23 @@ class SettingsScreen extends ConsumerWidget {
                 icon: Icons.description_outlined,
                 title: 'Terms & privacy policy',
                 onTap: () {},
+              ),
+              SettingsTile(
+                icon: Icons.health_and_safety_outlined,
+                title: 'Medical disclaimer',
+                onTap: () => showDialog<void>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Medical disclaimer'),
+                    content: const Text(medicalDisclaimer),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),

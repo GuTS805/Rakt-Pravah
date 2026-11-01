@@ -199,6 +199,14 @@ void main() {
       return container;
     }
 
+    testWidgets('says the app is not a medical service', (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('Medical disclaimer'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('not a medical service'), findsOneWidget);
+      expect(find.textContaining('call 112'), findsOneWidget);
+    });
+
     testWidgets('offers system, light and dark appearance', (tester) async {
       await pump(tester);
       expect(find.text('System default'), findsOneWidget);
