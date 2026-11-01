@@ -10,6 +10,7 @@ const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
 const { processBloodRequestNotifications } = require('./matcher');
+const { uidFromBearer, mayTrigger } = require('./access');
 
 // Initialize Firebase Admin SDK
 if (!admin.apps.length) {
@@ -35,9 +36,14 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Manual / Webhook trigger endpoint
+// Manual trigger: the request's owner or an operator, with a Firebase ID
+// token as a Bearer token.
 app.post('/api/notify-request', async (req, res) => {
-  const { requestId } = req.body;
+  const uid = await uidFromBearer(admin, req);
+  if (!uid) {
+    return res.status(401).json({ error: 'Sign in first: send a Firebase ID token as a Bearer token.' });
+  }
+  const { requestId } = req.body || {};
   if (!requestId) {
     return res.status(400).json({ error: 'Missing required field: requestId' });
   }
@@ -47,12 +53,15 @@ app.post('/api/notify-request', async (req, res) => {
     if (!doc.exists) {
       return res.status(404).json({ error: `Blood request ${requestId} not found` });
     }
+    if (!(await mayTrigger(admin, uid, doc.data()))) {
+      return res.status(403).json({ error: 'Only the requester or an operator can do this.' });
+    }
 
     const result = await processBloodRequestNotifications(admin, requestId, doc.data());
     return res.json({ success: true, result });
   } catch (err) {
     console.error(`[Server] Error processing request ${requestId}:`, err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Couldn't send the notifications." });
   }
 });
 

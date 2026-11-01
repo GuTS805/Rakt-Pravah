@@ -30,6 +30,14 @@ const fakeAdmin = {
     }),
     { FieldValue: { arrayUnion: () => 0, increment: () => 0, serverTimestamp: () => 0, arrayRemove: () => 0, delete: () => 0 } },
   ),
+  // Tokens the fake accepts, and whose they are.
+  auth: () => ({
+    verifyIdToken: async (token) => {
+      const uid = { 'owner-token': 'owner', 'admin-token': 'admin1', 'stranger-token': 'stranger' }[token];
+      if (!uid) throw new Error('bad token');
+      return { uid };
+    },
+  }),
   messaging: () => ({ sendEachForMulticast: async (m) => { sendCount += 1; return { successCount: m.tokens.length, failureCount: 0, responses: [] }; } }),
 };
 
@@ -72,15 +80,18 @@ describe('notifyMatchingDonors (callable)', () => {
     assert.ok(r);
   });
 
-  it('refuses a signed-in user who does not own the request',
-    { todo: 'KNOWN GAP: any signed-in user can trigger a notification run for any request' },
-    async () => {
-      await assert.rejects(call({ auth: { uid: 'stranger' }, data: { requestId: 'r1' } }), (e) => e.code === 'permission-denied');
-    });
+  it('runs for an operator', async () => {
+    const r = await call({ auth: { uid: 'admin1' }, data: { requestId: 'r1' } });
+    assert.ok(r);
+  });
+
+  it('refuses a signed-in user who does not own the request', async () => {
+    await assert.rejects(call({ auth: { uid: 'stranger' }, data: { requestId: 'r1' } }), (e) => e.code === 'permission-denied');
+  });
 });
 
 // An Express-like response that resolves once the handler has answered.
-function call(handler, { method = 'POST', body = { requestId: 'r1' } } = {}) {
+function call(handler, { method = 'POST', body = { requestId: 'r1' }, token = 'owner-token' } = {}) {
   return new Promise((resolve, reject) => {
     const res = new EventEmitter();
     res.statusCode = 200;
@@ -99,8 +110,8 @@ function call(handler, { method = 'POST', body = { requestId: 'r1' } } = {}) {
       body,
       query: {},
       url: '/',
-      headers: { origin: 'https://example.com' },
-      get: () => undefined,
+      headers: { origin: 'https://example.com', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      get: (name) => (name.toLowerCase() === 'authorization' && token ? `Bearer ${token}` : undefined),
     });
     Promise.resolve(handler(req, res)).catch(reject);
     setTimeout(() => reject(new Error('handler never answered')), 3000).unref();
@@ -120,10 +131,20 @@ describe('apiNotifyRequest (public HTTP endpoint)', () => {
     assert.strictEqual((await call(fns.apiNotifyRequest, { body: { requestId: 'nope' } })).statusCode, 404);
   });
 
-  it('refuses an anonymous caller',
-    { todo: 'KNOWN SECURITY HOLE: apiNotifyRequest has no authentication, so anyone on the internet can trigger notification runs' },
-    async () => {
-      const res = await call(fns.apiNotifyRequest);
-      assert.ok([401, 403].includes(res.statusCode), `got HTTP ${res.statusCode}`);
-    });
+  it('refuses an anonymous caller', async () => {
+    assert.strictEqual((await call(fns.apiNotifyRequest, { token: null })).statusCode, 401);
+  });
+
+  it('refuses a token that does not verify', async () => {
+    assert.strictEqual((await call(fns.apiNotifyRequest, { token: 'forged' })).statusCode, 401);
+  });
+
+  it('refuses a signed-in user who does not own the request', async () => {
+    assert.strictEqual((await call(fns.apiNotifyRequest, { token: 'stranger-token' })).statusCode, 403);
+  });
+
+  it('runs for the request\'s owner and for an operator', async () => {
+    assert.strictEqual((await call(fns.apiNotifyRequest)).statusCode, 200);
+    assert.strictEqual((await call(fns.apiNotifyRequest, { token: 'admin-token' })).statusCode, 200);
+  });
 });

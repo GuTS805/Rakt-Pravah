@@ -7,6 +7,7 @@ const admin = require('firebase-admin');
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https');
 const { processBloodRequestNotifications } = require('./matcher');
+const { uidFromBearer, mayTrigger } = require('./access');
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -64,7 +65,8 @@ exports.onBloodRequestUpdated = onDocumentUpdated(
 );
 
 /**
- * Callable Function: Can be called by authenticated users or backend tasks to dispatch notifications.
+ * Callable Function: lets the request's owner, or an operator, send the
+ * notifications for a request again.
  */
 exports.notifyMatchingDonors = onCall(
   {
@@ -85,13 +87,18 @@ exports.notifyMatchingDonors = onCall(
       throw new HttpsError('not-found', `Blood request ${requestId} not found.`);
     }
 
+    if (!(await mayTrigger(admin, request.auth.uid, doc.data()))) {
+      throw new HttpsError('permission-denied', 'Only the requester or an operator can do this.');
+    }
+
     const result = await processBloodRequestNotifications(admin, requestId, doc.data());
     return result;
   }
 );
 
 /**
- * HTTP Webhook: Can be invoked via standard HTTP POST request.
+ * HTTP endpoint for the same thing. Needs `Authorization: Bearer <Firebase
+ * ID token>` of the request's owner or an operator.
  */
 exports.apiNotifyRequest = onRequest(
   {
@@ -101,6 +108,11 @@ exports.apiNotifyRequest = onRequest(
   async (req, res) => {
     if (req.method !== 'POST') {
       return res.status(405).json({ error: 'Method not allowed. Use POST.' });
+    }
+
+    const uid = await uidFromBearer(admin, req);
+    if (!uid) {
+      return res.status(401).json({ error: 'Sign in first: send a Firebase ID token as a Bearer token.' });
     }
 
     const requestId = req.body?.requestId || req.query?.requestId;
@@ -113,12 +125,15 @@ exports.apiNotifyRequest = onRequest(
       if (!doc.exists) {
         return res.status(404).json({ error: `Blood request ${requestId} not found.` });
       }
+      if (!(await mayTrigger(admin, uid, doc.data()))) {
+        return res.status(403).json({ error: 'Only the requester or an operator can do this.' });
+      }
 
       const result = await processBloodRequestNotifications(admin, requestId, doc.data());
       return res.status(200).json({ success: true, result });
     } catch (err) {
       console.error(`[PushService] HTTP trigger error for request ${requestId}:`, err);
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: "Couldn't send the notifications." });
     }
   }
 );
