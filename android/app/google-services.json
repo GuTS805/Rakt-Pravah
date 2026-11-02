@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:458287363105:android:7eb9bdca3deaae52005f60",
+        "android_client_info": {
+          "package_name": "com.anujkumar.raktpravah"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCb3czPJsBF6E9tl10QSuTUFvyS2he7YNU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:458287363105:android:086daa00fa4171b3005f60",
         "android_client_info": {
           "package_name": "com.bloodlink.bloodlink"
