@@ -53,9 +53,11 @@ class LocationService {
     if (_geocoding != null) return _geocoding;
     try {
       // Place names in English, like the rest of the app, whatever language
-      // the phone itself is set to. (For en_IN, Android's geocoder answers in
-      // the local script.)
-      return _geocoding = Geocoding(locale: const Locale('en', 'US'));
+      // the phone itself is set to. Language only, no country: the Android
+      // plugin passes Locale.toString() ("en_US") to forLanguageTag(), which
+      // only understands "en-US", so any country code makes the locale
+      // invalid and the geocoder answers in the local script (कल्याण).
+      return _geocoding = Geocoding(locale: const Locale('en'));
     } catch (_) {
       _geocodingUnavailable = true;
       return null;

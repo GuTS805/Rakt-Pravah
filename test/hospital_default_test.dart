@@ -84,6 +84,54 @@ void main() {
     expect(find.text('Patna'), findsNothing);
   });
 
+  testWidgets('a town missing from the list is kept, in the right state', (
+    tester,
+  ) async {
+    await reachHospitalStep(
+      tester,
+      location: const LocationGranted(
+        GeoPoint(19.2403, 73.1305),
+        'Kalyan West, Kalyan, Maharashtra',
+      ),
+    );
+
+    expect(find.text('Maharashtra'), findsOneWidget);
+    expect(find.text('Other (enter manually)'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.widgetWithText(TextField, 'Kalyan')),
+      isNotNull,
+    );
+    expect(find.text('Bihar'), findsNothing);
+    expect(find.text('Patna'), findsNothing);
+  });
+
+  testWidgets('an address it cannot read is left for the user to choose', (
+    tester,
+  ) async {
+    await reachHospitalStep(
+      tester,
+      location: const LocationGranted(
+        GeoPoint(19.2403, 73.1305),
+        'कल्याण, महाराष्ट्र',
+      ),
+    );
+
+    expect(find.text('Bihar'), findsNothing);
+    expect(find.text('Patna'), findsNothing);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'e.g. City General Hospital'),
+      'City Hospital',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Street, area, landmark'),
+      'Station Road',
+    );
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+    expect(find.text("Choose the hospital's state."), findsOneWidget);
+    expect(find.text('Check the details'), findsNothing);
+  });
+
   testWidgets('without a location it falls back to the profile town', (
     tester,
   ) async {

@@ -151,6 +151,40 @@ void main() {
       return (b, r);
     }
 
+    test('the patient phone never rides along in the hospital details', () async {
+      final b = await rig.as_('requester');
+      final r = await b.createRequest(
+        patientName: 'Sunil Patient',
+        patientBloodGroup: BloodGroup.aPos,
+        bloodGroups: const [BloodGroup.aPos],
+        units: 1,
+        urgency: Urgency.urgent,
+        requestLocationLabel: 'Pune',
+        requestLocation: _pune,
+        phone: '9876501234',
+        phoneCountryCode: '+91',
+        destination: const Destination(
+          name: 'City Hospital',
+          address: 'FC Road, Pune',
+          wardOrContact: 'Contact: +91 98765 01234',
+          location: _pune,
+        ),
+      );
+      final d = await rig.data('blood_requests/${r.id}');
+      expect((d['destination'] as Map).containsKey('wardOrContact'), isFalse);
+      expect(d.toString(), isNot(contains('98765')));
+    });
+
+    test('an old request carrying the number does not show it', () async {
+      await rig.request('r1');
+      await rig.db.doc('blood_requests/r1').update({
+        'destination.wardOrContact': 'Contact: +91 98765 01234',
+      });
+      final r = await (await rig.as_('donor2')).requestStream('r1').first
+          .timeout(const Duration(seconds: 5));
+      expect(r.destination.wardOrContact, isNull);
+    });
+
     test('writes an open request in the requester\'s name', () async {
       final (_, r) = await create();
       final d = await rig.data('blood_requests/${r.id}');

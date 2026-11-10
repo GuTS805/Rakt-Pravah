@@ -1204,6 +1204,22 @@ void main() {
   });
 
   group('home screen', () {
+    testWidgets('the scrolling initiative line fits a narrow phone', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(360, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final user = _user();
+      await tester.pumpWidget(
+        _app(backend: FakeBackend(user: user), user: user, screen: const HomeScreen()),
+      );
+      await _pumpFrames(tester);
+      await tester.pump(const Duration(seconds: 3));
+      expect(tester.takeException(), isNull, reason: 'no overflow');
+    });
+
     testWidgets('idle state leads with the emergency card', (tester) async {
       final user = _user();
       _useTallPhone(tester);

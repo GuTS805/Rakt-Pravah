@@ -251,32 +251,45 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   }
 
   /// Sets the hospital's state and city from an address such as
-  /// "Sivanchetti Gardens, Bengaluru, Karnataka", when both are recognised.
+  /// "Sivanchetti Gardens, Bengaluru, Karnataka". A town missing from the
+  /// list ("Kalyan, Maharashtra") is kept as typed under "Other"; an address
+  /// whose state isn't recognised leaves both for the user to choose.
   void _destFromLabel(String label) {
     final parts = label.split(',').map((p) => p.trim()).toList();
     final states = LocationDataService.getStates(_destCountry);
     final state = states.where((s) => parts.contains(s.name)).firstOrNull;
     if (state == null) return;
-    final city = state.cities.where((c) => parts.contains(c.name)).firstOrNull;
-    if (city == null) return;
     _destState = state.name;
-    _destCity = city.name;
+    final city = state.cities.where((c) => parts.contains(c.name)).firstOrNull;
+    if (city != null) {
+      _destCity = city.name;
+      return;
+    }
+    // The town is the part just before the state.
+    final i = parts.indexOf(state.name);
+    if (i > 0 && parts[i - 1].isNotEmpty) {
+      _destCity = 'Other';
+      _destCustomCityController.text = parts[i - 1];
+    }
   }
 
   Future<void> _next() async {
     if (_step < _steps.length - 1) {
       if (_step == 1) {
         // The hospital is most likely where the request is made from, so
-        // start from the place the request is actually in (the detected
-        // address), not the saved profile town, which may be another state.
-        if (_destState == null && _source == _LocationSource.current) {
-          _destFromLabel(_location.text);
-        }
-        _destState ??= _selectedState;
-        if (_destCity == null && _selectedCity != null) {
-          _destCity = _selectedCity;
-          if (_selectedCity == 'Other') {
-            _destCustomCityController.text = _customCityController.text;
+        // start from the place the request is actually in. With the phone's
+        // location that is the detected address, never the saved profile
+        // town, which may be in another state: an unrecognised address
+        // leaves the hospital's state and city for the user to choose.
+        if (_destState == null) {
+          if (_source == _LocationSource.current) {
+            _destFromLabel(_location.text);
+          } else {
+            _destState = _selectedState;
+            _destCity = _selectedCity;
+            if (_selectedCity == 'Other') {
+              _destCustomCityController.text = _customCityController.text;
+            }
           }
         }
       }
@@ -325,11 +338,6 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
           destPoint;
 
       final phoneDigits = PhoneUtils.cleanDigits(_patientPhone.text);
-      final fullInternational = phoneDigits.isNotEmpty
-          ? PhoneUtils.formatInternational(_phoneCountryCode, phoneDigits)
-          : null;
-      final contactText =
-          fullInternational != null ? 'Contact: $fullInternational' : null;
 
       final req = await ref
           .read(backendProvider)
@@ -349,7 +357,6 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
             destination: Destination(
               name: _destName.text.trim(),
               address: fullDestAddress,
-              wardOrContact: contactText,
               location: destPoint,
             ),
           );
@@ -819,7 +826,9 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
           const SizedBox(height: AppSpacing.md),
           TextField(
             controller: _destCustomCityController,
-            autofocus: true,
+            // Not when the town was filled in from the detected address:
+            // the hospital name is what still needs typing.
+            autofocus: _destCustomCityController.text.isEmpty,
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(
               hintText: 'Enter city name',

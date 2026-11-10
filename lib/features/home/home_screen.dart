@@ -245,13 +245,21 @@ class _InitiativeTickerState extends State<_InitiativeTicker>
           child: ClipRect(
             child: AnimatedBuilder(
               animation: _controller,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(_InitiativeTicker._message, style: style),
-                  const SizedBox(width: gap),
-                  Text(_InitiativeTicker._message, style: style),
-                ],
+              // The two copies are wider than the slot on purpose; let them
+              // lay out at full width (the ClipRect hides the rest) instead
+              // of overflowing the slot.
+              child: OverflowBox(
+                alignment: Alignment.centerLeft,
+                minWidth: 0,
+                maxWidth: double.infinity,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_InitiativeTicker._message, style: style),
+                    const SizedBox(width: gap),
+                    Text(_InitiativeTicker._message, style: style),
+                  ],
+                ),
               ),
               builder: (context, child) => Transform.translate(
                 offset: Offset(-travel * _controller.value, 0),
@@ -386,12 +394,14 @@ class _Hero extends ConsumerWidget {
           children: [
             Icon(Icons.schedule_rounded, size: 13, color: c.textTertiary),
             const SizedBox(width: 4),
-            Text(
-              Fmt.localDateTime(now),
-              style: AppTypography.mono(
-                size: 11,
-                weight: FontWeight.w500,
-                color: c.textSecondary,
+            Flexible(
+              child: Text(
+                Fmt.localDateTime(now),
+                style: AppTypography.mono(
+                  size: 11,
+                  weight: FontWeight.w500,
+                  color: c.textSecondary,
+                ),
               ),
             ),
           ],
@@ -507,7 +517,12 @@ class _CtaPill extends StatelessWidget {
         children: [
           Icon(Icons.add_circle_outline_rounded, size: 19, color: c.brand),
           const SizedBox(width: AppSpacing.sm),
-          Text(label, style: context.text.labelLarge?.copyWith(color: c.brand)),
+          Flexible(
+            child: Text(
+              label,
+              style: context.text.labelLarge?.copyWith(color: c.brand),
+            ),
+          ),
         ],
       ),
     );

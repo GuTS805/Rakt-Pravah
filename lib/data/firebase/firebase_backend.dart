@@ -2397,7 +2397,7 @@ class FirebaseBackend implements Backend {
       destination: Destination(
         name: destMap['name'] as String? ?? '',
         address: destMap['address'] as String? ?? '',
-        wardOrContact: destMap['wardOrContact'] as String?,
+        wardOrContact: _wardOrContact(destMap['wardOrContact']),
         location: _pointFromMap(destMap['location'] as Map?),
       ),
       requestLocationLabel: data['requestLocationLabel'] as String? ?? '',
@@ -2553,12 +2553,23 @@ class FirebaseBackend implements Backend {
     );
   }
 
+  // The request document is readable by every signed-in user, so the
+  // patient's phone never goes in it: it lives in private/patient. Older
+  // versions wrote it here as "Contact: +91 ..."; such a value is a phone
+  // number, not a ward, and is neither written nor shown.
   Map<String, dynamic> _destinationToMap(Destination d) => {
     'name': d.name,
     'address': d.address,
-    'wardOrContact': d.wardOrContact,
+    'wardOrContact': ?_wardOrContact(d.wardOrContact),
     'location': _pointToMap(d.location),
   };
+
+  static String? _wardOrContact(Object? raw) {
+    if (raw is! String) return null;
+    final v = raw.trim();
+    if (v.isEmpty || v.toLowerCase().startsWith('contact:')) return null;
+    return v;
+  }
 
   Map<String, dynamic>? _pointToMap(GeoPoint? p) =>
       p == null ? null : {'lat': p.lat, 'lng': p.lng};
