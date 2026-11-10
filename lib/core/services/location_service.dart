@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/widgets.dart' show Locale;
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -52,12 +51,7 @@ class LocationService {
     if (_geocodingUnavailable) return null;
     if (_geocoding != null) return _geocoding;
     try {
-      // Place names in English, like the rest of the app, whatever language
-      // the phone itself is set to. Language only, no country: the Android
-      // plugin passes Locale.toString() ("en_US") to forLanguageTag(), which
-      // only understands "en-US", so any country code makes the locale
-      // invalid and the geocoder answers in the local script (कल्याण).
-      return _geocoding = Geocoding(locale: const Locale('en'));
+      return _geocoding = Geocoding();
     } catch (_) {
       _geocodingUnavailable = true;
       return null;
@@ -131,8 +125,8 @@ class LocationService {
       final placemarks = await geocoding
           .placemarkFromCoordinates(point.lat, point.lng)
           .timeout(_geocodeTimeout);
-      if (placemarks.isEmpty) return _coordsLabel(point);
-      final p = placemarks.first;
+      final p = pickPlacemark(placemarks);
+      if (p == null) return _coordsLabel(point);
       final parts = <String>[
         if ((p.subLocality ?? '').trim().isNotEmpty) p.subLocality!,
         if ((p.locality ?? '').trim().isNotEmpty) p.locality!,
@@ -146,6 +140,31 @@ class LocationService {
       // with a fake place name.
       return _coordsLabel(point);
     }
+  }
+
+  /// The answer to show, in English like the rest of the app. On Indian
+  /// phones Google's geocoder returns the same place several times, the
+  /// first ones in the local script (कल्याण, महाराष्ट्र) and the later ones
+  /// in English (Kalyan, Maharashtra), and asking for an English locale
+  /// changes nothing, so the first one written in Latin letters is used.
+  /// It is also the spelling the state and city lists use.
+  static Placemark? pickPlacemark(List<Placemark> placemarks) {
+    if (placemarks.isEmpty) return null;
+    return placemarks.where(_isLatin).firstOrNull ?? placemarks.first;
+  }
+
+  static final _nonLatinLetter = RegExp(
+    r'(?![\p{Script=Latin}])\p{L}',
+    unicode: true,
+  );
+
+  static bool _isLatin(Placemark p) {
+    final text = [
+      p.subLocality,
+      p.locality,
+      p.administrativeArea,
+    ].whereType<String>().join(' ');
+    return text.trim().isNotEmpty && !_nonLatinLetter.hasMatch(text);
   }
 
   String _coordsLabel(GeoPoint point) =>

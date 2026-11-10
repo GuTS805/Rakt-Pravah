@@ -175,6 +175,27 @@ void main() {
       expect(d.toString(), isNot(contains('98765')));
     });
 
+    test("the request is filed under the hospital's town, not the profile's", () async {
+      final b = await rig.as_('requester');
+      final r = await b.createRequest(
+        patientName: 'Sunil Patient',
+        patientBloodGroup: BloodGroup.aPos,
+        bloodGroups: const [BloodGroup.aPos],
+        units: 1,
+        urgency: Urgency.urgent,
+        requestLocationLabel: 'Kalyan, Maharashtra',
+        city: 'Kalyan',
+        state: 'Maharashtra',
+        destination: const Destination(
+          name: 'Fortis Hospital',
+          address: 'Shivaji Chowk, Kalyan, Maharashtra',
+        ),
+      );
+      final d = await rig.data('blood_requests/${r.id}');
+      expect(d['city'], 'Kalyan');
+      expect(d['state'], 'Maharashtra');
+    });
+
     test('an old request carrying the number does not show it', () async {
       await rig.request('r1');
       await rig.db.doc('blood_requests/r1').update({

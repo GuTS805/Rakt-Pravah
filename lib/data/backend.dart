@@ -224,6 +224,8 @@ abstract class Backend {
 
   Stream<BloodRequest> requestStream(String id);
 
+  /// [city] and [state] are the hospital's town, used to match donors when
+  /// no coordinates are known; they default to the requester's profile.
   Future<BloodRequest> createRequest({
     required String patientName,
     required BloodGroup patientBloodGroup,
@@ -238,6 +240,8 @@ abstract class Backend {
     String? phone,
     DateTime? requiredDate,
     String? notes,
+    String? city,
+    String? state,
   });
 
   Future<void> cancelRequest(String id);

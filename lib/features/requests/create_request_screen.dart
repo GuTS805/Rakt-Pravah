@@ -354,6 +354,8 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
             phone: phoneDigits.isEmpty ? null : phoneDigits,
             requiredDate: _requiredDate,
             notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+            city: resolvedDestCity,
+            state: _destState,
             destination: Destination(
               name: _destName.text.trim(),
               address: fullDestAddress,

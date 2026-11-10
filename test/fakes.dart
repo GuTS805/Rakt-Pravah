@@ -251,6 +251,8 @@ class FakeBackend implements Backend {
     String? phone,
     DateTime? requiredDate,
     String? notes,
+    String? city,
+    String? state,
   }) async {
     createRequestCalls++;
     patientNames['req-$createRequestCalls'] = patientName;

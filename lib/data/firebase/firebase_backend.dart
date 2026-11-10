@@ -1535,6 +1535,8 @@ class FirebaseBackend implements Backend {
     String? phone,
     DateTime? requiredDate,
     String? notes,
+    String? city,
+    String? state,
   }) async {
     final now = DateTime.now();
     final ref = _requests.doc();
@@ -1598,10 +1600,10 @@ class FirebaseBackend implements Backend {
                 (requestLocation.lng * 100).round() / 100,
               ),
       ),
-      // The requester's saved home area, used to match donors when neither
-      // side has usable coordinates.
-      'city': currentUser?.city,
-      'state': currentUser?.state,
+      // The hospital's town, used to match donors when neither side has
+      // usable coordinates; the requester's saved area if none was given.
+      'city': _nonEmpty(city) ?? currentUser?.city,
+      'state': _nonEmpty(state) ?? currentUser?.state,
       'donorsContacted': 0,
       'currentWave': 0,
       'searchRadiusKm': 0.0,
@@ -2563,6 +2565,9 @@ class FirebaseBackend implements Backend {
     'wardOrContact': ?_wardOrContact(d.wardOrContact),
     'location': _pointToMap(d.location),
   };
+
+  static String? _nonEmpty(String? s) =>
+      (s == null || s.trim().isEmpty) ? null : s.trim();
 
   static String? _wardOrContact(Object? raw) {
     if (raw is! String) return null;
