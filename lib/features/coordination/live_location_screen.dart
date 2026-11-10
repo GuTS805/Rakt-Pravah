@@ -14,7 +14,7 @@ import '../../data/providers.dart';
 import 'live_tracking_map.dart';
 import 'live_tracking_sheet.dart';
 
-/// Full-screen real-time delivery-style tracking screen (Zepto/Blinkit style).
+/// Live tracking for a donation in progress.
 /// Displays live donor transit, hospital destination, ETA, interactive
 /// 4-step progress, call/chat actions, and two-way location sharing.
 class LiveLocationScreen extends ConsumerStatefulWidget {
@@ -33,7 +33,9 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
   bool _sharing = false;
   Timer? _locationTimer;
 
-  DonorTransitStatus _transitStatus = DonorTransitStatus.onTheWay;
+  /// The status this donor just tapped, shown until the request reflects it.
+  /// Opening this screen does not by itself mean they have set off.
+  DonorTransitStatus? _chosenStatus;
 
   @override
   void initState() {
@@ -60,8 +62,11 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
   }
 
   Future<void> _startSharing() async {
+    // Shown as on straight away: a GPS fix can take ten seconds or more, and
+    // "paused" meanwhile would say the opposite of what is happening.
+    setState(() => _sharing = true);
     final result = await ref.read(deviceLocationProvider.notifier).request();
-    if (!mounted) return;
+    if (!mounted || !_sharing) return;
 
     if (!result.isGranted) {
       // In dev/web environments without hardware GPS permission, proceed with cached location
@@ -69,8 +74,6 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
         'Device location permission not granted, proceeding with fallback.',
       );
     }
-
-    setState(() => _sharing = true);
 
     // Initial push
     await _pushCurrentLocation();
@@ -108,7 +111,6 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
           .updateLiveLocation(
             widget.requestId,
             point,
-            transitStatus: _transitStatus,
             isRequester: isRequester,
           );
     }
@@ -129,7 +131,7 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
   }
 
   void _updateTransitStatus(DonorTransitStatus next) {
-    setState(() => _transitStatus = next);
+    setState(() => _chosenStatus = next);
     ref.read(backendProvider).updateDonorTransitStatus(widget.requestId, next);
   }
 
@@ -153,9 +155,12 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
 
     return Scaffold(
       backgroundColor: c.background,
-      extendBodyBehindAppBar: true,
+      // The page scrolls, so the bar is solid: content must not slide under
+      // the status bar and the back button.
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: c.background,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         elevation: 0,
         leading: Container(
           margin: const EdgeInsets.only(left: 8),
@@ -222,8 +227,14 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
               ? req.donorLiveLocations[donorId]
               : null;
 
+          final donorEntry = req.acceptedDonors
+              .where((d) => d.id == donorId)
+              .firstOrNull;
           final effectiveTransitStatus =
-              donorPing?.transitStatus ?? _transitStatus;
+              (isDonor ? _chosenStatus : null) ??
+              donorPing?.transitStatus ??
+              donorEntry?.transitStatus ??
+              DonorTransitStatus.accepted;
 
           // Only a real position: the last one shared, the one given when
           // accepting, or this phone's own. Never a made-up point.
@@ -247,15 +258,18 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
           final partnerPhoneCountryCode = isDonor
               ? req.phoneCountryCode
               : firstDonor?.phoneCountryCode;
-          final partnerBloodGroup = isDonor
-              ? req.patientBloodGroup
-              : firstDonor?.bloodGroup;
+          // Beside the partner's name: a donor's own group, never the
+          // patient's next to the requester's name.
+          final partnerBloodGroup = isDonor ? null : firstDonor?.bloodGroup;
 
-          return Stack(
-            children: [
-              // Who is coming, and links to Google Maps
-              Positioned.fill(
-                child: LiveTrackingMap(
+          // The card on top and the sheet under it scroll as one page: laid
+          // over each other, the sheet hid the card and its Maps buttons.
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Who is coming, and links to Google Maps
+                LiveTrackingMap(
                   destination: req.destination,
                   donorLocation: effectiveDonorPoint,
                   donorName: isDonor ? me?.name : firstDonor?.name,
@@ -264,15 +278,14 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
                       : firstDonor?.bloodGroup,
                   transitStatus: effectiveTransitStatus,
                 ),
-              ),
+                const SizedBox(height: AppSpacing.lg),
 
-              // Bottom Tracking Card (Zepto/Blinkit style)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: LiveTrackingSheet(
+                // Status, the other person, and the donor's controls
+                LiveTrackingSheet(
                   request: req,
+                  patientName:
+                      ref.watch(patientNameProvider(req.id)).valueOrNull ??
+                      req.patientName,
                   partnerName: partnerName,
                   partnerPhone: partnerPhone,
                   partnerPhoneCountryCode: partnerPhoneCountryCode,
@@ -287,8 +300,8 @@ class _LiveLocationScreenState extends ConsumerState<LiveLocationScreen> {
                   onToggleSharing: _toggleSharing,
                   onUpdateTransitStatus: _updateTransitStatus,
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         },
       ),

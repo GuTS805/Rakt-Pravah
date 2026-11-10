@@ -211,21 +211,19 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    // A Wrap, so on a narrow card the badge drops under the
+                    // title instead of squeezing it to one letter per line.
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Flexible(
-                          child: Text(
-                            'Donor Mode',
-                            style: context.text.titleMedium,
-                          ),
-                        ),
+                        Text('Donor Mode', style: context.text.titleMedium),
                         // Only the cooldown badge survives: it carries a number
                         // the subtitle doesn't. An availability chip would just
                         // repeat the line underneath it.
-                        if (cooldown) ...[
-                          const SizedBox(width: AppSpacing.sm),
+                        if (cooldown)
                           _CooldownBadge(remaining: donor.cooldownRemaining),
-                        ],
                       ],
                     ),
                     const SizedBox(height: 2),
@@ -471,11 +469,13 @@ class _CooldownBadge extends StatelessWidget {
         children: [
           Icon(Icons.bedtime_rounded, size: 12, color: c.warning),
           const SizedBox(width: 4),
-          Text(
-            days == 1 ? 'Eligible tomorrow' : 'Eligible in $days days',
-            style: context.text.labelSmall?.copyWith(
-              color: c.warning,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              days == 1 ? 'Eligible tomorrow' : 'Eligible in $days days',
+              style: context.text.labelSmall?.copyWith(
+                color: c.warning,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

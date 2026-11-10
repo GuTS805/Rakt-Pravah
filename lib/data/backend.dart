@@ -283,10 +283,13 @@ abstract class Backend {
 
   Future<ChatMessage> sendMessage(String requestId, String text);
 
+  /// Shares [point] as the caller's live position on a request. A donor's
+  /// [transitStatus] (on the way, reached...) changes only when given: being
+  /// on the tracking screen is not the same as having set off.
   Future<void> updateLiveLocation(
     String requestId,
     GeoPoint point, {
-    DonorTransitStatus transitStatus = DonorTransitStatus.onTheWay,
+    DonorTransitStatus? transitStatus,
     double? headingDegrees,
     bool isRequester = false,
   });

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rakt_pravah/core/services/location_service.dart';
 import 'package:rakt_pravah/core/theme/app_theme.dart';
+import 'package:rakt_pravah/core/widgets/badges.dart';
 import 'package:rakt_pravah/core/widgets/blood_group_picker.dart';
 import 'package:rakt_pravah/data/backend.dart' show SignInFailure;
 import 'package:rakt_pravah/core/widgets/status_timeline.dart';
@@ -356,6 +357,43 @@ void main() {
     });
   });
 
+  group('DataField', () {
+    Future<Text> show(WidgetTester tester, String value) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 140,
+                child: DataField(label: 'Location', value: value),
+              ),
+            ),
+          ),
+        ),
+      );
+      return tester.widget<Text>(find.text(value));
+    }
+
+    testWidgets('a long word shrinks to fit instead of breaking', (
+      tester,
+    ) async {
+      final text = await show(tester, 'Maharashtra');
+      expect(text.style!.fontSize, lessThan(15));
+      // One line: the word was not split across two.
+      final lineHeight = text.style!.fontSize! * (text.style!.height ?? 1.0);
+      expect(
+        tester.getSize(find.text('Maharashtra')).height,
+        lessThan(lineHeight * 1.9),
+      );
+    });
+
+    testWidgets('a short value keeps the full size', (tester) async {
+      final text = await show(tester, 'Pune');
+      expect(text.style!.fontSize, 15);
+    });
+  });
+
   group('StatusTimeline', () {
     BloodRequest request(RequestStatus status, {List<StatusEvent>? timeline}) =>
         BloodRequest(
@@ -405,7 +443,11 @@ void main() {
         ),
       );
       expect(find.text('Cancelled'), findsOneWidget);
-      expect(find.text('Fulfilled'), findsOneWidget); // still shown, as upcoming
+      expect(find.text('Searching'), findsOneWidget);
+      // Steps it never reached won't happen now; they aren't "Pending".
+      expect(find.text('Fulfilled'), findsNothing);
+      expect(find.text('Donor accepted'), findsNothing);
+      expect(find.text('Pending'), findsNothing);
     });
 
     for (final s in [RequestStatus.expired, RequestStatus.removedByAdmin]) {

@@ -93,6 +93,46 @@ void main() {
     expect(find.textContaining('Notifications are off'), findsNothing);
   });
 
+  testWidgets('resting after a donation, the title stays on one line', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final user = me(verified: true);
+    final backend = FakeBackend(
+      user: user,
+      donor: DonorProfile(
+        availability: DonorAvailability.off,
+        bloodGroup: BloodGroup.bPos,
+        lastDonation: DateTime.now(),
+      ),
+    )..emitCanAct(true);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          backendProvider.overrideWithValue(backend),
+          currentUserProvider.overrideWithValue(user),
+          notificationsAllowedProvider.overrideWith((ref) async => true),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: const Scaffold(
+            body: SingleChildScrollView(child: DonorStatusCard()),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.textContaining('Eligible in'), findsOneWidget);
+    final title = tester.getSize(find.text('Donor Mode'));
+    // One line of titleMedium, not "Don / or / Mod / e".
+    expect(title.height, lessThan(40));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('the card no longer shows a ticking clock', (tester) async {
     await open(tester);
     expect(find.textContaining('Local time'), findsNothing);

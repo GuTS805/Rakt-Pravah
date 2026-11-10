@@ -5,6 +5,7 @@ import 'package:rakt_pravah/core/theme/app_theme.dart';
 import 'package:rakt_pravah/data/models/models.dart';
 import 'package:rakt_pravah/data/providers.dart';
 import 'package:rakt_pravah/features/coordination/live_location_screen.dart';
+import 'package:rakt_pravah/features/coordination/live_tracking_map.dart';
 import 'package:rakt_pravah/features/coordination/live_tracking_sheet.dart';
 
 import 'fakes.dart';
@@ -182,6 +183,54 @@ void main() {
       expect(find.textContaining('mins'), findsNothing);
     });
 
+    testWidgets(
+      "a donor who hasn't set off sees the patient, the number, no arrival time",
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light(),
+            home: Scaffold(
+              body: LiveTrackingSheet(
+                request: BloodRequest(
+                  id: 'req-track',
+                  requesterId: 'req-1',
+                  requesterName: 'Priya Sharma',
+                  patientBloodGroup: BloodGroup.bPos,
+                  bloodGroups: const [BloodGroup.bPos],
+                  units: 1,
+                  urgency: Urgency.critical,
+                  status: RequestStatus.donorAccepted,
+                  createdAt: DateTime.now(),
+                  destination: const Destination(
+                    name: 'Fortis Hospital',
+                    address: 'Shivaji Chowk',
+                  ),
+                  requestLocationLabel: 'Kalyan, Maharashtra',
+                ),
+                patientName: 'Meena Sharma',
+                partnerName: 'Priya Sharma',
+                partnerPhone: '9999999993',
+                partnerPhoneCountryCode: '+91',
+                isDonor: true,
+                transitStatus: DonorTransitStatus.accepted,
+                distanceKm: 8.6,
+                isSharingLocation: true,
+                onToggleSharing: () {},
+                onUpdateTransitStatus: (_) {},
+              ),
+            ),
+          ),
+        );
+
+        expect(find.textContaining('Patient Meena Sharma (B+)'), findsOneWidget);
+        expect(find.textContaining('Needed'), findsNothing);
+        expect(find.text('+91 99999 99993'), findsOneWidget);
+        expect(find.text('8.6 km from the hospital'), findsOneWidget);
+        expect(find.textContaining('Arriving by'), findsNothing);
+        expect(find.textContaining('mins'), findsNothing);
+      },
+    );
+
     testWidgets('a donor has no demo simulation button', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -267,6 +316,14 @@ void main() {
         ); // requester has no phone by default
         expect(find.text('Chat'), findsOneWidget);
         expect(find.text('Directions'), findsOneWidget);
+        // The sheet sits under the card, not over it (it used to hide the
+        // card's Google Maps buttons).
+        expect(
+          tester.getRect(find.byType(LiveTrackingMap)).bottom,
+          lessThanOrEqualTo(
+            tester.getRect(find.byType(LiveTrackingSheet)).top,
+          ),
+        );
       },
     );
   });

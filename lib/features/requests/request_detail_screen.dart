@@ -571,7 +571,13 @@ class _SummaryCard extends ConsumerWidget {
               Expanded(
                 child: DataField(
                   label: 'Location',
-                  value: request.requestLocationLabel.split('·').first.trim(),
+                  // The town only: the column is a third of the card.
+                  value:
+                      Fmt.placeName(
+                        request.requestLocationLabel.split('·').first,
+                        null,
+                      ) ??
+                      '—',
                 ),
               ),
             ],

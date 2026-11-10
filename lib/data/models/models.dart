@@ -489,7 +489,7 @@ class DonorPing {
   const DonorPing({
     required this.point,
     required this.at,
-    this.transitStatus = DonorTransitStatus.onTheWay,
+    this.transitStatus = DonorTransitStatus.accepted,
     this.headingDegrees,
   });
 

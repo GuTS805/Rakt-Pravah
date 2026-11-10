@@ -2256,7 +2256,7 @@ class FirebaseBackend implements Backend {
   Future<void> updateLiveLocation(
     String requestId,
     GeoPoint point, {
-    DonorTransitStatus transitStatus = DonorTransitStatus.onTheWay,
+    DonorTransitStatus? transitStatus,
     double? headingDegrees,
     bool isRequester = false,
   }) async {
@@ -2280,7 +2280,7 @@ class FirebaseBackend implements Backend {
             'at': fs.Timestamp.fromDate(now),
             'heading': ?headingDegrees,
           },
-          'transitStatus': transitStatus.name,
+          'transitStatus': ?transitStatus?.name,
         }, fs.SetOptions(merge: true)),
       );
     }
@@ -2538,7 +2538,7 @@ class FirebaseBackend implements Backend {
       at: (m['at'] as fs.Timestamp?)?.toDate() ?? DateTime.now(),
       transitStatus: DonorTransitStatus.values.byNameOr(
         m['transitStatus'] as String?,
-        DonorTransitStatus.onTheWay,
+        DonorTransitStatus.accepted,
       ),
       headingDegrees: (m['heading'] as num?)?.toDouble(),
     );

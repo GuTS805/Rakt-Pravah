@@ -318,13 +318,37 @@ class DataField extends StatelessWidget {
       children: [
         Text(label.toUpperCase(), style: AppTypography.eyebrow(c.textTertiary)),
         const SizedBox(height: AppSpacing.xs + 1),
-        Text(
-          value,
-          style: AppTypography.mono(
-            size: 15,
-            weight: FontWeight.w600,
-            color: valueColor ?? c.textPrimary,
-          ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            TextStyle style(double size) => AppTypography.mono(
+              size: size,
+              weight: FontWeight.w600,
+              color: valueColor ?? c.textPrimary,
+            );
+            // These sit in narrow columns. A word wider than the column
+            // would be broken mid-word ("Maharashtr / a"), so the text gets
+            // smaller until its longest word fits, down to a floor.
+            var size = 15.0;
+            if (constraints.hasBoundedWidth) {
+              final scaler = MediaQuery.textScalerOf(context);
+              final longest = value
+                  .split(RegExp(r'\s+'))
+                  .fold('', (a, b) => b.length > a.length ? b : a);
+              while (size > 11) {
+                final painter = TextPainter(
+                  text: TextSpan(text: longest, style: style(size)),
+                  textDirection: Directionality.of(context),
+                  textScaler: scaler,
+                  maxLines: 1,
+                )..layout();
+                final fits = painter.width <= constraints.maxWidth;
+                painter.dispose();
+                if (fits) break;
+                size -= 1;
+              }
+            }
+            return Text(value, style: style(size));
+          },
         ),
       ],
     );

@@ -21,14 +21,18 @@ class StatusTimeline extends StatelessWidget {
     final current = request.status;
 
     // Determine which lifecycle steps to show. If terminal-and-not-fulfilled,
-    // we show progress up to where it stopped, then the terminal node.
-    final steps = <RequestStatus>[...RequestStatus.lifecycle];
+    // we show progress up to where it stopped, then the terminal node: the
+    // steps it never reached will not happen, so they aren't listed as
+    // "Pending".
     final isUnhappyTerminal =
         current == RequestStatus.cancelled ||
         current == RequestStatus.expired ||
         current == RequestStatus.removedByAdmin;
 
     final reachedIndex = _reachedIndex(current);
+    final steps = isUnhappyTerminal
+        ? RequestStatus.lifecycle.take(reachedIndex + 1).toList()
+        : RequestStatus.lifecycle;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

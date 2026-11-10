@@ -656,6 +656,22 @@ void main() {
       expect(r.donorLiveLocations['donor1']?.point.lng, _pune.lng);
     });
 
+    test('sharing a position does not say the donor has set off', () async {
+      await rig.request('r1', accepted: ['donor1']);
+      final donor = await rig.as_('donor1');
+      await donor.updateLiveLocation('r1', _pune);
+      var r = await watch('requester');
+      expect(r.donorLiveLocations['donor1']?.transitStatus,
+          DonorTransitStatus.accepted);
+
+      await donor.updateDonorTransitStatus('r1', DonorTransitStatus.onTheWay);
+      await donor.updateLiveLocation('r1', _pune);
+      r = await watch('requester');
+      // A later position keeps the status the donor chose.
+      expect(r.donorLiveLocations['donor1']?.transitStatus,
+          DonorTransitStatus.onTheWay);
+    });
+
     test('a transit status without a position does not break reading', () async {
       await rig.request('r1', accepted: ['donor1']);
       final donor = await rig.as_('donor1');

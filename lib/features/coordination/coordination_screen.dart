@@ -110,16 +110,11 @@ class CoordinationScreen extends ConsumerWidget {
               const SizedBox(height: AppSpacing.md),
               _ActionTile(
                 icon: Icons.delivery_dining_rounded,
-                title: 'Live Tracking & Route',
-                subtitle: 'Real-time Zepto-style map, donor transit & ETA',
+                title: 'Live tracking',
+                subtitle: iAmDonor
+                    ? 'Share where you are and when you reach'
+                    : 'See where your donor is and when they reach',
                 onTap: () => context.push(Routes.liveLocation(requestId)),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              _ActionTile(
-                icon: Icons.directions_rounded,
-                title: 'Get directions',
-                subtitle: 'Fastest route to ${req.destination.name}',
-                onTap: () => _openDirections(context, req.destination),
               ),
               const SizedBox(height: AppSpacing.xl),
               if (req.status.isTerminal)
@@ -440,8 +435,10 @@ class _DonorViewOfRequester extends ConsumerWidget {
                                   AppRadius.pill,
                                 ),
                               ),
+                              // Only accounts with an SMS-confirmed number
+                              // can ask for blood (firestore.rules canAct).
                               child: Text(
-                                'Verified Requester',
+                                'Phone verified',
                                 style: AppTypography.mono(
                                   size: 10,
                                   weight: FontWeight.w700,
@@ -474,41 +471,62 @@ class _DonorViewOfRequester extends ConsumerWidget {
                   children: [
                     Icon(Icons.phone_rounded, size: 16, color: c.success),
                     const SizedBox(width: 8),
-                    Text(
-                      // The number the requester gave on the request.
-                      'Contact phone: ',
-                      style: context.text.bodySmall?.copyWith(
-                        fontSize: 12,
-                        color: c.textSecondary,
-                      ),
-                    ),
+                    // The number the requester gave on the request. It is
+                    // never cut short; on a narrow phone the tag moves under
+                    // it instead.
                     Expanded(
-                      child: Text(
-                        request.phone ?? 'Not provided',
-                        style: AppTypography.mono(
-                          size: 13,
-                          weight: FontWeight.w700,
-                          color: c.textPrimary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: c.successSubtle,
-                        borderRadius: BorderRadius.circular(AppRadius.pill),
-                      ),
-                      child: Text(
-                        'Shared on Accept',
-                        style: AppTypography.mono(
-                          size: 9,
-                          weight: FontWeight.w700,
-                          color: c.success,
-                        ),
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                'Contact phone: ',
+                                style: context.text.bodySmall?.copyWith(
+                                  fontSize: 12,
+                                  color: c.textSecondary,
+                                ),
+                              ),
+                              Text(
+                                (request.phone ?? '').trim().isEmpty
+                                    ? 'Not provided'
+                                    : PhoneUtils.formatDisplay(
+                                        request.phoneCountryCode,
+                                        request.phone,
+                                      ),
+                                style: AppTypography.mono(
+                                  size: 13,
+                                  weight: FontWeight.w700,
+                                  color: c.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: c.successSubtle,
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.pill,
+                              ),
+                            ),
+                            child: Text(
+                              'Shared on Accept',
+                              style: AppTypography.mono(
+                                size: 9,
+                                weight: FontWeight.w700,
+                                color: c.success,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -673,86 +691,6 @@ class _DonorViewOfRequester extends ConsumerWidget {
                   UrgencyBadge(request.urgency, dense: true),
                 ],
               ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: AppSpacing.md),
-
-        // Hospital & Request Location Card
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.local_hospital_rounded, size: 20, color: c.brand),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Hospital / Destination',
-                      style: context.text.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              const Divider(height: 1),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                request.destination.name,
-                style: context.text.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                request.destination.address,
-                style: context.text.bodyMedium?.copyWith(
-                  color: c.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(
-                    Icons.location_on_outlined,
-                    size: 14,
-                    color: c.textTertiary,
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      request.requestLocationLabel,
-                      style: context.text.bodySmall?.copyWith(
-                        color: c.textTertiary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (request.destination.wardOrContact != null &&
-                  request.destination.wardOrContact!.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: c.surfaceMuted,
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                  ),
-                  child: Text(
-                    request.destination.wardOrContact!,
-                    style: context.text.bodySmall?.copyWith(
-                      color: c.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ),

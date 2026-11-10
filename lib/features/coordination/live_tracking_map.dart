@@ -47,7 +47,7 @@ class LiveTrackingMap extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.lg,
-            kToolbarHeight + AppSpacing.md,
+            AppSpacing.md,
             AppSpacing.lg,
             0,
           ),

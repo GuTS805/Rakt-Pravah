@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/router/routes.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/utils/maps_links.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
@@ -15,6 +16,7 @@ class LiveTrackingSheet extends StatelessWidget {
   const LiveTrackingSheet({
     super.key,
     required this.request,
+    this.patientName,
     required this.partnerName,
     this.partnerPhone,
     this.partnerPhoneCountryCode,
@@ -29,6 +31,10 @@ class LiveTrackingSheet extends StatelessWidget {
   });
 
   final BloodRequest request;
+
+  /// The patient's name, which only participants can read (it is kept
+  /// apart from the request).
+  final String? patientName;
   final String partnerName;
   final String? partnerPhone;
   final String? partnerPhoneCountryCode;
@@ -148,7 +154,14 @@ class LiveTrackingSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final km = distanceKm;
-    final etaMinutes = km == null ? null : (km / 0.5).round().clamp(2, 180);
+    // An arrival time only once the donor has set off; before that it would
+    // promise a time nobody has committed to.
+    final travelling =
+        transitStatus == DonorTransitStatus.onTheWay ||
+        transitStatus == DonorTransitStatus.nearHospital;
+    final etaMinutes = km == null || !travelling
+        ? null
+        : (km / 0.5).round().clamp(2, 180);
     final etaTime = etaMinutes == null
         ? null
         : DateFormat.jm().format(
@@ -180,20 +193,9 @@ class LiveTrackingSheet extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Drag handle
-              Center(
-                child: Container(
-                  width: 38,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: c.borderStrong.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                  ),
-                ),
-              ),
               const SizedBox(height: AppSpacing.md),
 
-              // Zepto/Blinkit Style ETA & Live Indicator Header
+              // Status headline and whether location is being shared
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -228,6 +230,8 @@ class LiveTrackingSheet extends StatelessWidget {
                               ? 'Donor has reached the hospital location'
                               : km == null
                               ? "Waiting for the donor's location"
+                              : etaTime == null
+                              ? '${km.toStringAsFixed(1)} km from the hospital'
                               : '${km.toStringAsFixed(1)} km away • Arriving by $etaTime',
                           style: context.text.bodyMedium?.copyWith(
                             color: c.textSecondary,
@@ -326,8 +330,17 @@ class LiveTrackingSheet extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           isDonor
-                              ? 'Requester • Patient: ${request.patientName ?? "Needed"} (${request.bloodType})'
-                              : 'Confirmed Donor • Donor Mode ON (${request.bloodType})',
+                              ? [
+                                  'Requester',
+                                  [
+                                    if ((patientName ?? '').trim().isNotEmpty)
+                                      'Patient ${patientName!.trim()}',
+                                    if (request.patientBloodGroup != null)
+                                      '(${request.patientBloodGroup!.label})',
+                                  ].join(' '),
+                                  Fmt.component(request.bloodType),
+                                ].where((s) => s.isNotEmpty).join(' • ')
+                              : 'Donor • ${Fmt.component(request.bloodType)}',
                           style: context.text.bodySmall?.copyWith(
                             color: c.textSecondary,
                           ),
@@ -344,7 +357,10 @@ class LiveTrackingSheet extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                partnerPhone!,
+                                PhoneUtils.formatDisplay(
+                                  partnerPhoneCountryCode,
+                                  partnerPhone,
+                                ),
                                 style: AppTypography.mono(
                                   size: 11,
                                   weight: FontWeight.w600,

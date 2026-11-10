@@ -185,14 +185,21 @@ void main() {
         // 5. Urgency
         expect(find.text('Urgent'), findsOneWidget);
 
-        // 6. Hospital name & address & location
-        expect(find.text('Apollo Hospital'), findsWidgets);
-        expect(find.text('GS Road, Guwahati, Assam 781005'), findsWidgets);
-        expect(find.text('Guwahati, Assam'), findsOneWidget);
+        // 6. Hospital name & address, once (the map panel), and not the
+        //    requester's own area dressed up as the hospital's.
+        expect(find.text('Apollo Hospital'), findsOneWidget);
+        expect(find.text('GS Road, Guwahati, Assam 781005'), findsOneWidget);
+        expect(find.text('Guwahati, Assam'), findsNothing);
 
         // 7. Requester's phone number
         expect(find.text('+91 98765 11111'), findsOneWidget);
         expect(find.text('Shared on Accept'), findsOneWidget);
+        // Says what was checked (an SMS-confirmed number), nothing more.
+        expect(find.text('Phone verified'), findsOneWidget);
+        expect(find.text('Verified Requester'), findsNothing);
+        // One way to directions, no other company's name in the copy.
+        expect(find.text('Get directions'), findsNothing);
+        expect(find.textContaining('Zepto'), findsNothing);
 
         // 8. Additional notes
         expect(

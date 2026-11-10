@@ -516,15 +516,21 @@ class FakeBackend implements Backend {
   Future<void> updateLiveLocation(
     String requestId,
     GeoPoint point, {
-    DonorTransitStatus transitStatus = DonorTransitStatus.onTheWay,
+    DonorTransitStatus? transitStatus,
     double? headingDegrees,
     bool isRequester = false,
   }) async {
     liveLocationUpdates.add((requestId, point));
+    final previous = _requests.value
+        .where((r) => r.id == requestId)
+        .firstOrNull
+        ?.donorLiveLocations[uid]
+        ?.transitStatus;
     final ping = DonorPing(
       point: point,
       at: DateTime.now(),
-      transitStatus: transitStatus,
+      transitStatus:
+          transitStatus ?? previous ?? DonorTransitStatus.accepted,
       headingDegrees: headingDegrees,
     );
     _requests.value = [
