@@ -399,6 +399,8 @@ class _Hero extends ConsumerWidget {
 
   static String _greeting() {
     final h = DateTime.now().hour;
+    // From midnight until dawn it is still evening to most people.
+    if (h < 4) return 'Good evening';
     if (h < 12) return 'Good morning';
     if (h < 17) return 'Good afternoon';
     return 'Good evening';

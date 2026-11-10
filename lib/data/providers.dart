@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/services/location_service.dart';
+import '../core/services/notification_service.dart';
 import '../core/services/photo_picker.dart';
 import 'backend.dart';
 import 'firebase/firebase_backend.dart';
@@ -236,6 +237,13 @@ final currentTimeProvider = StreamProvider<DateTime>((ref) async* {
   yield DateTime.now();
   yield* Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now());
 });
+
+/// Whether the app may show notifications on this device (see
+/// [NotificationService.notificationsAllowed]). Invalidate it when the person
+/// may have changed the setting, such as on returning to the app.
+final notificationsAllowedProvider = FutureProvider<bool?>(
+  (ref) => NotificationService.instance.notificationsAllowed(),
+);
 
 // ---------------------------------------------------------------------------
 // Donor Mode

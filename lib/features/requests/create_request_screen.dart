@@ -207,6 +207,41 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
     }
   }
 
+  /// The first thing this step still needs, in words.
+  String _missing() {
+    switch (_step) {
+      case 0:
+        if (_patientName.text.trim().length < 2) {
+          return "Enter the patient's name.";
+        }
+        final digits = PhoneUtils.cleanDigits(_patientPhone.text);
+        if (PhoneUtils.validate(_phoneCountryCode, digits) != null) {
+          return 'Enter a phone number donors can call.';
+        }
+        if (_patientGroup == null) return "Choose the patient's blood group.";
+        return 'Tick at least one donor blood group.';
+      case 1:
+        if (_selectedState == null) return 'Choose the state.';
+        return 'Choose the city.';
+      case 2:
+        if (_destName.text.trim().isEmpty) return 'Enter the hospital name.';
+        if (_destAddress.text.trim().isEmpty) {
+          return 'Enter the hospital address.';
+        }
+        if (_destState == null) return "Choose the hospital's state.";
+        return "Choose the hospital's city.";
+      default:
+        return 'Tick "These details are correct" to send the request.';
+    }
+  }
+
+  void _explainMissing() {
+    dismissKeyboard();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(_missing())));
+  }
+
   void _back() {
     if (_step == 0) {
       context.pop();
@@ -370,7 +405,9 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
             canAdvance: _canAdvance,
             isLast: _step == _steps.length - 1,
             submitting: _submitting,
-            onNext: _canAdvance ? _next : null,
+            // Never a dead button: a tap on an unfinished step says what is
+            // still missing.
+            onNext: _canAdvance ? _next : _explainMissing,
           ),
         ],
       ),
@@ -424,7 +461,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
           onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: AppSpacing.lg),
-        Text('Blood Type', style: context.text.titleSmall),
+        Text('What is needed', style: context.text.titleSmall),
         const SizedBox(height: AppSpacing.sm),
         DropdownButtonFormField<String>(
           initialValue: _bloodType,
@@ -433,7 +470,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
             prefixIcon: Icon(Icons.water_drop_outlined),
           ),
           items: const [
-            DropdownMenuItem(value: 'Blood', child: Text('Blood')),
+            DropdownMenuItem(value: 'Blood', child: Text('Whole blood')),
             DropdownMenuItem(value: 'Platelets', child: Text('Platelets')),
           ],
           onChanged: (v) {
@@ -571,110 +608,122 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
           ],
         ),
         const SizedBox(height: AppSpacing.xl),
-        Text('Select State:', style: context.text.titleSmall),
-        const SizedBox(height: AppSpacing.sm),
-        DropdownButtonFormField<String>(
-          key: ValueKey('state-$_selectedState'),
-          initialValue: _selectedState,
-          isExpanded: true,
-          decoration: const InputDecoration(
-            hintText: 'Choose a state or union territory',
-            prefixIcon: Icon(Icons.map_outlined),
-          ),
-          items: [
-            for (final s in availableStates)
-              DropdownMenuItem(value: s, child: Text(s)),
-          ],
-          onChanged: (val) {
-            setState(() {
-              _selectedState = val;
-              _selectedCity = null;
-              _customCityController.clear();
-              _source = _LocationSource.stateCity;
-              _requestPoint = null;
-              _location.text = val ?? '';
-            });
-          },
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Text('Select City:', style: context.text.titleSmall),
-        const SizedBox(height: AppSpacing.sm),
-        DropdownButtonFormField<String>(
-          key: ValueKey('city-${_selectedState ?? "none"}-$_selectedCity'),
-          initialValue: _selectedCity,
-          isExpanded: true,
-          decoration: InputDecoration(
-            hintText: _selectedState == null
-                ? 'Select a state first'
-                : 'Choose a city',
-            prefixIcon: const Icon(Icons.location_city_outlined),
-          ),
-          items: _selectedState == null
-              ? []
-              : [
-                  for (final c in availableCities)
-                    DropdownMenuItem(value: c, child: Text(c)),
-                  const DropdownMenuItem(
-                    value: 'Other',
-                    child: Text('Other (enter manually)'),
-                  ),
+        // Faded while the current location is the one in use, so it is clear
+        // which of the two the request goes out with. Picking from it still
+        // switches over to it.
+        AnimatedOpacity(
+          opacity: usingCurrent && _requestPoint != null ? 0.45 : 1,
+          duration: const Duration(milliseconds: 150),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Select State:', style: context.text.titleSmall),
+              const SizedBox(height: AppSpacing.sm),
+              DropdownButtonFormField<String>(
+                key: ValueKey('state-$_selectedState'),
+                initialValue: _selectedState,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  hintText: 'Choose a state or union territory',
+                  prefixIcon: Icon(Icons.map_outlined),
+                ),
+                items: [
+                  for (final s in availableStates)
+                    DropdownMenuItem(value: s, child: Text(s)),
                 ],
-          onChanged: _selectedState == null
-              ? null
-              : (val) {
+                onChanged: (val) {
                   setState(() {
-                    _selectedCity = val;
+                    _selectedState = val;
+                    _selectedCity = null;
+                    _customCityController.clear();
                     _source = _LocationSource.stateCity;
-                    final effectiveCity = val == 'Other'
-                        ? _customCityController.text.trim()
-                        : (val ?? '');
-                    if (val == 'Other') {
-                      _location.text = _customCityController.text.trim().isEmpty
-                          ? _selectedState!
-                          : '${_customCityController.text.trim()}, $_selectedState';
-                    } else if (val != null) {
-                      _location.text = '$val, $_selectedState';
-                    }
-                    final resolved = LocationDataService.resolve(
-                      country: _selectedCountry,
-                      state: _selectedState,
-                      city: effectiveCity,
-                    );
-                    if (resolved.hasCoordinates) {
-                      _requestPoint =
-                          GeoPoint(resolved.latitude!, resolved.longitude!);
-                    }
+                    _requestPoint = null;
+                    _location.text = val ?? '';
                   });
                 },
-        ),
-        if (_selectedCity == 'Other') ...[
-          const SizedBox(height: AppSpacing.md),
-          TextField(
-            controller: _customCityController,
-            autofocus: true,
-            textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              hintText: 'Enter city name',
-              prefixIcon: Icon(Icons.edit_location_outlined),
-            ),
-            onChanged: (text) {
-              setState(() {
-                _location.text = text.trim().isEmpty
-                    ? _selectedState!
-                    : '${text.trim()}, $_selectedState';
-                final resolved = LocationDataService.resolve(
-                  country: _selectedCountry,
-                  state: _selectedState,
-                  city: text.trim(),
-                );
-                if (resolved.hasCoordinates) {
-                  _requestPoint =
-                      GeoPoint(resolved.latitude!, resolved.longitude!);
-                }
-              });
-            },
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text('Select City:', style: context.text.titleSmall),
+              const SizedBox(height: AppSpacing.sm),
+              DropdownButtonFormField<String>(
+                key: ValueKey('city-${_selectedState ?? "none"}-$_selectedCity'),
+                initialValue: _selectedCity,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  hintText: _selectedState == null
+                      ? 'Select a state first'
+                      : 'Choose a city',
+                  prefixIcon: const Icon(Icons.location_city_outlined),
+                ),
+                items: _selectedState == null
+                    ? []
+                    : [
+                        for (final c in availableCities)
+                          DropdownMenuItem(value: c, child: Text(c)),
+                        const DropdownMenuItem(
+                          value: 'Other',
+                          child: Text('Other (enter manually)'),
+                        ),
+                      ],
+                onChanged: _selectedState == null
+                    ? null
+                    : (val) {
+                        setState(() {
+                          _selectedCity = val;
+                          _source = _LocationSource.stateCity;
+                          final effectiveCity = val == 'Other'
+                              ? _customCityController.text.trim()
+                              : (val ?? '');
+                          if (val == 'Other') {
+                            _location.text = _customCityController.text.trim().isEmpty
+                                ? _selectedState!
+                                : '${_customCityController.text.trim()}, $_selectedState';
+                          } else if (val != null) {
+                            _location.text = '$val, $_selectedState';
+                          }
+                          final resolved = LocationDataService.resolve(
+                            country: _selectedCountry,
+                            state: _selectedState,
+                            city: effectiveCity,
+                          );
+                          if (resolved.hasCoordinates) {
+                            _requestPoint =
+                                GeoPoint(resolved.latitude!, resolved.longitude!);
+                          }
+                        });
+                      },
+              ),
+              if (_selectedCity == 'Other') ...[
+                const SizedBox(height: AppSpacing.md),
+                TextField(
+                  controller: _customCityController,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    hintText: 'Enter city name',
+                    prefixIcon: Icon(Icons.edit_location_outlined),
+                  ),
+                  onChanged: (text) {
+                    setState(() {
+                      _location.text = text.trim().isEmpty
+                          ? _selectedState!
+                          : '${text.trim()}, $_selectedState';
+                      final resolved = LocationDataService.resolve(
+                        country: _selectedCountry,
+                        state: _selectedState,
+                        city: text.trim(),
+                      );
+                      if (resolved.hasCoordinates) {
+                        _requestPoint =
+                            GeoPoint(resolved.latitude!, resolved.longitude!);
+                      }
+                    });
+                  },
+                ),
+              ],
+            ],
           ),
-        ],
+        ),
       ],
     );
   }
@@ -850,7 +899,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
                 ),
               ],
               _divider(),
-              _reviewRow('Blood type', _bloodType),
+              _reviewRow('Needed', Fmt.component(_bloodType)),
               _divider(),
               _reviewRow(
                 'Required date',

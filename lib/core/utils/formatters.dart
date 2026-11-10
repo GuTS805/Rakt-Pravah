@@ -1,5 +1,10 @@
 /// Small formatting helpers shared across screens.
 abstract class Fmt {
+  /// What a request asks for, from its stored value ('Blood' or
+  /// 'Platelets'). "Blood type" would read as the blood group.
+  static String component(String stored) =>
+      stored == 'Platelets' ? 'Platelets' : 'Whole blood';
+
   /// Compact relative time, e.g. "just now", "6 min ago", "3 h ago", "2 d ago".
   static String relative(DateTime time) {
     final d = DateTime.now().difference(time);

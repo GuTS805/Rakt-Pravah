@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../core/services/donor_gate.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
@@ -29,6 +31,33 @@ class DonorStatusCard extends ConsumerStatefulWidget {
 
 class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
   bool _busy = false;
+
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    // The notification setting can change in the system settings while the
+    // app is in the background; look again on coming back.
+    _lifecycle = AppLifecycleListener(
+      onResume: () => ref.invalidate(notificationsAllowedProvider),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  /// Asks again where the system still allows it, otherwise opens this app's
+  /// system settings, where notifications can be switched back on.
+  Future<void> _enableNotifications() async {
+    await NotificationService.instance.requestPermission();
+    final allowed = await NotificationService.instance.notificationsAllowed();
+    if (allowed != true) await Geolocator.openAppSettings();
+    ref.invalidate(notificationsAllowedProvider);
+  }
 
   void _checkAutoReenable(DonorProfile donor) {
     if (donor.lastDonation != null &&
@@ -142,6 +171,9 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
     final c = context.colors;
     final donor = ref.watch(donorProfileValueProvider);
     final now = ref.watch(currentTimeProvider).valueOrNull ?? DateTime.now();
+    final canAct = ref.watch(canActValueProvider);
+    final notificationsOff =
+        ref.watch(notificationsAllowedProvider).valueOrNull == false;
     _checkAutoReenable(donor);
 
     final cooldown = donor.isInCooldown;
@@ -200,7 +232,7 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
                     Text(
                       cooldown
                           ? 'Resting after your last donation — thank you.'
-                          : _subtitle(donor.availability),
+                          : _subtitle(donor.availability, canAct: canAct),
                       style: context.text.bodySmall,
                     ),
                   ],
@@ -224,27 +256,41 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
             ],
           ),
 
-          const SizedBox(height: AppSpacing.md),
-          Divider(height: 1, color: c.border),
-          const SizedBox(height: AppSpacing.sm),
-
-          // User's current local date and time
-          Row(
-            children: [
-              Icon(Icons.schedule_rounded, size: 14, color: c.textTertiary),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Local time: ${Fmt.localDateTime(now)}',
-                  style: AppTypography.mono(
-                    size: 11,
-                    weight: FontWeight.w500,
-                    color: c.textSecondary,
-                  ),
-                ),
+          // A donor who has said no to notifications is still matched, but
+          // the alert never shows. Say so, with the way to fix it.
+          if (donor.isOn && !cooldown && notificationsOff) ...[
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: c.warningSubtle,
+                borderRadius: BorderRadius.circular(AppRadius.md),
               ),
-            ],
-          ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.notifications_off_outlined,
+                    size: 18,
+                    color: c.warning,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      "Notifications are off, so requests can't reach you.",
+                      style: context.text.bodySmall?.copyWith(
+                        color: c.textPrimary,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _enableNotifications,
+                    child: const Text('Turn on'),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           // Cooldown details with Next Eligible Date and live countdown
           if (cooldown && donor.nextEligibleDonationDate != null) ...[
@@ -389,10 +435,12 @@ class _DonorStatusCardState extends ConsumerState<DonorStatusCard> {
     );
   }
 
-  String _subtitle(DonorAvailability a) {
+  String _subtitle(DonorAvailability a, {required bool canAct}) {
     switch (a) {
       case DonorAvailability.available:
-        return 'You can receive matching requests nearby.';
+        return canAct
+            ? 'You can receive matching requests nearby.'
+            : 'Verify your phone number to start receiving requests.';
       case DonorAvailability.paused:
         return 'Paused — you won\'t be notified for now.';
       case DonorAvailability.off:

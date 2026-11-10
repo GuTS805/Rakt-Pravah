@@ -259,16 +259,20 @@ class _MultiChipState extends State<_MultiChip>
                 width: selected ? 1.6 : 1,
               ),
             ),
+            // Fills the chip, so the tick sits on the chip's corner rather
+            // than on the corner of the label, where it covered the "+".
             child: Stack(
-              alignment: Alignment.center,
+              fit: StackFit.expand,
               clipBehavior: Clip.none,
               children: [
-                Text(
-                  widget.group.label,
-                  style: AppTypography.mono(
-                    size: 16,
-                    weight: FontWeight.w700,
-                    color: selected ? c.onBrand : c.textSecondary,
+                Center(
+                  child: Text(
+                    widget.group.label,
+                    style: AppTypography.mono(
+                      size: 16,
+                      weight: FontWeight.w700,
+                      color: selected ? c.onBrand : c.textSecondary,
+                    ),
                   ),
                 ),
                 if (selected)

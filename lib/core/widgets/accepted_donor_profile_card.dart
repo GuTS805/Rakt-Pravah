@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../theme/app_typography.dart';
 import 'avatar.dart';
 import 'badges.dart';
+import '../utils/formatters.dart';
 
 /// Comprehensive profile card for an accepted donor shown to the requester.
 /// Strictly enforces privacy: only donation-essential information, verification
@@ -242,7 +243,7 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
-                                      donor.bloodType,
+                                      Fmt.component(donor.bloodType),
                                       style: context.text.bodySmall?.copyWith(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,

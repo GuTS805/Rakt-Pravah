@@ -193,6 +193,10 @@ class NotificationService {
             AndroidFlutterLocalNotificationsPlugin
           >()
           ?.requestNotificationsPermission();
+      // Android has one notification permission for the whole app. Asking
+      // again through Firebase Messaging showed the same prompt a second
+      // time to someone who had just said no.
+      return _fcm?.getNotificationSettings();
     } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
       await _plugin
           .resolvePlatformSpecificImplementation<
@@ -212,6 +216,24 @@ class NotificationService {
       );
     }
     return null;
+  }
+
+  /// Whether this device lets the app show notifications: false once the
+  /// person has said no, null when it can't be told (no Firebase, tests).
+  Future<bool?> notificationsAllowed() async {
+    final fcm = _fcm;
+    if (fcm == null) return null;
+    try {
+      final settings = await fcm.getNotificationSettings();
+      return switch (settings.authorizationStatus) {
+        AuthorizationStatus.authorized || AuthorizationStatus.provisional => true,
+        AuthorizationStatus.denied ||
+        AuthorizationStatus.deniedPermanently => false,
+        AuthorizationStatus.notDetermined => null,
+      };
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Retrieves the current device's FCM registration token.

@@ -17,6 +17,7 @@ import '../../core/utils/action_error.dart';
 import '../../data/models/models.dart';
 import '../../data/providers.dart';
 import 'map_panel.dart';
+import '../../core/utils/formatters.dart';
 
 /// The private mutual coordination space between requester and donor.
 /// Created after acceptance to share relevant profile and request details.
@@ -644,7 +645,7 @@ class _DonorViewOfRequester extends ConsumerWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          request.bloodType,
+                          Fmt.component(request.bloodType),
                           style: context.text.bodySmall?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),

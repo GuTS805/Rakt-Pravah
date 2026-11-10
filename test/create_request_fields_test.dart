@@ -23,11 +23,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verify Patient Name, Phone number, Blood Type, and Required date exist
+      // Verify Patient Name, Phone number, what is needed, and Required date exist
       expect(find.text('Patient name'), findsOneWidget);
       expect(find.text('Phone number'), findsOneWidget);
-      expect(find.text('Blood Type'), findsOneWidget);
-      expect(find.text('Blood'), findsWidgets);
+      expect(find.text('What is needed'), findsOneWidget);
+      expect(find.text('Whole blood'), findsWidgets);
       expect(find.text('Required date'), findsOneWidget);
 
       // Verify Urgency options: Urgent and Critical exist, Routine is removed
@@ -250,4 +250,31 @@ void main() {
       expect(requests.first.notes, 'Room 304, 3rd floor ICU');
     },
   );
+
+  testWidgets('Continue on an unfinished step says what is missing', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [backendProvider.overrideWithValue(FakeBackend())],
+        child: MaterialApp(
+          theme: AppTheme.dark(),
+          home: const CreateRequestScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+    expect(find.text("Enter the patient's name."), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, 'Sita Devi');
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+    expect(find.text('Enter a phone number donors can call.'), findsOneWidget);
+
+    // Still on the first step.
+    expect(find.text('Who needs blood?'), findsOneWidget);
+  });
 }

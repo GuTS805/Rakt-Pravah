@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -51,7 +52,9 @@ class LocationService {
     if (_geocodingUnavailable) return null;
     if (_geocoding != null) return _geocoding;
     try {
-      return _geocoding = Geocoding();
+      // Place names in English, like the rest of the app, whatever language
+      // the phone itself is set to.
+      return _geocoding = Geocoding(locale: const Locale('en', 'IN'));
     } catch (_) {
       _geocodingUnavailable = true;
       return null;

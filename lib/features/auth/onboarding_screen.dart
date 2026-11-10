@@ -92,6 +92,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final isLast = _index == _pages.length - 1;
+    final located = ref.watch(
+      deviceLocationProvider.select((l) => l.isGranted),
+    );
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -175,17 +178,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   const SizedBox(height: AppSpacing.xl),
                   if (isLast) ...[
                     OutlinedButton.icon(
-                      onPressed: _requestingLocation ? null : _requestLocation,
+                      onPressed: _requestingLocation || located
+                          ? null
+                          : _requestLocation,
                       icon: _requestingLocation
                           ? const SizedBox(
                               height: 18,
                               width: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.my_location_rounded),
+                          : Icon(
+                              located
+                                  ? Icons.check_circle_rounded
+                                  : Icons.my_location_rounded,
+                            ),
                       label: Text(
                         _requestingLocation
                             ? 'Requesting location…'
+                            : located
+                            ? 'Location is on'
                             : 'Use my location',
                       ),
                     ),

@@ -79,6 +79,14 @@ class PhoneNumberFieldState extends State<PhoneNumberField> {
     widget.onCountryChanged?.call(country);
   }
 
+  final _codeFocus = FocusNode(skipTraversal: true);
+
+  @override
+  void dispose() {
+    _codeFocus.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -119,6 +127,8 @@ class PhoneNumberFieldState extends State<PhoneNumberField> {
             children: [
               DropdownButtonHideUnderline(
                 child: DropdownButton<CountryCode>(
+                  // The keyboard's Next lands on the number, not on this.
+                  focusNode: _codeFocus,
                   key: const ValueKey('country-code-dropdown'),
                   value: _selectedCountry,
                   isDense: true,
