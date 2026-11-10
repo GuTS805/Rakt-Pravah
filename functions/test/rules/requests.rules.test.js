@@ -116,6 +116,19 @@ describe('blood_requests', () => {
       await withAccepted([], { units: 3 });
       await assertFails(accept(ids.donor, [ids.donor, ids.donor2]));
     });
+    it('cannot accept a request that was cancelled', async () => {
+      await withAccepted([], { status: 'cancelled' });
+      await assertFails(accept(ids.donor, [ids.donor]));
+    });
+    it('cannot accept a request that was already fulfilled', async () => {
+      await withAccepted([], { status: 'fulfilled' });
+      await assertFails(accept(ids.donor, [ids.donor]));
+    });
+    it('cannot mark the request fulfilled while accepting', async () => {
+      await assertFails(req(ids.donor).update({
+        acceptedDonorIds: [ids.donor], acceptedDonors: [accepted(ids.donor)], status: 'fulfilled', timeline: [],
+      }));
+    });
     it('cannot change other fields while accepting', async () => {
       await assertFails(req(ids.donor).update({
         acceptedDonorIds: [ids.donor], acceptedDonors: [accepted(ids.donor)], status: 'donorAccepted', timeline: [], units: 99,

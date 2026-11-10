@@ -1425,8 +1425,14 @@ class FirebaseBackend implements Backend {
         return requests;
       });
 
-  Future<void> _expire(String id) =>
-      _transitionIfActive(id, RequestStatus.expired, 'No donor found in time');
+  Future<void> _expire(String id) => _transitionIfActive(
+    id,
+    RequestStatus.expired,
+    'No donor found in time',
+    // Checked again inside the transaction: a donor may have accepted, or
+    // the request been extended, since the snapshot that looked expired.
+    stillApplies: (request) => request.hasExpiredBy(),
+  );
 
   @override
   Future<void> extendRequest(String id) async {
@@ -1764,8 +1770,9 @@ class FirebaseBackend implements Backend {
   Future<void> _transitionIfActive(
     String id,
     RequestStatus status,
-    String note,
-  ) async {
+    String note, {
+    bool Function(BloodRequest current)? stillApplies,
+  }) async {
     final ref = _requests.doc(id);
     await _online(_db.runTransaction((tx) async {
       final snap = await tx.get(ref);
@@ -1775,6 +1782,7 @@ class FirebaseBackend implements Backend {
         RequestStatus.created,
       );
       if (current.isTerminal) return;
+      if (stillApplies != null && !stillApplies(_requestFromDoc(snap))) return;
       final timeline = List<Map<String, dynamic>>.from(
         (snap.data()!['timeline'] as List?) ?? const [],
       );

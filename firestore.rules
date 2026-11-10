@@ -172,6 +172,8 @@ service cloud.firestore {
       //     one unit, so this refuses a donor who is already on the list and
       //     refuses the acceptance that would exceed the units asked for —
       //     the real enforcement, not the client transaction alone.
+      //     Only a request still open can be accepted, and accepting can
+      //     only mark it accepted, never fulfilled or closed.
       //  3. a donor adds themselves to the declined list
       //  4. an accepted donor updates only their own live-location entry
       //     (spec §19 — sharing is opt-in, revocable, and can't touch
@@ -184,6 +186,10 @@ service cloud.firestore {
       allow update: if isSignedIn() && (
         resource.data.requesterId == request.auth.uid
         || (canAct()
+            && resource.data.status in ['created', 'searching',
+                                        'donorAccepted', 'coordinating']
+            && request.resource.data.status in ['donorAccepted',
+                                                resource.data.status]
             && !(request.auth.uid in resource.data.get('acceptedDonorIds', []))
             && request.auth.uid in request.resource.data.acceptedDonorIds
             && request.resource.data.acceptedDonorIds.size()
