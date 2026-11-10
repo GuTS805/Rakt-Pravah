@@ -180,7 +180,9 @@ class ProfileScreen extends ConsumerWidget {
                 SettingsTile(
                   icon: Icons.volunteer_activism_outlined,
                   title: 'Donation history',
-                  subtitle: '${donor.totalDonations} donations',
+                  subtitle: donor.totalDonations == 1
+                      ? '1 donation'
+                      : '${donor.totalDonations} donations',
                   onTap: () => context.push(Routes.donationHistory),
                 ),
               ],

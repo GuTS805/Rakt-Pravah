@@ -155,6 +155,15 @@ class CoordinationScreen extends ConsumerWidget {
   }
 
   Future<void> _fulfill(BuildContext context, WidgetRef ref) async {
+    // It can't be undone, so one stray tap mustn't close the request: the
+    // same question the request screen asks.
+    final ok = await _confirm(
+      context,
+      title: 'Mark as fulfilled?',
+      body: 'This closes the request and thanks your donor.',
+      confirmLabel: 'Mark fulfilled',
+    );
+    if (ok != true || !context.mounted) return;
     try {
       await ref.read(backendProvider).markFulfilled(requestId);
       if (context.mounted) context.pop();

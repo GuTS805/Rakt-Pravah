@@ -205,13 +205,27 @@ void main() {
   group('coordination (requester)', () {
     final accepted = _request(RequestStatus.coordinating, withDonor: true);
 
-    testWidgets('can mark the request fulfilled and is taken back', (tester) async {
+    testWidgets('can mark the request fulfilled after confirming, and is taken back', (tester) async {
       final b = await _coord(tester, _requester, accepted);
       await tester.ensureVisible(find.text('Mark request fulfilled'));
       await tester.tap(find.text('Mark request fulfilled'));
       await _settle(tester);
+      expect(find.text('Mark as fulfilled?'), findsOneWidget);
+      expect(b.fulfilledRequestIds, isEmpty, reason: 'not before confirming');
+      await tester.tap(find.widgetWithText(TextButton, 'Mark fulfilled'));
+      await _settle(tester);
       expect(b.fulfilledRequestIds, ['r1']);
       expect(find.text('BACK AT START'), findsOneWidget);
+    });
+
+    testWidgets('a stray tap on fulfilled can be taken back', (tester) async {
+      final b = await _coord(tester, _requester, accepted);
+      await tester.ensureVisible(find.text('Mark request fulfilled'));
+      await tester.tap(find.text('Mark request fulfilled'));
+      await _settle(tester);
+      await tester.tap(find.widgetWithText(TextButton, 'Keep'));
+      await _settle(tester);
+      expect(b.fulfilledRequestIds, isEmpty);
     });
 
     testWidgets('can cancel after confirming', (tester) async {

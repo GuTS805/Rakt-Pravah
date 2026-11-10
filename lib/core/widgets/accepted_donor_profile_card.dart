@@ -112,7 +112,7 @@ class AcceptedDonorProfileCard extends StatelessWidget {
                   // pill off the card.
                   Expanded(
                     child: Text(
-                      'Selected Donor · Primary Contact',
+                      'Your donor',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.mono(

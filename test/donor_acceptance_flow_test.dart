@@ -77,7 +77,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
 
       // Requirement 3: Accepted Donor Profile fields
-      expect(find.text('Selected Donor · Primary Contact'), findsOneWidget);
+      expect(find.text('Your donor'), findsOneWidget);
       expect(find.text('Rahul Sharma'), findsOneWidget);
       expect(find.text('Platelets'), findsOneWidget);
       expect(find.text('Verified'), findsOneWidget);
@@ -186,7 +186,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
 
       // Amit is now primary, Suman is alternative
-      expect(find.text('Selected Donor · Primary Contact'), findsOneWidget);
+      expect(find.text('Your donor'), findsOneWidget);
     },
   );
 
