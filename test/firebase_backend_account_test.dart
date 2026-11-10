@@ -495,7 +495,7 @@ service cloud.firestore {
         'destination': {'name': 'H', 'address': 'A'},
       });
       await b.respondToInvitation('r1', InvitationStatus.accepted);
-      final donor = ((await _doc(db, 'blood_requests/r1'))['acceptedDonors'] as List).single as Map;
+      final donor = await _doc(db, 'blood_requests/r1/private/donor_${b.uid}');
       expect(donor['phoneCountryCode'], '+1');
     });
   });

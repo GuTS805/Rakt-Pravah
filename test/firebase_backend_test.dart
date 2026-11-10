@@ -182,26 +182,35 @@ void main() {
       expect((d['destination'] as Map)['location'], {'lat': 18.5204, 'lng': 73.8567});
     });
 
+    // The contact number goes in private/patient, which only the requester
+    // and accepted donors can read, never on the request every user reads.
     test('keeps the number typed on the form, with its country code', () async {
       final (_, r) = await create(phone: '501234567', code: '+971');
+      final p = await rig.data('blood_requests/${r.id}/private/patient');
+      expect(p['phone'], '501234567');
+      expect(p['phoneCountryCode'], '+971');
+    });
+
+    test('the contact number is kept off the world-readable request', () async {
+      final (_, r) = await create(phone: '501234567', code: '+971');
       final d = await rig.data('blood_requests/${r.id}');
-      expect(d['phone'], '501234567');
-      expect(d['phoneCountryCode'], '+971');
-      expect(d['fullPhoneNumber'], '+971501234567');
+      expect(d.containsKey('phone'), isFalse);
+      expect(d.containsKey('fullPhoneNumber'), isFalse);
+      expect(d.containsKey('phoneCountryCode'), isFalse);
     });
 
     test('a number with no country code is taken as +91', () async {
       final (_, r) = await create(phone: '9876500000', code: null);
-      final d = await rig.data('blood_requests/${r.id}');
-      expect(d['phoneCountryCode'], '+91');
-      expect(d['fullPhoneNumber'], '+919876500000');
+      final p = await rig.data('blood_requests/${r.id}/private/patient');
+      expect(p['phoneCountryCode'], '+91');
+      expect(p['phone'], '9876500000');
     });
 
     test('a number typed with a leading + is split into code and digits', () async {
       final (_, r) = await create(phone: '+14155550123', code: null);
-      final d = await rig.data('blood_requests/${r.id}');
-      expect(d['phoneCountryCode'], '+1');
-      expect(d['phone'], '4155550123');
+      final p = await rig.data('blood_requests/${r.id}/private/patient');
+      expect(p['phoneCountryCode'], '+1');
+      expect(p['phone'], '4155550123');
     });
 
     test('the patient\'s name is kept off the world-readable request', () async {
@@ -232,10 +241,15 @@ void main() {
       final donor = (d['acceptedDonors'] as List).single as Map;
       expect(donor['id'], 'donor1');
       expect(donor['name'], 'Dana Donor');
-      expect(donor['phone'], '4155550123');
-      expect(donor['phoneCountryCode'], '+1');
       expect(d['acceptedDonorIds'], ['donor1']);
       expect(d['status'], 'donorAccepted');
+      // The number is for the requester only: in the donor's private doc,
+      // not on the request every user can read.
+      expect(donor.containsKey('phone'), isFalse);
+      expect(donor.containsKey('location'), isFalse);
+      final p = await rig.data('blood_requests/r1/private/donor_donor1');
+      expect(p['phone'], '4155550123');
+      expect(p['phoneCountryCode'], '+1');
     });
 
     test('records the acceptance on the timeline', () async {
@@ -526,6 +540,78 @@ void main() {
       b.myLocation = _pune;
       await Future<void>.delayed(Duration.zero);
       expect((await rig.data('users/donor1')).containsKey('location'), isFalse);
+    });
+  });
+
+  group('private details of a request', () {
+    Future<BloodRequest> watch(String uid) async =>
+        (await rig.as_(uid)).requestStream('r1').first.timeout(
+          const Duration(seconds: 5),
+        );
+
+    test("the requester sees the accepted donor's number", () async {
+      await rig.request('r1');
+      await (await rig.as_('donor1')).respondToInvitation(
+        'r1',
+        InvitationStatus.accepted,
+      );
+      await Future<void>.delayed(Duration.zero);
+      final r = await watch('requester');
+      expect(r.acceptedDonors.single.phone, '4155550123');
+      expect(r.acceptedDonors.single.phoneCountryCode, '+1');
+    });
+
+    test('the accepted donor sees the patient contact number', () async {
+      await rig.request('r1', accepted: ['donor1']);
+      await rig.db.doc('blood_requests/r1/private/patient').set({
+        'name': 'Sunil',
+        'phone': '9000000009',
+        'phoneCountryCode': '+91',
+      });
+      final r = await watch('donor1');
+      expect(r.phone, '9000000009');
+    });
+
+    test('a donor withdrawing takes their private details away', () async {
+      await rig.request('r1');
+      final donor = await rig.as_('donor1');
+      await donor.respondToInvitation('r1', InvitationStatus.accepted);
+      await donor.withdrawFromRequest('r1');
+      final left = await rig.db
+          .doc('blood_requests/r1/private/donor_donor1')
+          .get();
+      expect(left.exists, isFalse);
+    });
+
+    test('live positions are written privately, never on the request', () async {
+      await rig.request('r1', accepted: ['donor1']);
+      final donor = await rig.as_('donor1');
+      await donor.updateLiveLocation('r1', _pune);
+      final public = await rig.data('blood_requests/r1');
+      expect(public.containsKey('donorLiveLocations'), isFalse);
+      final p = await rig.data('blood_requests/r1/private/donor_donor1');
+      expect((p['liveLocation'] as Map)['lat'], _pune.lat);
+      final r = await watch('requester');
+      expect(r.donorLiveLocations['donor1']?.point.lat, _pune.lat);
+      expect(r.donorLiveLocations['donor1']?.point.lng, _pune.lng);
+    });
+
+    test('a transit status without a position does not break reading', () async {
+      await rig.request('r1', accepted: ['donor1']);
+      final donor = await rig.as_('donor1');
+      await donor.updateDonorTransitStatus('r1', DonorTransitStatus.reached);
+      final r = await watch('requester');
+      expect(r.acceptedDonors.single.transitStatus, DonorTransitStatus.reached);
+      expect(r.donorLiveLocations, isEmpty);
+    });
+
+    test('positions are not shown once the request is closed', () async {
+      await rig.request('r1', accepted: ['donor1'], status: 'fulfilled');
+      await rig.db.doc('blood_requests/r1/private/donor_donor1').set({
+        'liveLocation': {'lat': 1.0, 'lng': 2.0},
+      });
+      final r = await watch('requester');
+      expect(r.donorLiveLocations, isEmpty);
     });
   });
 }

@@ -149,21 +149,65 @@ describe('blood_requests', () => {
     });
   });
 
-  describe('live location sharing', () => {
+  describe("a donor's number and position (private/donor_<id>)", () => {
     beforeEach(async () => { await withAccepted([ids.donor, ids.donor2], { units: 2 }); });
     const ping = { lat: 18.5, lng: 73.8 };
+    const own = (uid, owner = uid) => as(env, uid).doc(`blood_requests/r1/private/donor_${owner}`);
 
-    it('an accepted donor can share their own position', async () => {
-      await assertSucceeds(req(ids.donor).update({ donorLiveLocations: { [ids.donor]: ping } }));
+    it('an accepted donor can write their own', async () => {
+      await assertSucceeds(own(ids.donor).set({ phone: '9000000001', liveLocation: ping }));
     });
-    it('cannot write another donor\'s position', async () => {
-      await assertFails(req(ids.donor).update({ donorLiveLocations: { [ids.donor2]: ping } }));
+    it("cannot write another donor's", async () => {
+      await assertFails(own(ids.donor, ids.donor2).set({ liveLocation: ping }));
     });
-    it('a donor who has not accepted cannot write a position', async () => {
-      await assertFails(req(ids.stranger).update({ donorLiveLocations: { [ids.stranger]: ping } }));
+    it('a donor who has not accepted cannot write one', async () => {
+      await assertFails(own(ids.stranger).set({ liveLocation: ping }));
     });
-    it('location sharing cannot be used to change anything else', async () => {
-      await assertFails(req(ids.donor).update({ donorLiveLocations: { [ids.donor]: ping }, units: 5 }));
+    it('the requester and the other accepted donor can read it', async () => {
+      await seed(env, (db) => db.doc(`blood_requests/r1/private/donor_${ids.donor}`).set({ phone: '9000000001' }));
+      await assertSucceeds(own(ids.requester, ids.donor).get());
+      await assertSucceeds(own(ids.donor2, ids.donor).get());
+    });
+    it('a stranger cannot read it', async () => {
+      await seed(env, (db) => db.doc(`blood_requests/r1/private/donor_${ids.donor}`).set({ phone: '9000000001' }));
+      await assertFails(own(ids.stranger, ids.donor).get());
+    });
+    it("the donor can delete their own, and nobody else's", async () => {
+      await seed(env, (db) => db.doc(`blood_requests/r1/private/donor_${ids.donor}`).set({ phone: '9000000001' }));
+      await assertFails(own(ids.requester, ids.donor).delete());
+      await assertSucceeds(own(ids.donor).delete());
+    });
+    it('a position can no longer be written on the public request', async () => {
+      await assertFails(req(ids.donor).update({ donorLiveLocations: { [ids.donor]: ping } }));
+    });
+  });
+
+  describe("the requester's position (private/requester)", () => {
+    const doc = (uid) => as(env, uid).doc('blood_requests/r1/private/requester');
+    it('only the requester writes it', async () => {
+      await assertSucceeds(doc(ids.requester).set({ liveLocation: { lat: 1, lng: 2 } }));
+      await withAccepted([ids.donor]);
+      await assertFails(doc(ids.donor).set({ liveLocation: { lat: 1, lng: 2 } }));
+    });
+    it('an accepted donor can read it; a stranger cannot', async () => {
+      await withAccepted([ids.donor]);
+      await seed(env, (db) => db.doc('blood_requests/r1/private/requester').set({ liveLocation: { lat: 1, lng: 2 } }));
+      await assertSucceeds(doc(ids.donor).get());
+      await assertFails(doc(ids.stranger).get());
+    });
+  });
+
+  describe("an accepted donor's transit status", () => {
+    beforeEach(async () => { await withAccepted([ids.donor]); });
+    it('can be added to the timeline as one entry', async () => {
+      await assertSucceeds(req(ids.donor).update({ timeline: [{ status: 'coordinating' }] }));
+    });
+    it('cannot rewrite the timeline wholesale', async () => {
+      await seed(env, (db) => db.doc('blood_requests/r1').update({ timeline: [{ status: 'created' }] }));
+      await assertFails(req(ids.donor).update({ timeline: [{ status: 'x' }, { status: 'y' }, { status: 'z' }] }));
+    });
+    it('a donor who has not accepted cannot add to it', async () => {
+      await assertFails(req(ids.stranger).update({ timeline: [{ status: 'coordinating' }] }));
     });
   });
 

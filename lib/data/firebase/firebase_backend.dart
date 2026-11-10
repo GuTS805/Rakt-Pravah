@@ -1455,12 +1455,70 @@ class FirebaseBackend implements Backend {
     }));
   }
 
+  /// The request, with its private part (contact numbers, positions) for
+  /// the requester and the donors who accepted, who are the only ones the
+  /// rules let read it.
   @override
-  Stream<BloodRequest> requestStream(String id) => _requests
-      .doc(id)
-      .snapshots()
-      .where((doc) => doc.exists)
-      .map(_requestFromDoc);
+  Stream<BloodRequest> requestStream(String id) {
+    final ref = _requests.doc(id);
+    late final StreamController<BloodRequest> out;
+    fs.DocumentSnapshot<Map<String, dynamic>>? main;
+    var private = const <String, Map<String, dynamic>>{};
+    // Until the private part has answered once, a participant would see
+    // the request without its numbers ("Not provided") for a moment.
+    var privatePending = false;
+    StreamSubscription<dynamic>? privateSub;
+    StreamSubscription<dynamic>? mainSub;
+
+    void emit() {
+      final doc = main;
+      if (doc == null || !doc.exists || privatePending) return;
+      out.add(_requestFromDoc(doc, private: private));
+    }
+
+    void watchPrivate(bool participant) {
+      if (participant && privateSub == null) {
+        privatePending = true;
+        privateSub = ref.collection('private').snapshots().listen(
+          (snap) {
+            private = {for (final d in snap.docs) d.id: d.data()};
+            privatePending = false;
+            emit();
+          },
+          // Not (or no longer) a participant: the rules say no. The public
+          // part still shows.
+          onError: (Object _) {
+            privatePending = false;
+            emit();
+          },
+        );
+      } else if (!participant && privateSub != null) {
+        privateSub!.cancel();
+        privateSub = null;
+        privatePending = false;
+        private = const {};
+      }
+    }
+
+    out = StreamController<BloodRequest>(
+      onListen: () {
+        mainSub = ref.snapshots().listen((doc) {
+          main = doc;
+          final data = doc.data();
+          if (data != null) {
+            final ids = (data['acceptedDonorIds'] as List?) ?? const [];
+            watchPrivate(data['requesterId'] == uid || ids.contains(uid));
+          }
+          emit();
+        }, onError: out.addError);
+      },
+      onCancel: () async {
+        await mainSub?.cancel();
+        await privateSub?.cancel();
+      },
+    );
+    return out.stream;
+  }
 
   @override
   Future<BloodRequest> createRequest({
@@ -1522,14 +1580,7 @@ class FirebaseBackend implements Backend {
       'units': units,
       'urgency': urgency.name,
       'bloodType': bloodType ?? 'Blood',
-      if (effectivePhone != null && effectivePhone.isNotEmpty) ...{
-        'phone': effectivePhone,
-        'phoneCountryCode': effectivePhoneCountryCode,
-        'fullPhoneNumber': PhoneUtils.toInternational(
-          effectivePhone,
-          countryCode: effectivePhoneCountryCode,
-        ),
-      },
+      // The contact number is not in here either (see `private` below).
       if (requiredDate != null)
         'requiredDate': fs.Timestamp.fromDate(requiredDate),
       if (notes != null && notes.isNotEmpty) 'notes': notes,
@@ -1558,8 +1609,10 @@ class FirebaseBackend implements Backend {
     await _ack(ref.set(data));
     await _ack(ref.collection('private').doc('patient').set({
       'name': patientName,
-      if (effectivePhone != null && effectivePhone.isNotEmpty)
+      if (effectivePhone != null && effectivePhone.isNotEmpty) ...{
         'phone': effectivePhone,
+        'phoneCountryCode': effectivePhoneCountryCode,
+      },
       'bloodType': bloodType ?? 'Blood',
     }));
     // The server may not have it yet; the device already does.
@@ -1762,10 +1815,18 @@ class FirebaseBackend implements Backend {
         'acceptedDonorIds': remaining.map((d) => d.id).toList(),
         'timeline': timeline,
         'declinedByDonorIds': fs.FieldValue.arrayUnion([uid]),
-        'donorLiveLocations.$uid': fs.FieldValue.delete(),
       });
     }));
+    // Off the list, the donor's number and position are nobody's business.
+    await _ack(_donorPrivate(id).delete());
   }
+
+  fs.DocumentReference<Map<String, dynamic>> _donorPrivate(String requestId) =>
+      _requests.doc(requestId).collection('private').doc('donor_$uid');
+
+  fs.DocumentReference<Map<String, dynamic>> _requesterPrivate(
+    String requestId,
+  ) => _requests.doc(requestId).collection('private').doc('requester');
 
   Future<void> _transitionIfActive(
     String id,
@@ -1961,9 +2022,24 @@ class FirebaseBackend implements Backend {
     } on BackendUnavailable {
       // The answer may simply have been slow: the claim can still commit
       // after we stopped waiting, so look before calling it a failure.
-      if (await _isOnAcceptedList(id)) return;
-      rethrow;
+      if (!await _isOnAcceptedList(id)) rethrow;
     }
+    await _writeDonorPrivate(id);
+  }
+
+  /// The accepting donor's number and position, which only the requester
+  /// and the other accepted donors may read. Written once the donor is on
+  /// the accepted list, which the rules require.
+  Future<void> _writeDonorPrivate(String requestId) async {
+    final me = currentUser;
+    if (me == null) return;
+    await _ack(
+      _donorPrivate(requestId).set({
+        'phone': me.phone,
+        'phoneCountryCode': me.countryCode,
+        'location': _pointToMap(myLocation),
+      }, fs.SetOptions(merge: true)),
+    );
   }
 
   Future<bool> _isOnAcceptedList(String requestId) async {
@@ -2175,23 +2251,27 @@ class FirebaseBackend implements Backend {
   }) async {
     final now = DateTime.now();
     if (isRequester) {
-      await _ack(_requests.doc(requestId).update({
-        'requesterLiveLocation': {
-          'lat': point.lat,
-          'lng': point.lng,
-          'at': fs.Timestamp.fromDate(now),
-        },
-      }));
+      await _ack(
+        _requesterPrivate(requestId).set({
+          'liveLocation': {
+            'lat': point.lat,
+            'lng': point.lng,
+            'at': fs.Timestamp.fromDate(now),
+          },
+        }, fs.SetOptions(merge: true)),
+      );
     } else {
-      await _ack(_requests.doc(requestId).update({
-        'donorLiveLocations.$uid': {
-          'lat': point.lat,
-          'lng': point.lng,
-          'at': fs.Timestamp.fromDate(now),
+      await _ack(
+        _donorPrivate(requestId).set({
+          'liveLocation': {
+            'lat': point.lat,
+            'lng': point.lng,
+            'at': fs.Timestamp.fromDate(now),
+            'heading': ?headingDegrees,
+          },
           'transitStatus': transitStatus.name,
-          'heading': ?headingDegrees,
-        },
-      }));
+        }, fs.SetOptions(merge: true)),
+      );
     }
   }
 
@@ -2201,7 +2281,11 @@ class FirebaseBackend implements Backend {
     DonorTransitStatus status,
   ) async {
     final ref = _requests.doc(requestId);
-    await _ack(ref.update({'donorLiveLocations.$uid.transitStatus': status.name}));
+    await _ack(
+      _donorPrivate(requestId).set({
+        'transitStatus': status.name,
+      }, fs.SetOptions(merge: true)),
+    );
     final snap = await _readDoc(ref);
     if (snap.exists) {
       final timeline = List<Map<String, dynamic>>.from(
@@ -2223,15 +2307,14 @@ class FirebaseBackend implements Backend {
     String requestId, {
     bool isRequester = false,
   }) async {
-    if (isRequester) {
-      await _ack(_requests.doc(requestId).update({
-        'requesterLiveLocation': fs.FieldValue.delete(),
-      }));
-    } else {
-      await _ack(_requests.doc(requestId).update({
-        'donorLiveLocations.$uid': fs.FieldValue.delete(),
-      }));
-    }
+    final doc = isRequester
+        ? _requesterPrivate(requestId)
+        : _donorPrivate(requestId);
+    await _ack(
+      doc.set({
+        'liveLocation': fs.FieldValue.delete(),
+      }, fs.SetOptions(merge: true)),
+    );
   }
 
   // ---------------------------------------------------------------------
@@ -2242,10 +2325,48 @@ class FirebaseBackend implements Backend {
     return labels.map(BloodGroup.fromLabel).toList();
   }
 
-  BloodRequest _requestFromDoc(fs.DocumentSnapshot<Map<String, dynamic>> doc) {
+  /// Builds a request from its public document and, for the people allowed
+  /// to read it, its `private` documents: `patient` (contact number),
+  /// `requester` (live position) and `donor_<id>` (each accepted donor's
+  /// number and positions). Requests from before the split still carry
+  /// these on the public document, which is read as a fallback.
+  BloodRequest _requestFromDoc(
+    fs.DocumentSnapshot<Map<String, dynamic>> doc, {
+    Map<String, Map<String, dynamic>> private = const {},
+  }) {
     final data = doc.data()!;
     final destMap = (data['destination'] as Map).cast<String, dynamic>();
     final patientGroup = data['patientBloodGroup'] as String?;
+    final patient = private['patient'];
+    final status = RequestStatus.values.byNameOr(
+      data['status'] as String?,
+      RequestStatus.created,
+    );
+    final donors = [
+      for (final d in _acceptedDonorsFromData(data))
+        if (private['donor_${d.id}'] case final p?)
+          d.copyWith(
+            phone: p['phone'] as String?,
+            phoneCountryCode: p['phoneCountryCode'] as String?,
+            location: _pointFromMap(p['location'] as Map?),
+            transitStatus: DonorTransitStatus.values
+                .asNameMap()[p['transitStatus'] as String?],
+          )
+        else
+          d,
+    ];
+    // Positions are only shared while the request is under way.
+    final live = status.isTerminal
+        ? const <String, DonorPing>{}
+        : {
+            ..._liveLocationsFromData(data),
+            for (final entry in private.entries)
+              if (entry.key.startsWith('donor_'))
+                entry.key.substring('donor_'.length): ?_pingFromMap({
+                  ...?(entry.value['liveLocation'] as Map?),
+                  'transitStatus': ?entry.value['transitStatus'],
+                }),
+          };
     return BloodRequest(
       id: doc.id,
       requesterId: data['requesterId'] as String,
@@ -2262,10 +2383,7 @@ class FirebaseBackend implements Backend {
         data['urgency'] as String?,
         Urgency.routine,
       ),
-      status: RequestStatus.values.byNameOr(
-        data['status'] as String?,
-        RequestStatus.created,
-      ),
+      status: status,
       createdAt: (data['createdAt'] as fs.Timestamp).toDate(),
       destination: Destination(
         name: destMap['name'] as String? ?? '',
@@ -2276,21 +2394,30 @@ class FirebaseBackend implements Backend {
       requestLocationLabel: data['requestLocationLabel'] as String? ?? '',
       requestLocation: _pointFromMap(data['requestLocation'] as Map?),
       bloodType: (data['bloodType'] as String?) ?? 'Blood',
-      phoneCountryCode: data['phoneCountryCode'] as String? ?? '+91',
-      phone: (data['phone'] as String?) ?? (data['patientPhone'] as String?),
+      phoneCountryCode:
+          patient?['phoneCountryCode'] as String? ??
+          data['phoneCountryCode'] as String? ??
+          '+91',
+      phone:
+          patient?['phone'] as String? ??
+          (data['phone'] as String?) ??
+          (data['patientPhone'] as String?),
       requiredDate: (data['requiredDate'] as fs.Timestamp?)?.toDate(),
       notes: data['notes'] as String?,
       donorsContacted: data['donorsContacted'] as int? ?? 0,
       currentWave: data['currentWave'] as int? ?? 0,
       searchRadiusKm: (data['searchRadiusKm'] as num?)?.toDouble() ?? 0,
-      acceptedDonors: _acceptedDonorsFromData(data),
+      acceptedDonors: donors,
       expiresAt: (data['expiresAt'] as fs.Timestamp?)?.toDate(),
       timeline: ((data['timeline'] as List?) ?? const [])
           .cast<Map<String, dynamic>>()
           .map(_eventFromMap)
           .toList(),
-      donorLiveLocations: _liveLocationsFromData(data),
-      requesterLiveLocation: _requesterLiveLocationFromData(data),
+      donorLiveLocations: live,
+      requesterLiveLocation: status.isTerminal
+          ? null
+          : _pingFromMap(private['requester']?['liveLocation'] as Map?) ??
+                _requesterLiveLocationFromData(data),
       declinedByDonorIds:
           (data['declinedByDonorIds'] as List?)?.cast<String>() ?? const [],
       viewedByDonorIds:
@@ -2298,16 +2425,15 @@ class FirebaseBackend implements Backend {
     );
   }
 
+  /// The public entry for an accepted donor. The number and position go in
+  /// the donor's private document instead ([_writeDonorPrivate]).
   Map<String, dynamic> _acceptedDonorToMap(AcceptedDonor d) => {
     'id': d.id,
     'name': d.name,
     'bloodGroup': d.bloodGroup?.label,
     'bloodType': d.bloodType,
     'photoUrl': d.photoUrl,
-    'phone': d.phone,
-    'phoneCountryCode': d.phoneCountryCode,
     'distanceKm': d.distanceKm,
-    'location': _pointToMap(d.location),
     'status': d.status,
     'transitStatus': d.transitStatus.name,
     'isVerified': d.isVerified,
@@ -2391,6 +2517,22 @@ class FirebaseBackend implements Backend {
     };
   }
 
+  /// A position shared on a request: `{lat, lng, at}`, and for a donor also
+  /// `transitStatus` and `heading`.
+  DonorPing? _pingFromMap(Map? m) {
+    final point = _pointFromMap(m);
+    if (m == null || point == null) return null;
+    return DonorPing(
+      point: point,
+      at: (m['at'] as fs.Timestamp?)?.toDate() ?? DateTime.now(),
+      transitStatus: DonorTransitStatus.values.byNameOr(
+        m['transitStatus'] as String?,
+        DonorTransitStatus.onTheWay,
+      ),
+      headingDegrees: (m['heading'] as num?)?.toDouble(),
+    );
+  }
+
   DonorPing? _requesterLiveLocationFromData(Map<String, dynamic> data) {
     final raw = data['requesterLiveLocation'] as Map?;
     if (raw == null) return null;
@@ -2412,9 +2554,14 @@ class FirebaseBackend implements Backend {
   Map<String, dynamic>? _pointToMap(GeoPoint? p) =>
       p == null ? null : {'lat': p.lat, 'lng': p.lng};
 
-  GeoPoint? _pointFromMap(Map? m) => m == null
-      ? null
-      : GeoPoint((m['lat'] as num).toDouble(), (m['lng'] as num).toDouble());
+  /// Null when the map is missing or lacks coordinates (a ping that only
+  /// carries a transit status, say), rather than failing the whole read.
+  GeoPoint? _pointFromMap(Map? m) {
+    final lat = m?['lat'];
+    final lng = m?['lng'];
+    if (lat is! num || lng is! num) return null;
+    return GeoPoint(lat.toDouble(), lng.toDouble());
+  }
 
   Map<String, dynamic> _eventToMap(
     RequestStatus s,
