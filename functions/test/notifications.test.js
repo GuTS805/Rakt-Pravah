@@ -234,6 +234,21 @@ describe('what is sent', () => {
     assert.match(m.notification.body, /Pune City Hospital/);
   });
 
+  it('calls an urgent request urgent and a critical one critical', async () => {
+    const urgent = fakeAdmin({ users: [donor('a', 'A+')] });
+    await processBloodRequestNotifications(urgent.admin, 'r1', request({ urgency: 'urgent' }));
+    assert.match(urgent.sent[0].notification.title, /Urgent/);
+    const critical = fakeAdmin({ users: [donor('a', 'A+')] });
+    await processBloodRequestNotifications(critical.admin, 'r1', request({ urgency: 'critical' }));
+    assert.match(critical.sent[0].notification.title, /Critical/);
+  });
+
+  it('says platelets when platelets are needed', async () => {
+    const f = fakeAdmin({ users: [donor('a', 'A+')] });
+    await processBloodRequestNotifications(f.admin, 'r1', request({ bloodType: 'Platelets' }));
+    assert.match(f.sent[0].notification.body, /platelets/);
+  });
+
   it('does not put the patient or requester contact details in the push', async () => {
     const f = fakeAdmin({ users: [donor('a', 'A+')] });
     await processBloodRequestNotifications(f.admin, 'r1', request({ phone: '9876543210', fullPhoneNumber: '+919876543210', patientName: 'Sunil', requesterName: 'Ravi' }));

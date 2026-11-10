@@ -110,8 +110,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 // If the one-shot auto-prompt on first load was missed, denied,
                 // or blocked, this stays visible so there's always an obvious
-                // way to grant location — never a silent dead end.
-                if (location.status != DeviceLocationStatus.granted) ...[
+                // way to grant location — never a silent dead end. Not while
+                // the position is still being found: with permission already
+                // given that takes a few seconds, and asking for it then is
+                // wrong.
+                if (location.status != DeviceLocationStatus.granted &&
+                    location.status != DeviceLocationStatus.unknown &&
+                    location.status != DeviceLocationStatus.requesting) ...[
                   _LocationBanner(status: location.status),
                   const SizedBox(height: AppSpacing.lg),
                 ],

@@ -15,9 +15,6 @@ class PrivacyScreen extends ConsumerStatefulWidget {
 }
 
 class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
-  bool _shareAfterAccept = true;
-  bool _hideLastDonation = false;
-
   /// Real OS permission dialog on enable — turning it off is a local
   /// preference only, since an already-granted OS permission can't be revoked
   /// from inside the app.
@@ -92,27 +89,6 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
                 subtitle: 'Used to match you with nearby requests',
                 value: donor.locationGranted,
                 onChanged: (v) => _toggleLocation(donor, v),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          SettingsSection(
-            title: 'Sharing',
-            children: [
-              SettingsSwitchTile(
-                icon: Icons.contact_phone_outlined,
-                title: 'Share contact after accepting',
-                subtitle:
-                    'Let the other party message you once you\'ve accepted',
-                value: _shareAfterAccept,
-                onChanged: (v) => setState(() => _shareAfterAccept = v),
-              ),
-              SettingsSwitchTile(
-                icon: Icons.visibility_off_outlined,
-                title: 'Hide last donation date',
-                subtitle: 'Keep your donation timing private',
-                value: _hideLastDonation,
-                onChanged: (v) => setState(() => _hideLastDonation = v),
               ),
             ],
           ),

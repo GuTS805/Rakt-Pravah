@@ -24,18 +24,11 @@ class AdminSettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
-  // Simulated settings state — in production these would read/write Firestore.
-  bool _maintenanceMode = false;
-  bool _allowNewRegistrations = true;
-  bool _autoMatchDonors = true;
-  bool _emailNotifications = true;
-  bool _pushNotifications = true;
-  bool _emergencyAlerts = true;
-  int _maxRequestsPerUser = 3;
+  // Only settings the app actually reads are offered here. Switches that
+  // saved nothing (maintenance mode, registrations, notifications...) were
+  // taken out: an operator would believe they had changed something.
   int? _cooldownDays;
   bool? _cooldownEnabled;
-  int _requestExpiryHours = 24;
-  double _maxSearchRadius = 50.0;
 
   Future<void> _applyCooldownConfig(CooldownConfig config) async {
     // 1. Immediately update backend if it's FakeBackend/test backend
@@ -142,46 +135,15 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
 
     return AdminPage(
       title: 'Settings',
-      subtitle: 'Configure system behavior and platform settings.',
+      subtitle: 'Settings that apply across the app.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- General Settings ---
-          _SettingsSection(
-            title: 'General',
-            icon: Icons.settings_rounded,
-            children: [
-              _ToggleSetting(
-                title: 'Maintenance Mode',
-                description:
-                    'When enabled, only admins can access the platform.',
-                value: _maintenanceMode,
-                onChanged: (v) => setState(() => _maintenanceMode = v),
-                isDangerous: true,
-              ),
-              _ToggleSetting(
-                title: 'Allow New Registrations',
-                description: 'Enable new users to create accounts.',
-                value: _allowNewRegistrations,
-                onChanged: (v) => setState(() => _allowNewRegistrations = v),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-
           // --- Donor Settings ---
           _SettingsSection(
             title: 'Donor Configuration',
             icon: Icons.volunteer_activism_rounded,
             children: [
-              _ToggleSetting(
-                title: 'Auto-Match Donors',
-                description:
-                    'Automatically match donors to requests based on '
-                    'blood group and location.',
-                value: _autoMatchDonors,
-                onChanged: (v) => setState(() => _autoMatchDonors = v),
-              ),
               _ToggleSetting(
                 title: 'Cooldown Period',
                 description: 'Minimum days between donations for donor safety.',
@@ -211,128 +173,6 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                     : null,
               ),
             ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-
-          // --- Blood Request Settings ---
-          _SettingsSection(
-            title: 'Blood Request Configuration',
-            icon: Icons.receipt_long_rounded,
-            children: [
-              _SliderSetting(
-                title: 'Max Requests Per User',
-                description:
-                    'Maximum active blood requests per user at a time.',
-                value: _maxRequestsPerUser.toDouble(),
-                min: 1,
-                max: 10,
-                divisions: 9,
-                label: '$_maxRequestsPerUser',
-                onChanged: (v) =>
-                    setState(() => _maxRequestsPerUser = v.round()),
-              ),
-              _SliderSetting(
-                title: 'Request Expiry (hours)',
-                description:
-                    'Hours before an unmatched request is marked expired.',
-                value: _requestExpiryHours.toDouble(),
-                min: 1,
-                max: 72,
-                divisions: 71,
-                label: '$_requestExpiryHours hours',
-                onChanged: (v) =>
-                    setState(() => _requestExpiryHours = v.round()),
-              ),
-              _SliderSetting(
-                title: 'Max Search Radius (km)',
-                description:
-                    'Maximum radius for donor matching around the request '
-                    'location.',
-                value: _maxSearchRadius,
-                min: 5,
-                max: 200,
-                divisions: 39,
-                label: '${_maxSearchRadius.round()} km',
-                onChanged: (v) => setState(() => _maxSearchRadius = v),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-
-          // --- Notification Settings ---
-          _SettingsSection(
-            title: 'Notifications',
-            icon: Icons.notifications_rounded,
-            children: [
-              _ToggleSetting(
-                title: 'Email Notifications',
-                description: 'Send email notifications for critical events.',
-                value: _emailNotifications,
-                onChanged: (v) => setState(() => _emailNotifications = v),
-              ),
-              _ToggleSetting(
-                title: 'Push Notifications',
-                description: 'Send push notifications to mobile devices.',
-                value: _pushNotifications,
-                onChanged: (v) => setState(() => _pushNotifications = v),
-              ),
-              _ToggleSetting(
-                title: 'Emergency Alerts',
-                description:
-                    'Allow sending emergency blood need alerts to all '
-                    'available donors.',
-                value: _emergencyAlerts,
-                onChanged: (v) => setState(() => _emergencyAlerts = v),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-
-          // --- Security Settings ---
-          _SettingsSection(
-            title: 'Security',
-            icon: Icons.security_rounded,
-            children: [
-              _ActionSetting(
-                title: 'Export Audit Logs',
-                description: 'Download all administrative audit logs as CSV.',
-                actionLabel: 'Export',
-                icon: Icons.download_rounded,
-                onTap: () => showAdminToast(
-                  context,
-                  'Audit log export is not yet implemented.',
-                ),
-              ),
-              _ActionSetting(
-                title: 'Clear Session Cache',
-                description: 'Clear all cached session data.',
-                actionLabel: 'Clear',
-                icon: Icons.cleaning_services_rounded,
-                isDangerous: true,
-                onTap: () => showAdminToast(context, 'Session cache cleared.'),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xxl),
-
-          // Save button
-          Center(
-            child: FilledButton.icon(
-              icon: const Icon(Icons.save_rounded, size: 18),
-              label: const Text('Save Settings'),
-              onPressed: () => showAdminToast(
-                context,
-                'Settings saved. Note: Settings are currently in-memory '
-                'only and will reset on reload. Firestore persistence '
-                'requires backend configuration.',
-              ),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xxl,
-                  vertical: AppSpacing.md,
-                ),
-              ),
-            ),
           ),
         ],
       ),
@@ -398,14 +238,12 @@ class _ToggleSetting extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.statusBadge,
-    this.isDangerous = false,
   });
   final String title;
   final String description;
   final bool value;
   final ValueChanged<bool> onChanged;
   final String? statusBadge;
-  final bool isDangerous;
 
   @override
   Widget build(BuildContext context) {
@@ -455,11 +293,7 @@ class _ToggleSetting extends StatelessWidget {
                 ),
               ),
             ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: isDangerous ? c.danger : null,
-          ),
+          Switch(value: value, onChanged: onChanged),
         ],
       ),
     );
@@ -552,64 +386,6 @@ class _SliderSetting extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ActionSetting extends StatelessWidget {
-  const _ActionSetting({
-    required this.title,
-    required this.description,
-    required this.actionLabel,
-    required this.icon,
-    required this.onTap,
-    this.isDangerous = false,
-  });
-  final String title;
-  final String description;
-  final String actionLabel;
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool isDangerous;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: context.text.titleSmall),
-                const SizedBox(height: 2),
-                Text(
-                  description,
-                  style: context.text.bodySmall?.copyWith(
-                    color: c.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          OutlinedButton.icon(
-            icon: Icon(icon, size: 16),
-            label: Text(actionLabel),
-            onPressed: onTap,
-            style: isDangerous
-                ? OutlinedButton.styleFrom(
-                    foregroundColor: c.danger,
-                    side: BorderSide(color: c.danger),
-                  )
-                : null,
-          ),
-        ],
       ),
     );
   }

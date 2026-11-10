@@ -70,7 +70,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Find switch for Cooldown Period
-      final cooldownSwitch = find.byType(Switch).at(3); // 0: Maint, 1: Reg, 2: Auto-Match, 3: Cooldown
+      final cooldownSwitch = find.byType(Switch).first; // the only switch: Cooldown
       await tester.tap(cooldownSwitch);
       await tester.pumpAndSettle();
 
@@ -102,7 +102,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Find switch for Cooldown Period
-      final cooldownSwitch = find.byType(Switch).at(3);
+      final cooldownSwitch = find.byType(Switch).first;
       await tester.tap(cooldownSwitch);
       await tester.pumpAndSettle();
 
@@ -230,7 +230,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 2. Toggle to OFF and confirm
-      final cooldownSwitch = find.byType(Switch).at(3);
+      final cooldownSwitch = find.byType(Switch).first;
       await tester.tap(cooldownSwitch);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Disable'));
@@ -245,6 +245,24 @@ void main() {
       // 4. Verify setting remains OFF after refresh
       expect(find.text('OFF'), findsOneWidget);
       expect(fakeBackend.cooldownConfig.enabled, isFalse);
+    });
+
+    testWidgets('offers no settings that would save nothing', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(createTestWidget(
+        initialConfig: const CooldownConfig(enabled: true, durationDays: 90),
+      ));
+      await tester.pumpAndSettle();
+      for (final fake in [
+        'Maintenance Mode',
+        'Allow New Registrations',
+        'Auto-Match Donors',
+        'Save Settings',
+        'Export Audit Logs',
+      ]) {
+        expect(find.text(fake), findsNothing, reason: fake);
+      }
     });
   });
 }

@@ -344,7 +344,7 @@ async function processBloodRequestNotifications(admin, requestId, requestData) {
   }
 
   // Construct Notification Content according to specification
-  const urgencyLabel = requestData.urgency === 'critical' ? 'Urgent' : 'Urgent';
+  const urgencyLabel = requestData.urgency === 'critical' ? 'Critical' : 'Urgent';
   const patientBlood =
     requestData.patientBloodGroup ||
     (Array.isArray(requestData.bloodGroups) && requestData.bloodGroups[0]) ||
@@ -365,7 +365,9 @@ async function processBloodRequestNotifications(admin, requestId, requestData) {
     const batchTokens = allTokens.slice(i, i + BATCH_SIZE);
 
     // Dynamic distance text if available, or hospital address
-    let bodyText = `${patientBlood} blood is urgently needed near ${hospitalName}.`;
+    const bodyText = requestData.bloodType === 'Platelets'
+      ? `${patientBlood} platelets are urgently needed near ${hospitalName}.`
+      : `${patientBlood} blood is urgently needed near ${hospitalName}.`;
 
     const message = {
       notification: {

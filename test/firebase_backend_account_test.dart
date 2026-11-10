@@ -308,17 +308,16 @@ service cloud.firestore {
       expect(d['isAdmin'], isFalse);
     });
 
-    test(
-      'KNOWN GAP: a console-made profile must not get a made-up phone number',
-      () async {
-        final auth = MockFirebaseAuth(mockUser: MockUser(uid: 'c1', email: 'console@example.com'));
-        final b = FirebaseBackend.forTesting(db, auth);
-        await b.signInWithPassword(email: 'console@example.com', password: 'x');
-        // That number would be shown to, and dialled by, other people.
-        expect((await _doc(db, 'users/c1'))['phone'], isNot('9876543210'));
-      },
-      skip: 'signInWithPassword writes the placeholder phone 9876543210',
-    );
+    test('a console-made profile gets no made-up phone or blood group', () async {
+      final auth = MockFirebaseAuth(mockUser: MockUser(uid: 'c1', email: 'console@example.com'));
+      final b = FirebaseBackend.forTesting(db, auth);
+      await b.signInWithPassword(email: 'console@example.com', password: 'x');
+      final d = await _doc(db, 'users/c1');
+      // A number would be shown to, and dialled by, other people; a blood
+      // group would decide whom they are asked to give to.
+      expect(d['phone'], isNot('9876543210'));
+      expect(d.containsKey('bloodGroup'), isFalse);
+    });
   });
 
   group('password reset', () {

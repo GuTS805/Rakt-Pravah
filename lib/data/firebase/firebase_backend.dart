@@ -641,11 +641,11 @@ class FirebaseBackend implements Backend {
       }
 
       // An account created straight in the Firebase console has no profile
-      // document yet.
+      // document yet. Only what is known goes in: no made-up phone number or
+      // blood group, which the person fills in on their profile.
       final data = <String, dynamic>{
         'name': email.split('@').first,
-        'phone': '9876543210',
-        'bloodGroup': BloodGroup.oPos.label,
+        'phone': '',
         'email': email,
         'isAdmin': isDesignatedAdmin,
         'role': isDesignatedAdmin ? 'admin' : 'user',

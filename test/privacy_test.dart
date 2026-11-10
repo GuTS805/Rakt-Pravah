@@ -280,46 +280,13 @@ void main() {
       expect(backend.myLocation, const GeoPoint(18.52, 73.85));
     });
 
-    testWidgets('the sharing switches can be flipped', (tester) async {
+    // Switches that saved nothing and changed nothing were taken out: a
+    // privacy setting that doesn't work is worse than none.
+    testWidgets('offers no sharing switches that do nothing', (tester) async {
       await pump(tester);
-      for (final title in [
-        'Share contact after accepting',
-        'Hide last donation date',
-      ]) {
-        final before = tester.widget<Switch>(_switchFor(title)).value;
-        await tester.tap(_switchFor(title));
-        await tester.pumpAndSettle();
-        expect(tester.widget<Switch>(_switchFor(title)).value, !before);
-      }
+      expect(find.text('Share contact after accepting'), findsNothing);
+      expect(find.text('Hide last donation date'), findsNothing);
     });
-
-    // These two switches only flip local widget state: nothing reads them and
-    // nothing is saved, so a user who turns sharing off still gets shared.
-    testWidgets(
-      'KNOWN GAP: turning off "Share contact after accepting" stops the number being shared',
-      (tester) async {
-        await pump(tester);
-        await tester.tap(_switchFor('Share contact after accepting'));
-        await tester.pumpAndSettle();
-        fail('the switch is not read by anything, so accepting still shares');
-      },
-      skip: true,
-    );
-
-    testWidgets(
-      'KNOWN GAP: "Hide last donation date" is remembered after leaving the screen',
-      (tester) async {
-        await pump(tester);
-        await tester.tap(_switchFor('Hide last donation date'));
-        await tester.pumpAndSettle();
-        await pump(tester);
-        expect(
-          tester.widget<Switch>(_switchFor('Hide last donation date')).value,
-          isTrue,
-        );
-      },
-      skip: true,
-    );
   });
 
   group('live location is opt-in and revocable', () {

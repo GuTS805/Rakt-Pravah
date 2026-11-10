@@ -36,7 +36,9 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   late final TextEditingController _city;
   late final ValueNotifier<double?> _latitude;
   late final ValueNotifier<double?> _longitude;
-  late BloodGroup _group;
+  BloodGroup? _group;
+  bool _groupError = false;
+  final _groupKey = GlobalKey();
   DateTime? _dateOfBirth;
   Gender? _gender;
   bool _busy = false;
@@ -56,7 +58,11 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _city = TextEditingController(text: user.city ?? '');
     _latitude = ValueNotifier<double?>(user.latitude);
     _longitude = ValueNotifier<double?>(user.longitude);
-    _group = user.bloodGroup;
+    // A profile never filled in (an account made in the console) has no real
+    // blood group, only the model's stand-in. Make the person choose one
+    // rather than offer a guess that would go out to patients.
+    final neverFilledIn = user.dateOfBirth == null && user.gender == null;
+    _group = neverFilledIn ? null : user.bloodGroup;
     _dateOfBirth = user.dateOfBirth;
     _gender = user.gender;
   }
@@ -172,8 +178,13 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   Future<void> _save() async {
     setState(() => _autovalidate = AutovalidateMode.always);
-    if (!_formKey.currentState!.validate()) {
-      revealFirstError(_formKey);
+    final validForm = _formKey.currentState!.validate();
+    setState(() => _groupError = _group == null);
+    if (!validForm || _group == null) {
+      revealFirstError(
+        _formKey,
+        alsoInvalid: [if (_group == null) _groupKey.currentContext],
+      );
       return;
     }
     setState(() => _busy = true);
@@ -182,7 +193,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           .read(authControllerProvider.notifier)
           .updateProfile(
             name: _name.text.trim(),
-            bloodGroup: _group,
+            bloodGroup: _group!,
             phone: PhoneUtils.cleanDigits(_phone.text),
             countryCode: _countryCode,
             countryIsoCode: _countryIsoCode.text.trim().isNotEmpty
@@ -271,9 +282,22 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             const SizedBox(height: AppSpacing.lg),
             const FieldLabel('Blood group'),
             BloodGroupPicker(
+              key: _groupKey,
               selected: _group,
-              onChanged: (g) => setState(() => _group = g),
+              onChanged: (g) => setState(() {
+                _group = g;
+                _groupError = false;
+              }),
             ),
+            if (_groupError) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Select your blood group',
+                style: context.text.bodySmall?.copyWith(
+                  color: context.colors.danger,
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpacing.lg),
             const FieldLabel('Date of birth'),
             DateOfBirthField(
