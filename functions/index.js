@@ -19,7 +19,7 @@ if (!admin.apps.length) {
 exports.onBloodRequestCreated = onDocumentCreated(
   {
     document: 'blood_requests/{requestId}',
-    region: 'us-central1',
+    region: 'asia-south1',
     memory: '256MiB',
   },
   async (event) => {
@@ -43,7 +43,7 @@ exports.onBloodRequestCreated = onDocumentCreated(
 exports.onBloodRequestUpdated = onDocumentUpdated(
   {
     document: 'blood_requests/{requestId}',
-    region: 'us-central1',
+    region: 'asia-south1',
     memory: '256MiB',
   },
   async (event) => {
