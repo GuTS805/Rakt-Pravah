@@ -178,8 +178,13 @@ void main() {
     test('stores locations as {lat, lng} maps', () async {
       final (_, r) = await create();
       final d = await rig.data('blood_requests/${r.id}');
-      expect(d['requestLocation'], {'lat': 18.5204, 'lng': 73.8567});
       expect((d['destination'] as Map)['location'], {'lat': 18.5204, 'lng': 73.8567});
+    });
+
+    test("the requester's own position is kept only to about a kilometre", () async {
+      final (_, r) = await create();
+      final d = await rig.data('blood_requests/${r.id}');
+      expect(d['requestLocation'], {'lat': 18.52, 'lng': 73.86});
     });
 
     // The contact number goes in private/patient, which only the requester

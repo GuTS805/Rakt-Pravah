@@ -1588,7 +1588,16 @@ class FirebaseBackend implements Backend {
       'createdAt': fs.Timestamp.fromDate(now),
       'destination': _destinationToMap(destination),
       'requestLocationLabel': requestLocationLabel,
-      'requestLocation': _pointToMap(requestLocation),
+      // Rounded to about a kilometre: this is often where the requester
+      // lives, and every user can read it. Matching needs no more.
+      'requestLocation': _pointToMap(
+        requestLocation == null
+            ? null
+            : GeoPoint(
+                (requestLocation.lat * 100).round() / 100,
+                (requestLocation.lng * 100).round() / 100,
+              ),
+      ),
       // The requester's saved home area, used to match donors when neither
       // side has usable coordinates.
       'city': currentUser?.city,
