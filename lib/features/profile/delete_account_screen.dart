@@ -124,16 +124,19 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
               autofillHints: const [AutofillHints.password],
               decoration: InputDecoration(
                 hintText: 'Your current password',
-                suffixIcon: IconButton(
-                  tooltip: _showPassword ? 'Hide password' : 'Show password',
-                  icon: Icon(
-                    _showPassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: 20,
+                suffixIcon: ExcludeFocus(
+                  // The keyboard's Next goes on to the next field, not to this.
+                  child: IconButton(
+                    tooltip: _showPassword ? 'Hide password' : 'Show password',
+                    icon: Icon(
+                      _showPassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      size: 20,
+                    ),
+                    onPressed: () =>
+                        setState(() => _showPassword = !_showPassword),
                   ),
-                  onPressed: () =>
-                      setState(() => _showPassword = !_showPassword),
                 ),
               ),
             ),

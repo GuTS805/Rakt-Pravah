@@ -28,6 +28,8 @@ class _VerifyPhoneScreenState extends ConsumerState<VerifyPhoneScreen> {
   static const _resendAfter = 30;
 
   final _numberForm = GlobalKey<FormState>();
+  // Errors appear on the first submit, then follow what is typed.
+  AutovalidateMode _autovalidate = AutovalidateMode.disabled;
   late final TextEditingController _phone;
   final _code = TextEditingController();
   late String _countryCode;
@@ -63,6 +65,7 @@ class _VerifyPhoneScreenState extends ConsumerState<VerifyPhoneScreen> {
       PhoneUtils.toInternational(_phone.text, countryCode: _countryCode);
 
   Future<void> _send({bool again = false}) async {
+    if (!again) setState(() => _autovalidate = AutovalidateMode.always);
     if (!again && !_numberForm.currentState!.validate()) return;
     final number = again ? _sent!.phoneNumber : _number;
     final current = ref.read(currentUserProvider);
@@ -220,6 +223,7 @@ class _VerifyPhoneScreenState extends ConsumerState<VerifyPhoneScreen> {
     FieldLabel(_changing ? 'New phone number' : 'Phone number'),
     Form(
       key: _numberForm,
+      autovalidateMode: _autovalidate,
       child: PhoneNumberField(
         phoneController: _phone,
         initialCountryCode: _countryCode,

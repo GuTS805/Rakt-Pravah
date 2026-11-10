@@ -6,6 +6,7 @@ import '../../core/router/routes.dart';
 import '../../core/services/photo_picker.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/form_errors.dart';
 import '../../core/widgets/avatar.dart';
 import '../../core/widgets/blood_group_picker.dart';
 import '../../core/widgets/buttons.dart';
@@ -23,6 +24,8 @@ class ProfileEditScreen extends ConsumerStatefulWidget {
 
 class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _formKey = GlobalKey<FormState>();
+  // Errors appear on the first submit, then follow what is typed.
+  AutovalidateMode _autovalidate = AutovalidateMode.disabled;
   late final TextEditingController _name;
   late final TextEditingController _phone;
   late String _countryCode;
@@ -168,7 +171,11 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    setState(() => _autovalidate = AutovalidateMode.always);
+    if (!_formKey.currentState!.validate()) {
+      revealFirstError(_formKey);
+      return;
+    }
     setState(() => _busy = true);
     try {
       await ref
@@ -216,6 +223,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       appBar: AppBar(title: const Text('Edit profile')),
       body: Form(
         key: _formKey,
+        autovalidateMode: _autovalidate,
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
@@ -247,8 +255,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               controller: _name,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(hintText: 'Your name'),
-              validator: (v) =>
-                  (v ?? '').trim().length < 2 ? 'Enter your name' : null,
+              validator: validatePersonName,
             ),
             const SizedBox(height: AppSpacing.lg),
             const FieldLabel('Phone number'),

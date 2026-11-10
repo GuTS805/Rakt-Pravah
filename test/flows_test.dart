@@ -862,7 +862,7 @@ void main() {
     testWidgets('a wrong password is refused', (tester) async {
       final backend = await signIn(tester, password: 'not-it');
 
-      expect(find.text('Invalid ID or password.'), findsOneWidget);
+      expect(find.text('Wrong email or password.'), findsOneWidget);
       expect(
         backend.currentUser,
         isNull,
@@ -873,7 +873,7 @@ void main() {
     testWidgets('the right password signs in', (tester) async {
       final backend = await signIn(tester, password: 'hunter22');
 
-      expect(find.text('Invalid ID or password.'), findsNothing);
+      expect(find.text('Wrong email or password.'), findsNothing);
       expect(backend.currentUser?.email, 'alok@example.com');
     });
 
@@ -898,6 +898,29 @@ void main() {
         find.textContaining('If stranger@example.com has an account'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('a reset link that could not be sent says so', (tester) async {
+      final backend = FakeBackend()..passwordResetError = Exception('offline');
+      await tester.pumpWidget(
+        _app(backend: backend, screen: const LoginScreen()),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Forgot password?'));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter your email address first.'), findsOneWidget);
+
+      await tester.enterText(
+        find.byType(TextFormField).first,
+        'stranger@example.com',
+      );
+      await tester.tap(find.text('Forgot password?'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Enter your email address first.'), findsNothing);
+      expect(find.textContaining("Couldn't send the reset link"), findsOneWidget);
+      expect(find.textContaining('has an account'), findsNothing);
     });
   });
 

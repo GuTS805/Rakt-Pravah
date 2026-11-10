@@ -202,6 +202,40 @@ void main() {
       final all = await db.collection('users').get();
       expect(all.docs, isEmpty);
     });
+    test('a refused profile undoes the sign-up so it can be tried again', () async {
+      // A database that refuses every write, as the live one did while it
+      // still had rules from before this version of the app.
+      final auth = MockFirebaseAuth();
+      final refusing = FakeFirebaseFirestore(
+        authObject: auth.authForFakeFirestore,
+        securityRules: '''
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}''',
+      );
+      final b = FirebaseBackend.forTesting(refusing, auth);
+      await expectLater(
+        b.register(
+          email: 'new@example.com',
+          password: 'secret123',
+          name: 'Nina New',
+          phone: '9876543210',
+          countryCode: '+91',
+          bloodGroup: BloodGroup.bNeg,
+          dateOfBirth: DateTime(1995, 5, 5),
+          gender: Gender.female,
+          country: 'India',
+          state: 'Maharashtra',
+          city: 'Pune',
+        ),
+        throwsA(anything),
+      );
+      expect(auth.currentUser, isNull);
+    });
   });
 
   group('signing in', () {
@@ -209,7 +243,7 @@ void main() {
       final b = _failing(db, #signInWithEmailAndPassword, 'wrong-password');
       await expectLater(
         b.signInWithPassword(email: 'a@example.com', password: 'nope'),
-        throwsA(isA<SignInFailure>().having((e) => e.message, 'message', 'Invalid ID or password.')),
+        throwsA(isA<SignInFailure>().having((e) => e.message, 'message', 'Wrong email or password.')),
       );
     });
 
@@ -217,7 +251,7 @@ void main() {
       final b = _failing(db, #signInWithEmailAndPassword, 'user-not-found');
       await expectLater(
         b.signInWithPassword(email: 'a@example.com', password: 'x'),
-        throwsA(isA<SignInFailure>().having((e) => e.message, 'message', 'Invalid ID or password.')),
+        throwsA(isA<SignInFailure>().having((e) => e.message, 'message', 'Wrong email or password.')),
       );
     });
 

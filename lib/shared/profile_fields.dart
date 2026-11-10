@@ -5,6 +5,7 @@ import '../core/location/searchable_location_picker.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/formatters.dart';
+import '../core/utils/keyboard.dart';
 import '../data/models/models.dart';
 import 'segmented_control.dart';
 
@@ -16,6 +17,16 @@ export '../core/widgets/phone_number_field.dart';
 
 // Profile inputs shared by registration and Edit profile, so both ask for
 // the same things the same way.
+
+/// A person's name: at least two characters, and some letters (in any
+/// script) rather than only digits or symbols.
+String? validatePersonName(String? value) {
+  final name = (value ?? '').trim();
+  if (name.length < 2 || !RegExp(r'\p{L}', unicode: true).hasMatch(name)) {
+    return 'Enter your name';
+  }
+  return null;
+}
 
 class FieldLabel extends StatelessWidget {
   const FieldLabel(this.text, {super.key});
@@ -42,6 +53,7 @@ class DateOfBirthField extends FormField<DateTime> {
            final c = context.colors;
            final value = field.value;
            Future<void> pick() async {
+             dismissKeyboard();
              final now = DateTime.now();
              final picked = await showDatePicker(
                context: context,
@@ -101,6 +113,7 @@ class GenderField extends FormField<Gender> {
                      ? -1
                      : Gender.values.indexOf(field.value!),
                  onChanged: (i) {
+                   dismissKeyboard();
                    field.didChange(Gender.values[i]);
                    onChanged(Gender.values[i]);
                  },
@@ -266,6 +279,7 @@ class _HomeLocationFieldsState extends State<HomeLocationFields> {
   }
 
   Future<void> _openCountrySearch(BuildContext context) async {
+    dismissKeyboard();
     final picked = await showModalBottomSheet<CountryLocation>(
       context: context,
       isScrollControlled: true,
@@ -288,6 +302,7 @@ class _HomeLocationFieldsState extends State<HomeLocationFields> {
     final country = widget.country.text.trim();
     final states = LocationDataService.getStates(country);
     if (states.isEmpty) return;
+    dismissKeyboard();
 
     final picked = await showModalBottomSheet<StateLocation>(
       context: context,
@@ -311,6 +326,7 @@ class _HomeLocationFieldsState extends State<HomeLocationFields> {
     final country = widget.country.text.trim();
     final state = widget.state.text.trim();
     final cities = LocationDataService.getCities(country, state);
+    dismissKeyboard();
 
     final picked = await showModalBottomSheet<CityLocation>(
       context: context,
@@ -321,8 +337,7 @@ class _HomeLocationFieldsState extends State<HomeLocationFields> {
         searchHint: 'Search city or district in $state...',
         items: cities,
         itemTitle: (c) => c.name,
-        itemSubtitle: (c) =>
-            '${c.latitude.toStringAsFixed(2)}°N, ${c.longitude.toStringAsFixed(2)}°E',
+        itemSubtitle: (_) => state,
         selectedItem: LocationDataService.findCity(country, state, widget.city.text),
         allowCustom: true,
         onCustomSelected: (customText) {
@@ -364,6 +379,7 @@ class _HomeLocationFieldsState extends State<HomeLocationFields> {
           initialValue: countryNames.contains(countryValue) ? countryValue : null,
           isExpanded: true,
           menuMaxHeight: 360,
+          onTap: dismissKeyboard,
           decoration: InputDecoration(
             hintText: 'Select country',
             prefixIcon: const Icon(Icons.public_outlined),
@@ -393,6 +409,7 @@ class _HomeLocationFieldsState extends State<HomeLocationFields> {
             initialValue: stateNames.contains(stateValue) ? stateValue : null,
             isExpanded: true,
             menuMaxHeight: 360,
+            onTap: dismissKeyboard,
             decoration: InputDecoration(
               hintText: countryValue.isEmpty ? 'Select country first' : 'Select state',
               prefixIcon: const Icon(Icons.map_outlined),
@@ -448,6 +465,7 @@ class _HomeLocationFieldsState extends State<HomeLocationFields> {
                 : (cityNames.contains(cityValue) ? cityValue : null),
             isExpanded: true,
             menuMaxHeight: 360,
+            onTap: dismissKeyboard,
             decoration: InputDecoration(
               hintText: stateValue.isEmpty ? 'Select state first' : 'Select city',
               prefixIcon: const Icon(Icons.location_city_outlined),

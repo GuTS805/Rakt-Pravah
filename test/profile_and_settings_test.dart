@@ -325,5 +325,49 @@ void main() {
       await submit(tester);
       expect(find.text('Enter your name'), findsOneWidget);
     });
+
+    testWidgets('a name of only digits is refused', (tester) async {
+      await pump(tester);
+      await tester.enterText(find.byType(TextFormField).at(2), '12345');
+      await submit(tester);
+      expect(find.text('Enter your name'), findsOneWidget);
+    });
+
+    testWidgets('a name in Devanagari is accepted', (tester) async {
+      await pump(tester);
+      await tester.enterText(find.byType(TextFormField).at(2), 'रवि कुमार');
+      await submit(tester);
+      expect(find.text('Enter your name'), findsNothing);
+    });
+
+    testWidgets('no errors show before the first submit', (tester) async {
+      await pump(tester);
+      await tester.enterText(find.byType(TextFormField).at(0), 'a');
+      await tester.pumpAndSettle();
+      expect(find.text('Use at least 6 characters'), findsNothing);
+      expect(find.text('Enter a valid email address'), findsNothing);
+    });
+
+    testWidgets('after a submit, an error goes once the field is fixed', (
+      tester,
+    ) async {
+      await pump(tester);
+      await submit(tester);
+      expect(find.text('Enter a valid email address'), findsOneWidget);
+      await tester.enterText(find.byType(TextFormField).at(0), 'nina@example.com');
+      await tester.pumpAndSettle();
+      expect(find.text('Enter a valid email address'), findsNothing);
+    });
+
+    testWidgets('a failed submit scrolls the first error into view', (
+      tester,
+    ) async {
+      await pump(tester);
+      await submit(tester);
+      final error = find.text('Enter a valid email address');
+      final top = tester.getTopLeft(error).dy;
+      final screen = tester.view.physicalSize.height / tester.view.devicePixelRatio;
+      expect(top, inInclusiveRange(0, screen));
+    });
   });
 }

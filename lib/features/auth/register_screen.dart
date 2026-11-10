@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/form_errors.dart';
 import '../../core/widgets/blood_group_picker.dart';
 import '../../core/widgets/buttons.dart';
 import '../../data/backend.dart';
+import '../../data/backend_error.dart';
 import '../../data/models/enums.dart';
 import '../../data/providers.dart';
 import '../../shared/brand_mark.dart';
@@ -23,6 +25,9 @@ class RegisterScreen extends ConsumerStatefulWidget {
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _groupKey = GlobalKey();
+  // Errors appear on the first submit, then follow what is typed.
+  AutovalidateMode _autovalidate = AutovalidateMode.disabled;
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _name = TextEditingController();
@@ -60,9 +65,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _submit() async {
+    setState(() => _autovalidate = AutovalidateMode.always);
     final validForm = _formKey.currentState!.validate();
     setState(() => _groupError = _group == null);
-    if (!validForm || _group == null) return;
+    if (!validForm || _group == null) {
+      revealFirstError(
+        _formKey,
+        alsoInvalid: [if (_group == null) _groupKey.currentContext],
+      );
+      return;
+    }
 
     setState(() {
       _busy = true;
@@ -94,6 +106,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           );
     } on SignInFailure catch (e) {
       if (mounted) setState(() => _error = e.message);
+    } on BackendUnavailable catch (e) {
+      if (mounted) setState(() => _error = e.message);
     } catch (_) {
       if (mounted) {
         setState(() => _error = 'Couldn\'t create your account. Try again.');
@@ -116,6 +130,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               constraints: const BoxConstraints(maxWidth: 460),
               child: Form(
                 key: _formKey,
+                autovalidateMode: _autovalidate,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -133,7 +148,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     TextFormField(
                       controller: _email,
                       keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.username],
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [AutofillHints.email],
                       decoration: const InputDecoration(
                         hintText: 'you@example.com',
                       ),
@@ -148,21 +164,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     TextFormField(
                       controller: _password,
                       obscureText: !_showPassword,
+                      textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.newPassword],
                       decoration: InputDecoration(
                         hintText: 'At least 6 characters',
-                        suffixIcon: IconButton(
-                          tooltip: _showPassword
-                              ? 'Hide password'
-                              : 'Show password',
-                          icon: Icon(
-                            _showPassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            size: 20,
+                        suffixIcon: ExcludeFocus(
+                          // The keyboard's Next goes on to the next field, not to this.
+                          child: IconButton(
+                            tooltip: _showPassword
+                                ? 'Hide password'
+                                : 'Show password',
+                            icon: Icon(
+                              _showPassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              size: 20,
+                            ),
+                            onPressed: () =>
+                                setState(() => _showPassword = !_showPassword),
                           ),
-                          onPressed: () =>
-                              setState(() => _showPassword = !_showPassword),
                         ),
                       ),
                       validator: (v) => (v ?? '').length < 6
@@ -174,10 +194,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     TextFormField(
                       controller: _name,
                       textCapitalization: TextCapitalization.words,
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [AutofillHints.name],
                       decoration: const InputDecoration(hintText: 'Your name'),
-                      validator: (v) => (v ?? '').trim().length < 2
-                          ? 'Enter your name'
-                          : null,
+                      validator: validatePersonName,
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     const FieldLabel('Phone number'),
@@ -188,7 +208,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           setState(() => _countryCode = c.dialCode),
                     ),
                     const SizedBox(height: AppSpacing.lg),
-                    const FieldLabel('Your blood group'),
+                    FieldLabel('Your blood group', key: _groupKey),
                     BloodGroupPicker(
                       selected: _group,
                       onChanged: (g) => setState(() {

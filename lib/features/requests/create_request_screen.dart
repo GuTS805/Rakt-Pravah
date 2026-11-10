@@ -8,6 +8,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/semantics.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/keyboard.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/badges.dart';
 import '../../core/widgets/blood_group_picker.dart';
@@ -50,6 +51,7 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   Urgency _urgency = Urgency.urgent;
 
   Future<void> _pickRequiredDate() async {
+    dismissKeyboard();
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,

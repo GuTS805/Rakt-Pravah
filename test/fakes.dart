@@ -594,13 +594,13 @@ class FakeBackend implements Backend {
     if (registeredUsers.isNotEmpty &&
         !registeredUsers.containsKey(email) &&
         !passwords.containsKey(email)) {
-      throw const SignInFailure('Invalid ID or password.');
+      throw const SignInFailure('Wrong email or password.');
     }
     if (passwords.containsKey(email) && passwords[email] != password) {
-      throw const SignInFailure('Invalid ID or password.');
+      throw const SignInFailure('Wrong email or password.');
     }
     if (!passwords.containsKey(email) && currentUser == null) {
-      throw const SignInFailure('Invalid ID or password.');
+      throw const SignInFailure('Wrong email or password.');
     }
     final user =
         registeredUsers[email] ??
@@ -620,9 +620,15 @@ class FakeBackend implements Backend {
   Future<UserProfile?> restoreSession() async =>
       sessionExpired ? null : currentUser;
 
+  /// Set to make the next password reset fail.
+  Object? passwordResetError;
+
   @override
-  Future<void> sendPasswordReset(String email) async =>
-      passwordResetEmails.add(email);
+  Future<void> sendPasswordReset(String email) async {
+    final error = passwordResetError;
+    if (error != null) throw error;
+    passwordResetEmails.add(email);
+  }
 
   @override
   bool get isDeviceOnlyAccount => currentUser?.email == null;

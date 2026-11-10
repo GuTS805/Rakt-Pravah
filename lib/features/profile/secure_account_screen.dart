@@ -23,6 +23,8 @@ class SecureAccountScreen extends ConsumerStatefulWidget {
 
 class _SecureAccountScreenState extends ConsumerState<SecureAccountScreen> {
   final _formKey = GlobalKey<FormState>();
+  // Errors appear on the first submit, then follow what is typed.
+  AutovalidateMode _autovalidate = AutovalidateMode.disabled;
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _busy = false;
@@ -37,6 +39,7 @@ class _SecureAccountScreenState extends ConsumerState<SecureAccountScreen> {
   }
 
   Future<void> _save() async {
+    setState(() => _autovalidate = AutovalidateMode.always);
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _busy = true;
@@ -75,6 +78,7 @@ class _SecureAccountScreenState extends ConsumerState<SecureAccountScreen> {
       appBar: AppBar(title: const Text('Secure your account')),
       body: Form(
         key: _formKey,
+        autovalidateMode: _autovalidate,
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
@@ -89,7 +93,8 @@ class _SecureAccountScreenState extends ConsumerState<SecureAccountScreen> {
             TextFormField(
               controller: _email,
               keyboardType: TextInputType.emailAddress,
-              autofillHints: const [AutofillHints.username],
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
               decoration: const InputDecoration(hintText: 'you@example.com'),
               validator: (v) =>
                   RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
@@ -105,16 +110,19 @@ class _SecureAccountScreenState extends ConsumerState<SecureAccountScreen> {
               autofillHints: const [AutofillHints.newPassword],
               decoration: InputDecoration(
                 hintText: 'At least 6 characters',
-                suffixIcon: IconButton(
-                  tooltip: _showPassword ? 'Hide password' : 'Show password',
-                  icon: Icon(
-                    _showPassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: 20,
+                suffixIcon: ExcludeFocus(
+                  // The keyboard's Next goes on to the next field, not to this.
+                  child: IconButton(
+                    tooltip: _showPassword ? 'Hide password' : 'Show password',
+                    icon: Icon(
+                      _showPassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      size: 20,
+                    ),
+                    onPressed: () =>
+                        setState(() => _showPassword = !_showPassword),
                   ),
-                  onPressed: () =>
-                      setState(() => _showPassword = !_showPassword),
                 ),
               ),
               validator: (v) =>

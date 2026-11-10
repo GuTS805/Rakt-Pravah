@@ -169,7 +169,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Proper error message is visible
-      expect(find.text('Invalid ID or password.'), findsOneWidget);
+      expect(find.text('Wrong email or password.'), findsOneWidget);
     });
 
     testWidgets('Non-existent account → proper error displayed', (
@@ -218,7 +218,7 @@ void main() {
       await tester.tap(find.text('Sign in'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Invalid ID or password.'), findsOneWidget);
+      expect(find.text('Wrong email or password.'), findsOneWidget);
     });
 
     testWidgets('Logout → session/token cleared', (tester) async {

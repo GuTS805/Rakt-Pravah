@@ -24,6 +24,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  // Errors appear on the first submit, then follow what is typed.
+  AutovalidateMode _autovalidate = AutovalidateMode.disabled;
   bool _busy = false;
   bool _showPassword = false;
   String? _error;
@@ -36,6 +38,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    setState(() => _autovalidate = AutovalidateMode.always);
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _busy = true;
@@ -70,7 +73,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() => _error = 'Enter your email address first.');
       return;
     }
-    await ref.read(authControllerProvider.notifier).sendPasswordReset(email);
+    setState(() => _error = null);
+    try {
+      await ref.read(authControllerProvider.notifier).sendPasswordReset(email);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error = "Couldn't send the reset link. Check your connection and try again.",
+        );
+      }
+      return;
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -96,6 +109,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               constraints: const BoxConstraints(maxWidth: 420),
               child: Form(
                 key: _formKey,
+                autovalidateMode: _autovalidate,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -140,7 +154,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     TextFormField(
                       controller: _email,
                       keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.username],
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [AutofillHints.email],
                       decoration: const InputDecoration(
                         hintText: 'you@example.com',
                         prefixIcon: Icon(Icons.email_outlined),
@@ -148,10 +163,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       validator: (v) {
                         final trimmed = (v ?? '').trim();
                         if (trimmed.isEmpty) {
-                          return 'Please enter your ID/email.';
+                          return 'Please enter your email.';
                         }
                         if (!_looksLikeEmail(trimmed)) {
-                          return 'Please enter a valid ID/email.';
+                          return 'Please enter a valid email address.';
                         }
                         return null;
                       },
@@ -166,18 +181,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       decoration: InputDecoration(
                         hintText: 'Your password',
                         prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          tooltip: _showPassword
-                              ? 'Hide password'
-                              : 'Show password',
-                          icon: Icon(
-                            _showPassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            size: 20,
+                        suffixIcon: ExcludeFocus(
+                          // The keyboard's Next goes on to the next field, not to this.
+                          child: IconButton(
+                            tooltip: _showPassword
+                                ? 'Hide password'
+                                : 'Show password',
+                            icon: Icon(
+                              _showPassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              size: 20,
+                            ),
+                            onPressed: () =>
+                                setState(() => _showPassword = !_showPassword),
                           ),
-                          onPressed: () =>
-                              setState(() => _showPassword = !_showPassword),
                         ),
                       ),
                       validator: (v) => (v ?? '').isEmpty

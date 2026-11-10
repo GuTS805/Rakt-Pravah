@@ -319,7 +319,10 @@ class FirebaseBackend implements Backend {
     final effLat = latitude ?? resolvedLoc.latitude;
     final effLng = longitude ?? resolvedLoc.longitude;
 
-    await _createOrLinkAccount(email: email, password: password);
+    final createdNew = await _createOrLinkAccount(
+      email: email,
+      password: password,
+    );
     final data = <String, dynamic>{
       'name': name,
       'phone': cleanPhone,
@@ -349,7 +352,20 @@ class FirebaseBackend implements Backend {
         ),
       ),
     };
-    await _ack(_users.doc(uid).set(data, fs.SetOptions(merge: true)));
+    try {
+      await _ack(_users.doc(uid).set(data, fs.SetOptions(merge: true)));
+    } catch (_) {
+      // Without its profile the account is half made: the email is taken,
+      // yet the person has no name, number or blood group on file. Undo the
+      // sign-up so trying again simply works.
+      if (createdNew) {
+        try {
+          await _auth.currentUser?.delete();
+        } catch (_) {}
+        await _auth.signOut();
+      }
+      rethrow;
+    }
     return _applyProfileDoc(data);
   }
 
@@ -494,7 +510,8 @@ class FirebaseBackend implements Backend {
 
   /// Creates the account, or attaches these credentials to the anonymous
   /// session this device already has so nothing it created is orphaned.
-  Future<void> _createOrLinkAccount({
+  /// True when a new account was made rather than an existing one linked.
+  Future<bool> _createOrLinkAccount({
     required String email,
     required String password,
   }) async {
@@ -506,12 +523,13 @@ class FirebaseBackend implements Backend {
       final current = _auth.currentUser;
       if (current != null && current.isAnonymous) {
         await current.linkWithCredential(credential);
-      } else {
-        await _auth.createUserWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
+        return false;
       }
+      await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return true;
     } on fb_auth.FirebaseAuthException catch (e) {
       throw SignInFailure(_registrationMessage(e.code));
     }
@@ -571,7 +589,7 @@ class FirebaseBackend implements Backend {
         'invalid-email' ||
         'user-not-found' ||
         'wrong-password' ||
-        'invalid-credential' => 'Invalid ID or password.',
+        'invalid-credential' => 'Wrong email or password.',
         'user-disabled' => 'This account has been disabled.',
         'too-many-requests' =>
           'Too many attempts. Wait a few minutes and try again.',
@@ -579,7 +597,7 @@ class FirebaseBackend implements Backend {
           'Email and password sign-in is switched off for this project.',
         'network-request-failed' =>
           'Unable to connect to the server. Please try again.',
-        _ => 'Invalid ID or password.',
+        _ => "Couldn't sign in. Try again.",
       });
     } catch (e, st) {
       // ignore: avoid_print

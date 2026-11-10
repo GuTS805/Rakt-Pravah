@@ -5,6 +5,7 @@ import '../../data/models/enums.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_typography.dart';
+import '../utils/keyboard.dart';
 import 'buttons.dart';
 
 /// A grid of selectable blood-group chips. Values are set in mono to match the
@@ -26,7 +27,14 @@ class BloodGroupPicker extends StatelessWidget {
       runSpacing: AppSpacing.sm,
       children: [
         for (final g in BloodGroup.values)
-          _Chip(group: g, selected: g == selected, onTap: () => onChanged(g)),
+          _Chip(
+            group: g,
+            selected: g == selected,
+            onTap: () {
+              dismissKeyboard();
+              onChanged(g);
+            },
+          ),
       ],
     );
   }
@@ -135,7 +143,10 @@ class BloodGroupMultiPicker extends StatelessWidget {
                 _MultiChip(
                   group: g,
                   selected: selected.contains(g),
-                  onTap: () => _toggle(g),
+                  onTap: () {
+                    dismissKeyboard();
+                    _toggle(g);
+                  },
                 ),
           ],
         ),
