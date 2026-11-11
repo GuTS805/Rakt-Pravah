@@ -116,6 +116,10 @@ class _ReportSheetState extends ConsumerState<_ReportSheet> {
             controller: _detail,
             maxLines: 4,
             maxLength: 1000,
+            // Once they start typing, "describe the problem first" is stale.
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
             decoration: const InputDecoration(
               hintText: 'Describe the problem…',
             ),

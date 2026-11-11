@@ -690,4 +690,53 @@ void main() {
       expect(r.donorLiveLocations, isEmpty);
     });
   });
+  group('crediting a finished donation', () {
+    Future<Map<String, dynamic>> creditFor(String donor) async {
+      final b = await rig.as_(donor);
+      await _offered(b);
+      // The credit is written from the listener after it emits.
+      for (var i = 0; i < 50; i++) {
+        final d = (await rig.data('users/$donor'))['donor'] as Map;
+        if (d['totalDonations'] == 1) break;
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      return ((await rig.data('users/$donor'))['donor'] as Map)
+          .cast<String, dynamic>();
+    }
+
+    test('counts from when it was fulfilled, not when the app opened', () async {
+      final fulfilled = DateTime.now().subtract(const Duration(days: 3));
+      await rig.request('r1', accepted: ['donor1'], status: 'fulfilled');
+      await rig.db.doc('blood_requests/r1').update({
+        'timeline': [
+          {'status': 'fulfilled', 'at': fs.Timestamp.fromDate(fulfilled)},
+        ],
+      });
+      final donor = await creditFor('donor1');
+      expect(donor['totalDonations'], 1);
+      expect(donor['creditedRequestIds'], ['r1']);
+      final at = (donor['lastDonation'] as fs.Timestamp).toDate();
+      expect(at.difference(fulfilled).inSeconds.abs(), lessThan(2));
+    });
+
+    test('an older donation credited late keeps the newer date', () async {
+      final newer = DateTime.now().subtract(const Duration(days: 1));
+      await rig.user('donor1', availability: 'off', lastDonation: newer);
+      await rig.request('r1', accepted: ['donor1'], status: 'fulfilled');
+      await rig.db.doc('blood_requests/r1').update({
+        'timeline': [
+          {
+            'status': 'fulfilled',
+            'at': fs.Timestamp.fromDate(
+              DateTime.now().subtract(const Duration(days: 20)),
+            ),
+          },
+        ],
+      });
+      final donor = await creditFor('donor1');
+      expect(donor['totalDonations'], 1);
+      final at = (donor['lastDonation'] as fs.Timestamp).toDate();
+      expect(at.difference(newer).inSeconds.abs(), lessThan(2));
+    });
+  });
 }

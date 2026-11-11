@@ -184,6 +184,29 @@ void main() {
       expect(find.textContaining('Time remaining'), findsOneWidget);
     });
 
+    testWidgets(
+      'in the waiting period Paused is locked too and says why when tapped',
+      (tester) async {
+        final backend = await _pump(
+          tester,
+          const DonorSettingsScreen(),
+          donor: _donor(
+            availability: DonorAvailability.off,
+            lastDonation: DateTime.now().subtract(const Duration(days: 10)),
+          ),
+        );
+        final calls = backend.setDonorProfileCalls.length;
+        await tester.tap(find.text(DonorAvailability.paused.label));
+        await tester.pump();
+        expect(backend.setDonorProfileCalls.length, calls);
+        expect(backend.donorProfile.availability, DonorAvailability.off);
+        expect(
+          find.textContaining('Donor Mode stays off until'),
+          findsOneWidget,
+        );
+      },
+    );
+
     testWidgets('a donor with no recent donation sees no waiting notice', (
       tester,
     ) async {

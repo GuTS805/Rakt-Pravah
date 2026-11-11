@@ -73,8 +73,24 @@ class DonorSettingsScreen extends ConsumerWidget {
                 _AvailabilityRow(
                   availability: a,
                   selected: donor.availability == a,
-                  locked:
-                      donor.isInCooldown && a == DonorAvailability.available,
+                  // During the waiting period the app keeps Donor Mode off,
+                  // so Paused would be switched straight back too.
+                  locked: donor.isInCooldown && a != DonorAvailability.off,
+                  onLockedTap: () {
+                    final next = donor.nextEligibleDonationDate;
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            next == null
+                                ? 'Donor Mode stays off during your waiting period.'
+                                : 'Donor Mode stays off until '
+                                      '${Fmt.fullDate(next)}, when your waiting period ends.',
+                          ),
+                        ),
+                      );
+                  },
                   onTap: () {
                     if (a != DonorAvailability.off &&
                         !requireDonorProfile(context, ref)) {
@@ -188,18 +204,20 @@ class _AvailabilityRow extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.locked = false,
+    this.onLockedTap,
   });
   final DonorAvailability availability;
   final bool selected;
   final bool locked;
   final VoidCallback onTap;
+  final VoidCallback? onLockedTap;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final style = availabilityStyle(context, availability);
     return InkWell(
-      onTap: locked ? null : onTap,
+      onTap: locked ? onLockedTap : onTap,
       child: Opacity(
         opacity: locked ? 0.45 : 1,
         child: Padding(

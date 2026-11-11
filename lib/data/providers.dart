@@ -192,6 +192,19 @@ final currentUserProvider = Provider<UserProfile?>(
   (ref) => ref.watch(authControllerProvider).user,
 );
 
+/// The signed-in account's id. Every stream of one person's data watches it
+/// (through [_signedIn]), so signing out and into another account on the same
+/// phone starts fresh streams instead of carrying on with the last person's.
+final currentUserIdProvider = Provider<String?>(
+  (ref) => ref.watch(currentUserProvider.select((u) => u?.id)),
+);
+
+/// Ties a provider to the signed-in account and says whether anyone is
+/// signed in. While no one is, there is no data of anyone's to stream.
+bool _signedIn(Ref ref) =>
+    ref.watch(currentUserIdProvider) != null ||
+    ref.read(backendProvider).currentUser != null;
+
 // ---------------------------------------------------------------------------
 // Theme mode
 // ---------------------------------------------------------------------------
@@ -250,6 +263,7 @@ final notificationsAllowedProvider = FutureProvider<bool?>(
 // ---------------------------------------------------------------------------
 final donorProfileProvider = StreamProvider<DonorProfile>((ref) {
   final backend = ref.watch(backendProvider);
+  if (!_signedIn(ref)) return const Stream.empty();
   return backend.donorStream;
 });
 
@@ -266,6 +280,7 @@ final donorProfileValueProvider = Provider<DonorProfile>((ref) {
 // ---------------------------------------------------------------------------
 final myRequestsProvider = StreamProvider<List<BloodRequest>>((ref) {
   final backend = ref.watch(backendProvider);
+  if (!_signedIn(ref)) return const Stream.empty();
   return backend.myRequestsStream;
 });
 
@@ -274,12 +289,14 @@ final myRequestsProvider = StreamProvider<List<BloodRequest>>((ref) {
 /// before the name was moved out of the public document.
 final patientNameProvider = StreamProvider.family<String?, String>((ref, id) {
   final backend = ref.watch(backendProvider);
+  ref.watch(currentUserIdProvider); // Rules differ per account.
   return backend.patientNameStream(id).handleError((_) => null);
 });
 
 /// Live stream of a single request (auto-updating tracking screen).
 final requestProvider = StreamProvider.family<BloodRequest, String>((ref, id) {
   final backend = ref.watch(backendProvider);
+  ref.watch(currentUserIdProvider); // Rules differ per account.
   return backend.requestStream(id);
 });
 
@@ -308,6 +325,7 @@ final invitationsProvider = StreamProvider<List<Invitation>>((ref) {
     ),
   );
   ref.watch(deviceLocationProvider.select((l) => l.point));
+  if (!_signedIn(ref)) return const Stream.empty();
   return backend.invitationsStream;
 });
 
@@ -452,6 +470,7 @@ final chatProvider = StreamProvider.family<List<ChatMessage>, String>((
   requestId,
 ) {
   final backend = ref.watch(backendProvider);
+  ref.watch(currentUserIdProvider); // Rules differ per account.
   return backend.chatStream(requestId);
 });
 
@@ -463,6 +482,7 @@ final nearbyDonorsProvider = StreamProvider.family<List<MatchedDonor>, String>((
   requestId,
 ) {
   final backend = ref.watch(backendProvider);
+  ref.watch(currentUserIdProvider); // Rules differ per account.
   return backend.nearbyDonorsStream(requestId);
 });
 

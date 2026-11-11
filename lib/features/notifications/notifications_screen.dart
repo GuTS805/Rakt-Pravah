@@ -7,11 +7,24 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/states.dart';
-import '../../data/models/enums.dart';
+import '../../data/models/models.dart';
 import '../../data/providers.dart';
 
 String _groupsLabel(List<BloodGroup> groups) =>
     groups.map((g) => g.label).join('/');
+
+/// When [r] last changed: its newest acceptance or status event, else when it
+/// was made. Shown as "x ago", so it has to be a real time.
+DateTime _lastUpdate(BloodRequest r) {
+  var t = r.createdAt;
+  for (final e in r.timeline) {
+    if (e.at.isAfter(t)) t = e.at;
+  }
+  for (final d in r.acceptedDonors) {
+    if (d.acceptedAt.isAfter(t)) t = d.acceptedAt;
+  }
+  return t;
+}
 
 class _Notif {
   const _Notif(
@@ -40,7 +53,6 @@ class NotificationsScreen extends ConsumerWidget {
     final c = context.colors;
     final requests = ref.watch(myRequestsProvider).valueOrNull ?? const [];
     final pending = ref.watch(pendingInvitationsProvider);
-    final now = DateTime.now();
 
     final items = <_Notif>[];
 
@@ -53,7 +65,7 @@ class NotificationsScreen extends ConsumerWidget {
             c.success,
             'Your blood request has been accepted by a donor',
             '${r.acceptedDonorName ?? "A donor"} has accepted your ${_groupsLabel(r.bloodGroups)} request.',
-            now.subtract(const Duration(minutes: 1)),
+            _lastUpdate(r),
             Routes.requestDetail(r.id),
           ),
         );
@@ -64,7 +76,7 @@ class NotificationsScreen extends ConsumerWidget {
             c.info,
             'Searching for donors',
             '${r.donorsContacted} donors contacted for your ${_groupsLabel(r.bloodGroups)} request.',
-            now.subtract(const Duration(minutes: 2)),
+            _lastUpdate(r),
             Routes.requestDetail(r.id),
           ),
         );

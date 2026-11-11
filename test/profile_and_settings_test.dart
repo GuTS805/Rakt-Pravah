@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:rakt_pravah/core/config/links.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rakt_pravah/core/router/routes.dart';
 import 'package:rakt_pravah/core/theme/app_theme.dart';
@@ -267,10 +268,18 @@ void main() {
       expect(c.read(themeModeProvider), ThemeMode.light);
     });
 
-    testWidgets('shows the app version', (tester) async {
+    testWidgets('shows the installed app version', (tester) async {
+      PackageInfo.setMockInitialValues(
+        appName: 'Rakt Pravah',
+        packageName: 'com.anujkumar.raktpravah',
+        version: '2.0.0',
+        buildNumber: '101',
+        buildSignature: '',
+      );
       await pump(tester);
+      await tester.pumpAndSettle();
       expect(find.text('Version'), findsOneWidget);
-      expect(find.text('1.0.0'), findsOneWidget);
+      expect(find.text('2.0.0'), findsOneWidget);
     });
   });
 

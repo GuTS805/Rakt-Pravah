@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config/links.dart';
@@ -20,6 +21,12 @@ const medicalDisclaimer =
 @visibleForTesting
 Future<bool> Function(String url) openLink = (url) =>
     launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+
+/// The installed build's version, e.g. "2.0.0", read from the app itself so
+/// it can't fall behind pubspec.yaml.
+final appVersionProvider = FutureProvider<String>(
+  (ref) async => (await PackageInfo.fromPlatform()).version,
+);
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -79,7 +86,10 @@ class SettingsScreen extends ConsumerWidget {
               SettingsTile(
                 icon: Icons.info_outline_rounded,
                 title: 'Version',
-                trailing: Text('1.0.0', style: context.text.bodyMedium),
+                trailing: Text(
+                  ref.watch(appVersionProvider).valueOrNull ?? '',
+                  style: context.text.bodyMedium,
+                ),
               ),
               SettingsTile(
                 icon: Icons.privacy_tip_outlined,

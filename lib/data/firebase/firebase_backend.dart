@@ -1971,7 +1971,7 @@ class FirebaseBackend implements Backend {
           emit();
           for (final doc in snap.docs) {
             if (doc.data()['status'] == RequestStatus.fulfilled.name) {
-              _creditDonationIfNeeded(doc.id);
+              _creditDonationIfNeeded(doc.id, _fulfilledAt(doc.data()));
             }
           }
         });
@@ -1989,7 +1989,14 @@ class FirebaseBackend implements Backend {
   /// would otherwise double-count every time this listener fires. This is
   /// what starts the real 90-day donation cooldown (spec: donors shouldn't
   /// be matched again too soon after giving blood).
-  Future<void> _creditDonationIfNeeded(String requestId) async {
+  ///
+  /// [donatedAt] is when the request was marked fulfilled, so a donor who
+  /// opens the app days later still has their waiting period counted from
+  /// the donation, not from that moment.
+  Future<void> _creditDonationIfNeeded(
+    String requestId,
+    DateTime? donatedAt,
+  ) async {
     // Admins cannot have donations credited to them.
     if (currentUser?.isAdmin == true) return;
     final ref = _users.doc(uid);
@@ -2002,17 +2009,34 @@ class FirebaseBackend implements Backend {
       final credited =
           (donorMap['creditedRequestIds'] as List?)?.cast<String>() ?? const [];
       if (credited.contains(requestId)) return;
+      final now = DateTime.now();
+      var when = donatedAt == null || donatedAt.isAfter(now) ? now : donatedAt;
+      // An older donation credited late doesn't move a newer one back.
+      final previous = (donorMap['lastDonation'] as fs.Timestamp?)?.toDate();
+      if (previous != null && previous.isAfter(when)) when = previous;
       tx.set(ref, {
         'donor': {
           ...donorMap,
           'availability': DonorAvailability.off.name,
           'totalDonations': (donorMap['totalDonations'] as int? ?? 0) + 1,
-          'lastDonation': fs.Timestamp.fromDate(DateTime.now()),
+          'lastDonation': fs.Timestamp.fromDate(when),
           'creditedRequestIds': [...credited, requestId],
         },
-        'lastDonation': fs.Timestamp.fromDate(DateTime.now()),
+        'lastDonation': fs.Timestamp.fromDate(when),
       }, fs.SetOptions(merge: true));
     }));
+  }
+
+  /// When [data]'s request was marked fulfilled, from its timeline.
+  static DateTime? _fulfilledAt(Map<String, dynamic> data) {
+    DateTime? at;
+    for (final e in (data['timeline'] as List?) ?? const []) {
+      if (e is Map && e['status'] == RequestStatus.fulfilled.name) {
+        final t = e['at'];
+        if (t is fs.Timestamp) at = t.toDate();
+      }
+    }
+    return at;
   }
 
   /// Accept is a transaction so only the first donor to claim a request

@@ -29,6 +29,7 @@ BloodRequest _request({
   List<BloodGroup> groups = const [BloodGroup.aPos, BloodGroup.oPos],
   List<AcceptedDonor> donors = const [],
   int contacted = 0,
+  DateTime? createdAt,
 }) => BloodRequest(
   id: id,
   requesterId: requesterId,
@@ -39,7 +40,7 @@ BloodRequest _request({
   units: 1,
   urgency: Urgency.urgent,
   status: status,
-  createdAt: DateTime.now(),
+  createdAt: createdAt ?? DateTime.now(),
   donorsContacted: contacted,
   destination: const Destination(name: 'City Hospital', address: 'Pune'),
   requestLocationLabel: 'Pune',
@@ -154,6 +155,29 @@ void main() {
       expect(find.textContaining('Dana Donor has accepted'), findsOneWidget);
     });
 
+    testWidgets('shows when the donor really accepted, not a made-up time', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        requests: [
+          _request(
+            status: RequestStatus.donorAccepted,
+            createdAt: DateTime.now().subtract(const Duration(hours: 5)),
+            donors: [
+              AcceptedDonor(
+                id: 'd1',
+                name: 'Dana Donor',
+                acceptedAt: DateTime.now().subtract(const Duration(hours: 3)),
+              ),
+            ],
+          ),
+        ],
+      );
+      expect(find.text('3 h ago'), findsOneWidget);
+      expect(find.text('1 min ago'), findsNothing);
+    });
+
     testWidgets('a finished request makes no notification', (tester) async {
       await pump(
         tester,
@@ -215,7 +239,9 @@ void main() {
     testWidgets('the newest update comes first', (tester) async {
       await pump(
         tester,
-        requests: [_request()],
+        requests: [
+          _request(createdAt: DateTime.now().subtract(const Duration(hours: 1))),
+        ],
         invitations: [_invitation()],
       );
       final invite = tester.getTopLeft(find.text('New donor invitation')).dy;
