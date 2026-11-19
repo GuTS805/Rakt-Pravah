@@ -7,6 +7,7 @@ const admin = require('firebase-admin');
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https');
 const { processBloodRequestNotifications } = require('./matcher');
+const { requestUpdatePushes, chatPushes, sendPushes } = require('./updates');
 const { uidFromBearer, mayTrigger } = require('./access');
 
 if (!admin.apps.length) {
@@ -55,12 +56,43 @@ exports.onBloodRequestUpdated = onDocumentUpdated(
     const becameSearching = beforeData.status !== 'searching' && afterData.status === 'searching';
     const radiusExpanded = (afterData.searchRadiusKm || 0) > (beforeData.searchRadiusKm || 0);
 
+    // Tell the people already involved what changed (accepted, can't make
+    // it, cancelled). Runs alongside the search for new donors below.
+    const updates = sendPushes(
+      admin,
+      requestId,
+      requestUpdatePushes(beforeData, afterData),
+      'request',
+    ).catch((e) => console.error(`[UpdatePush] Request ${requestId} failed:`, e));
+
+    let result = null;
     if (becameSearching || radiusExpanded) {
       console.log(`[PushService] Request ${requestId} transitioned or expanded. Processing notifications.`);
-      return processBloodRequestNotifications(admin, requestId, afterData);
+      result = await processBloodRequestNotifications(admin, requestId, afterData);
     }
 
-    return null;
+    await updates;
+    return result;
+  }
+);
+
+/**
+ * A new chat message: push it to the other people in the chat, so they see
+ * it even while the app is closed.
+ */
+exports.onChatMessageCreated = onDocumentCreated(
+  {
+    document: 'blood_requests/{requestId}/messages/{messageId}',
+    region: 'asia-south1',
+    memory: '256MiB',
+  },
+  async (event) => {
+    const message = event.data?.data();
+    if (!message) return null;
+    const requestId = event.params.requestId;
+    const requestSnap = await admin.firestore().collection('blood_requests').doc(requestId).get();
+    if (!requestSnap.exists) return null;
+    return sendPushes(admin, requestId, chatPushes(requestSnap.data(), message), 'chat');
   }
 );
 

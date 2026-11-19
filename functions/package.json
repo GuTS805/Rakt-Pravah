@@ -9,7 +9,7 @@
     "start": "node server.js",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "test": "node test/matcher.test.js && node test/notifications.test.js && node test/endpoints.test.js",
+    "test": "node test/matcher.test.js && node test/notifications.test.js && node test/endpoints.test.js && node test/updates.test.js",
     "test:rules": "firebase emulators:exec --only firestore --project demo-rakt-rules \"node --test --test-concurrency=1 test/rules/*.test.js\""
   },
   "engines": {
