@@ -27,6 +27,8 @@ const COMPATIBLE_DONORS_FOR_PATIENT = {
 
 // 90 days medical cooldown between whole-blood donations
 const COOLDOWN_MS = 90 * 24 * 60 * 60 * 1000;
+const DEFAULT_REQUEST_RADIUS_KM = 25;
+const { randomUUID } = require('node:crypto');
 
 /**
  * Calculates distance in kilometers between two lat/lng coordinates using Haversine formula.
@@ -185,7 +187,7 @@ function evaluateDonorEligibility(
   const requestBloodGroups = requestData.bloodGroups || [];
 
   if (!isBloodCompatible(patientBloodGroup, donorBloodGroup, requestBloodGroups)) {
-    return { eligible: false, reason: `Blood group ${donorBloodGroup} incompatible with patient need` };
+    return { eligible: false, code: 'blood_group', reason: `Blood group ${donorBloodGroup} incompatible with patient need` };
   }
 
   // 8. Location & Distance calculation
@@ -206,20 +208,26 @@ function evaluateDonorEligibility(
     readPoint(donorProfile);
   const donorLat = donorPoint?.lat;
   const donorLng = donorPoint?.lng;
-  const maxDistanceKm = typeof donorProfile.maxDistanceKm === 'number' ? donorProfile.maxDistanceKm : 30;
+  const requestRadius = requestData.searchRadiusKm > 0
+    ? requestData.searchRadiusKm : DEFAULT_REQUEST_RADIUS_KM;
+  const donorRadius = donorProfile.maxDistanceKm > 0 ? donorProfile.maxDistanceKm : 30;
+  const maxDistanceKm = Math.min(requestRadius, donorRadius);
 
   let distanceKm = null;
   if (reqLat != null && reqLng != null && donorLat != null && donorLng != null) {
     distanceKm = haversineDistance(donorLat, donorLng, reqLat, reqLng);
     if (distanceKm > maxDistanceKm) {
-      return { eligible: false, distanceKm, reason: `Distance ${distanceKm.toFixed(1)}km exceeds donor radius ${maxDistanceKm}km` };
+      return { eligible: false, code: 'outside_radius', distanceKm, reason: `Distance ${distanceKm.toFixed(1)}km exceeds matching radius ${maxDistanceKm}km` };
     }
   } else {
-    // If coordinates are missing, fallback to city/state area match
-    const reqCity = (requestData.city || requestData.destination?.address || '').toLowerCase().trim();
-    const donorCity = (donorDocData.city || '').toLowerCase().trim();
-    if (donorCity && reqCity && !reqCity.includes(donorCity) && !donorCity.includes(reqCity)) {
-      return { eligible: false, reason: 'City mismatch when coordinates unavailable' };
+    // A shared city is a bounded fallback; a state alone is too broad.
+    const normalize = (value) => typeof value === 'string' ? value.trim().toLowerCase() : '';
+    const reqCity = normalize(requestData.city);
+    const donorCity = normalize(donorDocData.city);
+    const reqState = normalize(requestData.state);
+    const donorState = normalize(donorDocData.state);
+    if (!reqCity || reqCity !== donorCity || (reqState && donorState && reqState !== donorState)) {
+      return { eligible: false, reason: 'No matching city when coordinates unavailable' };
     }
   }
 
@@ -264,13 +272,18 @@ function extractTokens(userData) {
  * Matches eligible donors for a blood request and dispatches push notifications.
  * Handles invalid token cleanup, duplicate prevention, and request statistics.
  */
-async function processBloodRequestNotifications(admin, requestId, requestData) {
+async function processBloodRequestNotifications(admin, requestId, requestData, donorSnapshot) {
   const db = admin.firestore();
   console.log(`[PushService] Processing notifications for request ${requestId}...`);
 
   if (!requestData || requestData.status !== 'searching') {
     console.log(`[PushService] Request ${requestId} is not in searching state. Skipping.`);
     return { notifiedCount: 0, skipped: true, reason: 'Not searching' };
+  }
+
+  const expiresAt = requestData.expiresAt?.toMillis?.();
+  if (expiresAt != null && expiresAt <= Date.now()) {
+    return { notifiedCount: 0, skipped: true, reason: 'Expired' };
   }
 
   // A multi-unit request stays 'searching' while donors join, so check the
@@ -301,16 +314,18 @@ async function processBloodRequestNotifications(admin, requestId, requestData) {
   }
 
   // Query all users who have Donor Mode enabled
-  const usersSnapshot = await db
-    .collection('users')
-    .where('donor.availability', '==', 'available')
-    .get();
+  const usersSnapshot = donorSnapshot
+    ? [donorSnapshot]
+    : await db.collection('users')
+      .where('donor.availability', '==', 'available')
+      .get();
 
-  console.log(`[PushService] Found ${usersSnapshot.size} total available donor candidates.`);
+  console.log(`[PushService] Found ${usersSnapshot.size ?? usersSnapshot.length} donor candidates.`);
 
   const matchedDonors = [];
   const allTokens = [];
   const tokenToUserMap = new Map(); // token -> { userId, token }
+  const skippedByReason = new Map();
 
   const now = new Date();
 
@@ -332,12 +347,13 @@ async function processBloodRequestNotifications(admin, requestId, requestData) {
         tokenToUserMap.set(token, { userId: doc.id, token });
       }
     } else {
-      // Diagnostic log (without sensitive data)
-      // console.log(`[PushService] Donor ${doc.id} ineligible: ${evalResult.reason}`);
+      const reason = evalResult.code || evalResult.reason;
+      skippedByReason.set(reason, (skippedByReason.get(reason) || 0) + 1);
     }
   });
 
   console.log(`[PushService] Matched ${matchedDonors.length} eligible donors with ${allTokens.length} device tokens.`);
+  console.log('[PushService] Skipped donor candidates:', Object.fromEntries(skippedByReason));
 
   if (allTokens.length === 0) {
     return { notifiedCount: 0, matchedDonors: matchedDonors.length, sentTokens: 0 };
@@ -387,6 +403,7 @@ async function processBloodRequestNotifications(admin, requestId, requestData) {
         priority: 'high',
         notification: {
           channelId: 'bloodlink_alerts',
+          tag: requestId,
           icon: 'ic_notification',
           color: '#D32F2F',
           priority: 'max',
@@ -434,7 +451,7 @@ async function processBloodRequestNotifications(admin, requestId, requestData) {
           }
         } else {
           const errCode = resp.error?.code;
-          console.warn(`[PushService] Token send error (${errCode}): ${resp.error?.message}`);
+          console.warn(`[PushService] Token send error (${errCode || 'unknown'})`);
 
           // Automatic cleanup of invalid or expired registration tokens
           if (
@@ -489,6 +506,68 @@ async function processBloodRequestNotifications(admin, requestId, requestData) {
   };
 }
 
+function canReceiveDonorPush(data) {
+  return data?.phoneVerified === true &&
+    data.isActive !== false && data.disabled !== true &&
+    data.donor?.availability === 'available' &&
+    data.donor?.notifyPush !== false &&
+    extractTokens(data).length > 0;
+}
+
+function shouldCatchUpDonorPush(before, after) {
+  if (!canReceiveDonorPush(after)) return false;
+  if (!canReceiveDonorPush(before)) return true;
+  if (!before.locationUpdatedAt && after.locationUpdatedAt) return true;
+  const previousTokens = new Set(extractTokens(before));
+  return extractTokens(after).some((token) => !previousTokens.has(token));
+}
+
+// All entry points share the same short-lived Firestore lease. Its collection
+// is outside the client-readable request tree.
+async function dispatchRequestNotifications(admin, requestId, donorSnapshot) {
+  const db = admin.firestore();
+  const lock = db.collection('notification_run_leases').doc(requestId);
+  const request = db.collection('blood_requests').doc(requestId);
+  const owner = randomUUID();
+  await db.runTransaction(async (tx) => {
+    const lease = (await tx.get(lock)).data();
+    if (lease?.until > Date.now()) {
+      throw new Error('Notification run already in progress; retry this request.');
+    }
+    tx.set(lock, { owner, until: Date.now() + 10 * 60 * 1000 });
+  });
+
+  try {
+    const latest = await request.get();
+    if (!latest.exists) return { notifiedCount: 0, skipped: true, reason: 'Missing request' };
+    return await processBloodRequestNotifications(admin, requestId, latest.data(), donorSnapshot);
+  } finally {
+    await db.runTransaction(async (tx) => {
+      const lease = (await tx.get(lock)).data();
+      if (lease?.owner === owner) tx.delete(lock);
+    });
+  }
+}
+
+async function notifyDonorOfOpenRequests(admin, donorSnapshot) {
+  const data = donorSnapshot.data();
+  if (!canReceiveDonorPush(data)) return;
+  const group = data.donor.bloodGroup || data.bloodGroup;
+  if (!group) return;
+
+  const openRequests = await admin.firestore().collection('blood_requests')
+    .where('bloodGroups', 'array-contains', group)
+    .where('status', '==', 'searching')
+    .where('expiresAt', '>', admin.firestore.Timestamp.now())
+    .orderBy('expiresAt', 'desc')
+    .limit(25)
+    .get();
+
+  for (const request of openRequests.docs) {
+    await dispatchRequestNotifications(admin, request.id, donorSnapshot);
+  }
+}
+
 module.exports = {
   readPoint,
   haversineDistance,
@@ -497,4 +576,8 @@ module.exports = {
   extractTokens,
   sanitizeTokenKey,
   processBloodRequestNotifications,
+  canReceiveDonorPush,
+  shouldCatchUpDonorPush,
+  notifyDonorOfOpenRequests,
+  dispatchRequestNotifications,
 };

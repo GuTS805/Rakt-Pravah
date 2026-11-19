@@ -9,7 +9,7 @@
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
-const { processBloodRequestNotifications } = require('./matcher');
+const { dispatchRequestNotifications } = require('./matcher');
 const { uidFromBearer, mayTrigger } = require('./access');
 
 // Initialize Firebase Admin SDK
@@ -57,7 +57,7 @@ app.post('/api/notify-request', async (req, res) => {
       return res.status(403).json({ error: 'Only the requester or an operator can do this.' });
     }
 
-    const result = await processBloodRequestNotifications(admin, requestId, doc.data());
+    const result = await dispatchRequestNotifications(admin, requestId);
     return res.json({ success: true, result });
   } catch (err) {
     console.error(`[Server] Error processing request ${requestId}:`, err);
@@ -102,7 +102,7 @@ function startFirestoreListener() {
 
             try {
               console.log(`[Server] Dispatching notifications for ${change.type} request ${requestId}`);
-              await processBloodRequestNotifications(admin, requestId, data);
+              await dispatchRequestNotifications(admin, requestId);
             } catch (err) {
               console.error(`[Server] Error processing ${requestId}:`, err);
             }

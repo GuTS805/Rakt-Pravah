@@ -79,4 +79,50 @@ void main() {
     }
     expect(service.syncRuns, before);
   });
+
+  test('a missing FCM token is retried on resume without Donor Mode toggling',
+      () async {
+    final service = NotificationService.instance;
+    final backend = FakeBackend(user: _user, donor: _on);
+    await service.unregisterCurrentToken(backend);
+    addTearDown(() => service.unregisterCurrentToken(backend));
+
+    final before = service.syncRuns;
+    // Firebase is not initialized in this test, so token lookup returns null.
+    await service.syncDeviceToken(
+      backend,
+      isDonorOn: true,
+      retryRegistration: true,
+    );
+    await service.syncDeviceToken(backend, isDonorOn: true);
+    expect(service.syncRuns, before + 1);
+
+    await service.syncDeviceToken(
+      backend,
+      isDonorOn: true,
+      retryRegistration: true,
+    );
+    expect(service.syncRuns, before + 2);
+  });
+
+  test('a retry requested during registration is queued', () async {
+    final service = NotificationService.instance;
+    final backend = FakeBackend(user: _user, donor: _on);
+    await service.unregisterCurrentToken(backend);
+    addTearDown(() => service.unregisterCurrentToken(backend));
+
+    final before = service.syncRuns;
+    final first = service.syncDeviceToken(
+      backend,
+      isDonorOn: true,
+      retryRegistration: true,
+    );
+    final retry = service.syncDeviceToken(
+      backend,
+      isDonorOn: true,
+      retryRegistration: true,
+    );
+    await Future.wait([first, retry]);
+    expect(service.syncRuns, before + 2);
+  });
 }

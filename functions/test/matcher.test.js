@@ -196,7 +196,7 @@ console.log('--- Running Matcher & Eligibility Unit Tests ---');
   };
   const resFar = evaluateDonorEligibility(farDonor, 'donor_5', baseRequest, now);
   assert.strictEqual(resFar.eligible, false);
-  assert(resFar.reason.includes('exceeds donor radius'));
+  assert.strictEqual(resFar.code, 'outside_radius');
   console.log('✓ Donors beyond their chosen maxDistanceKm radius are excluded');
 
   // 4h. Critical requests only switch
