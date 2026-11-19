@@ -1283,8 +1283,9 @@ class FirebaseBackend implements Backend {
             : (defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'other'));
     final now = fs.Timestamp.now();
 
-    // 1. Maintain quick access list on the user's primary profile doc
-    await _ack(_users.doc(currentUid).set({
+    // The matcher reads this list on the server. A queued offline write
+    // cannot confirm that the donor is ready to receive push notifications.
+    await _online(_users.doc(currentUid).set({
       'fcmTokenList': fs.FieldValue.arrayUnion([token]),
       'fcmTokens': {
         sanitizedKey: {
@@ -1320,11 +1321,11 @@ class FirebaseBackend implements Backend {
     await _ack(deviceDocRef.set(deviceData, fs.SetOptions(merge: true)));
 
     // Also mirror into user's devices subcollection
-    await _users
+    await _ack(_users
         .doc(currentUid)
         .collection('devices')
         .doc(deviceId)
-        .set(deviceData, fs.SetOptions(merge: true));
+        .set(deviceData, fs.SetOptions(merge: true)));
   }
 
   @override
@@ -1345,18 +1346,18 @@ class FirebaseBackend implements Backend {
       'updated_at': now,
     };
 
-    await _db
+    await _ack(_db
         .collection('push_devices')
         .doc(deviceId)
         .set(deactivation, fs.SetOptions(merge: true))
-        .catchError((_) {});
+        .catchError((_) {}));
 
-    await _users
+    await _ack(_users
         .doc(currentUid)
         .collection('devices')
         .doc(deviceId)
         .set(deactivation, fs.SetOptions(merge: true))
-        .catchError((_) {});
+        .catchError((_) {}));
   }
 
   Map<String, dynamic> _donorToMap(DonorProfile d) => {
@@ -2159,23 +2160,22 @@ class FirebaseBackend implements Backend {
   }
 
   /// Whether a request is close enough to show this donor. Distance decides
-  /// it when both positions are known; otherwise it falls back to the saved
-  /// home state, so a donor in Kerala isn't shown a request from Lucknow
-  /// just because nobody's GPS was on.
+  /// it when both positions are known; otherwise it requires a shared city.
   bool _isNearby(Invitation invitation, Map<String, dynamic> data) {
     final km = invitation.distanceKm;
-    if (km != null) return km <= donorProfile.maxDistanceKm;
+    final storedRadius = data['searchRadiusKm'];
+    final requestRadius = storedRadius is num && storedRadius > 0
+        ? storedRadius : 25;
+    if (km != null) {
+      return km <= donorProfile.maxDistanceKm && km <= requestRadius;
+    }
+    final requestCity = (data['city'] as String?)?.trim().toLowerCase();
+    final myCity = currentUser?.city?.trim().toLowerCase();
     final requestState = (data['state'] as String?)?.trim().toLowerCase();
     final myState = currentUser?.state?.trim().toLowerCase();
-    if (requestState == null ||
-        requestState.isEmpty ||
-        myState == null ||
-        myState.isEmpty) {
-      // Not enough information to rule it out — better a donor sees it and
-      // decides than a patient goes unseen.
-      return true;
-    }
-    return requestState == myState;
+    return requestCity != null && requestCity.isNotEmpty && requestCity == myCity &&
+        (requestState == null || requestState.isEmpty ||
+            myState == null || myState.isEmpty || requestState == myState);
   }
 
   Invitation _invitationFromRequestData(
@@ -2190,8 +2190,12 @@ class FirebaseBackend implements Backend {
     final target =
         _pointFromMap(dest['location'] as Map?) ??
         _pointFromMap(data['requestLocation'] as Map?);
-    final distance = (myLocation != null && target != null)
-        ? _haversineKm(myLocation, target)
+    final lat = currentUser?.latitude;
+    final lng = currentUser?.longitude;
+    final donorPoint = myLocation ??
+        (lat != null && lng != null ? GeoPoint(lat, lng) : null);
+    final distance = (donorPoint != null && target != null)
+        ? _haversineKm(donorPoint, target)
         : null;
     final patientGroup = data['patientBloodGroup'] as String?;
     final units = data['units'] as int? ?? 1;

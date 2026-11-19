@@ -14,6 +14,11 @@ const fakeAdmin = {
   initializeApp() {},
   firestore: Object.assign(
     () => ({
+      runTransaction: async (work) => work({
+        get: async () => ({ data: () => undefined }),
+        set() {},
+        delete() {},
+      }),
       collection: (name) => {
         if (name === 'blood_requests') {
           return { doc: (id) => ({ get: async () => ({ exists: id === 'r1', data: () => requestDoc }), update: async () => {} }) };
@@ -53,8 +58,8 @@ before(() => {
 after(() => Object.assign(console, realLog));
 
 describe('exported functions', () => {
-  it('exposes the two triggers and the two ways to ask for a notification run', () => {
-    for (const name of ['onBloodRequestCreated', 'onBloodRequestUpdated', 'notifyMatchingDonors', 'apiNotifyRequest']) {
+  it('exposes notification triggers and both manual entry points', () => {
+    for (const name of ['onBloodRequestCreated', 'onBloodRequestUpdated', 'onDonorPushReady', 'notifyMatchingDonors', 'apiNotifyRequest']) {
       assert.strictEqual(typeof fns[name], 'function', name);
     }
   });

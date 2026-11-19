@@ -73,6 +73,7 @@ class _Rig {
     List<String> declined = const [],
     String state = 'Maharashtra',
     GeoPoint? at = _pune,
+    String city = 'Pune',
     DateTime? expiresAt,
   }) => db.doc('blood_requests/$id').set({
     'requesterId': requester,
@@ -95,6 +96,7 @@ class _Rig {
       'location': at == null ? null : {'lat': at.lat, 'lng': at.lng},
     },
     'requestLocationLabel': 'Pune',
+    'city': city,
     'state': state,
     'acceptedDonors': [
       for (final d in accepted)
@@ -536,9 +538,14 @@ void main() {
       expect(await _offered(await rig.as_('donor1')), isEmpty);
     });
 
-    test('with no GPS, a request from the same state is offered', () async {
+    test('with no distance, a request from the same city is offered', () async {
       await rig.request('r1', state: 'Maharashtra', at: null);
       expect((await _offered(await rig.as_('donor1'))).map((i) => i.id), ['r1']);
+    });
+
+    test('with no distance, another city in the same state is excluded', () async {
+      await rig.request('r1', city: 'Mumbai', at: null);
+      expect(await _offered(await rig.as_('donor1')), isEmpty);
     });
 
     test('the offer never carries the requester\'s phone', () async {
