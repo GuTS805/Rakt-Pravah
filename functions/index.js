@@ -6,7 +6,11 @@
 const admin = require('firebase-admin');
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https');
-const { processBloodRequestNotifications } = require('./matcher');
+const {
+  dispatchRequestNotifications,
+  shouldCatchUpDonorPush,
+  notifyDonorOfOpenRequests,
+} = require('./matcher');
 const { uidFromBearer, mayTrigger } = require('./access');
 
 if (!admin.apps.length) {
@@ -21,6 +25,7 @@ exports.onBloodRequestCreated = onDocumentCreated(
     document: 'blood_requests/{requestId}',
     region: 'asia-south1',
     memory: '256MiB',
+    retry: true,
   },
   async (event) => {
     const snap = event.data;
@@ -30,9 +35,7 @@ exports.onBloodRequestCreated = onDocumentCreated(
     }
 
     const requestId = event.params.requestId;
-    const requestData = snap.data();
-
-    return processBloodRequestNotifications(admin, requestId, requestData);
+    return dispatchRequestNotifications(admin, requestId);
   }
 );
 
@@ -45,6 +48,7 @@ exports.onBloodRequestUpdated = onDocumentUpdated(
     document: 'blood_requests/{requestId}',
     region: 'asia-south1',
     memory: '256MiB',
+    retry: true,
   },
   async (event) => {
     const beforeData = event.data.before.data();
@@ -57,10 +61,25 @@ exports.onBloodRequestUpdated = onDocumentUpdated(
 
     if (becameSearching || radiusExpanded) {
       console.log(`[PushService] Request ${requestId} transitioned or expanded. Processing notifications.`);
-      return processBloodRequestNotifications(admin, requestId, afterData);
+      return dispatchRequestNotifications(admin, requestId);
     }
 
     return null;
+  }
+);
+
+exports.onDonorPushReady = onDocumentUpdated(
+  {
+    document: 'users/{userId}',
+    region: 'asia-south1',
+    memory: '256MiB',
+    retry: true,
+  },
+  async (event) => {
+    if (!event.data) return;
+    const { before, after } = event.data;
+    if (!shouldCatchUpDonorPush(before.data(), after.data())) return;
+    await notifyDonorOfOpenRequests(admin, await after.ref.get());
   }
 );
 
@@ -91,7 +110,7 @@ exports.notifyMatchingDonors = onCall(
       throw new HttpsError('permission-denied', 'Only the requester or an operator can do this.');
     }
 
-    const result = await processBloodRequestNotifications(admin, requestId, doc.data());
+    const result = await dispatchRequestNotifications(admin, requestId);
     return result;
   }
 );
@@ -129,7 +148,7 @@ exports.apiNotifyRequest = onRequest(
         return res.status(403).json({ error: 'Only the requester or an operator can do this.' });
       }
 
-      const result = await processBloodRequestNotifications(admin, requestId, doc.data());
+      const result = await dispatchRequestNotifications(admin, requestId);
       return res.status(200).json({ success: true, result });
     } catch (err) {
       console.error(`[PushService] HTTP trigger error for request ${requestId}:`, err);

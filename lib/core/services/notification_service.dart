@@ -142,7 +142,9 @@ class NotificationService {
           final payload = _extractPayload(message);
 
           show(
-            id: message.messageId.hashCode,
+            id: payload?.startsWith('invitation:') == true
+                ? payload!.substring('invitation:'.length).hashCode
+                : message.messageId.hashCode,
             title: title,
             body: body,
             payload: payload,
@@ -261,26 +263,40 @@ class NotificationService {
   Future<void> syncDeviceToken(
     Backend backend, {
     required bool isDonorOn,
-  }) async {
+    bool retryRegistration = false,
+  }) {
     _wantedDonorOn = isDonorOn;
-    // One sync at a time; a change that arrives meanwhile is picked up by the
-    // loop below once the current one finishes.
-    if (_syncing) return;
-    _syncing = true;
+    _wantedUserId = backend.currentUser?.id;
+    _retryRequested |= isDonorOn && retryRegistration;
+    final active = _activeSync;
+    if (active != null) return active.future;
+    final completion = Completer<void>();
+    _activeSync = completion;
+    unawaited(_drainSync(backend, completion));
+    return completion.future;
+  }
+
+  Future<void> _drainSync(Backend backend, Completer<void> completion) async {
     try {
-      while (_wantedDonorOn != _syncedDonorOn) {
+      while (_wantedDonorOn != _syncedDonorOn ||
+          _wantedUserId != _syncedUserId || _retryRequested) {
         final target = _wantedDonorOn!;
+        final userId = _wantedUserId;
+        final retry = _retryRequested;
+        _retryRequested = false;
         try {
-          await _syncTo(backend, target);
+          await _syncTo(backend, target, userId, askPermission: !retry);
         } catch (e) {
           debugPrint('[NotificationService] Error syncing FCM token: $e');
         }
-        // Recorded even after an error, so a failure isn't retried in a tight
-        // loop; the next change of Donor Mode tries again.
+        // Record the attempted state to avoid retrying on profile snapshots.
+        // A pending registration is retried when the app resumes.
         _syncedDonorOn = target;
+        _syncedUserId = userId;
       }
     } finally {
-      _syncing = false;
+      _activeSync = null;
+      completion.complete();
     }
   }
 
@@ -288,29 +304,45 @@ class NotificationService {
   @visibleForTesting
   int syncRuns = 0;
 
-  Future<void> _syncTo(Backend backend, bool isDonorOn) async {
+  Future<void> _syncTo(
+    Backend backend,
+    bool isDonorOn,
+    String? userId, {
+    required bool askPermission,
+  }) async {
     syncRuns++;
     if (isDonorOn) {
-      await requestPermission();
+      if (askPermission) await requestPermission();
       final token = await getFcmToken();
-      if (token != null && token.isNotEmpty && token != _currentToken) {
-        _currentToken = token;
+      if (token == null || token.isEmpty || backend.currentUser?.id != userId ||
+          _wantedDonorOn != true) return;
+      if (token != _currentToken || userId != _registeredUserId) {
         await backend.registerFcmToken(token);
-
-        // Setup token refresh listener if not already listening
-        _tokenRefreshSub ??= onTokenRefresh.listen((newToken) async {
-          _currentToken = newToken;
-          await backend.registerFcmToken(newToken);
-        });
+        _currentToken = token;
+        _registeredUserId = userId;
       }
-    } else if (_currentToken != null) {
+      _tokenRefreshSub ??= onTokenRefresh.listen((newToken) {
+        if (_wantedDonorOn != true || newToken == _currentToken) return;
+        unawaited(syncDeviceToken(
+          backend,
+          isDonorOn: true,
+          retryRegistration: true,
+        ));
+      });
+    } else if (_currentToken != null && _registeredUserId == userId &&
+        backend.currentUser?.id == userId) {
       await backend.unregisterFcmToken(_currentToken!);
       _currentToken = null;
+      _registeredUserId = null;
     }
   }
 
-  bool _syncing = false;
+  Completer<void>? _activeSync;
+  bool _retryRequested = false;
   bool? _wantedDonorOn;
+  String? _wantedUserId;
+  String? _syncedUserId;
+  String? _registeredUserId;
 
   /// The Donor Mode state the token was last synced for, so repeated calls
   /// with the same state don't write again.
@@ -319,16 +351,27 @@ class NotificationService {
   /// Removes device token from backend upon logout.
   Future<void> unregisterCurrentToken(Backend backend) async {
     try {
-      if (_currentToken != null) {
-        await backend.unregisterFcmToken(_currentToken!);
-        _currentToken = null;
+      final userId = backend.currentUser?.id;
+      final token = _registeredUserId == userId ? _currentToken : null;
+      await syncDeviceToken(backend, isDonorOn: false);
+      if (token == null && userId != null) {
+        final deviceToken = await getFcmToken();
+        if (deviceToken != null && backend.currentUser?.id == userId) {
+          await backend.unregisterFcmToken(deviceToken);
+        }
       }
-      await _tokenRefreshSub?.cancel();
-      _tokenRefreshSub = null;
-      _syncedDonorOn = null;
-      _wantedDonorOn = null;
     } catch (e) {
       debugPrint('[NotificationService] Error unregistering token: $e');
+    } finally {
+      await _tokenRefreshSub?.cancel();
+      _tokenRefreshSub = null;
+      _currentToken = null;
+      _registeredUserId = null;
+      _syncedDonorOn = null;
+      _syncedUserId = null;
+      _wantedDonorOn = null;
+      _wantedUserId = null;
+      _retryRequested = false;
     }
   }
 
@@ -340,16 +383,17 @@ class NotificationService {
     String? payload,
   }) async {
     if (!_ready) await init();
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId,
         'Urgent Blood Requests & Updates',
         channelDescription: 'Real-time emergency blood requests and donor updates',
         importance: Importance.max,
         priority: Priority.high,
+        onlyAlertOnce: payload?.startsWith('invitation:') == true,
         playSound: true,
       ),
-      iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
+      iOS: const DarwinNotificationDetails(presentAlert: true, presentSound: true),
     );
     await _plugin.show(
       id: id,
