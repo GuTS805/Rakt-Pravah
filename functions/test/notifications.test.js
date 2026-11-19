@@ -3,7 +3,14 @@
 // are replaced with in-memory fakes, so no emulator is needed.
 const assert = require('assert');
 const { describe, it, before, after } = require('node:test');
-const { processBloodRequestNotifications, evaluateDonorEligibility } = require('../matcher');
+const {
+  processBloodRequestNotifications,
+  evaluateDonorEligibility,
+  canReceiveDonorPush,
+  notifyDonorOfOpenRequests,
+  shouldCatchUpDonorPush,
+  dispatchRequestNotifications,
+} = require('../matcher');
 
 // Keep the service's own logging out of the test report.
 const realLog = { log: console.log, warn: console.warn, error: console.error };
@@ -15,8 +22,20 @@ function fakeAdmin({ users = [], config = null, send } = {}) {
   const sent = [];
   const requestUpdates = [];
   const pruned = [];
+  const leases = new Map();
+  let transaction = Promise.resolve();
   const db = {
+    runTransaction(work) {
+      const next = transaction.then(() => work({
+        get: async (id) => ({ data: () => leases.get(id) }),
+        set: (id, data) => leases.set(id, data),
+        delete: (id) => leases.delete(id),
+      }));
+      transaction = next.catch(() => {});
+      return next;
+    },
     collection(name) {
+      if (name === 'notification_run_leases') return { doc: (id) => id };
       if (name === 'config') {
         return { doc: () => ({ get: async () => ({ exists: !!config, data: () => config }) }) };
       }
@@ -87,6 +106,113 @@ const request = (extra = {}) => ({
 });
 
 const tokensSent = (sent) => sent.flatMap((m) => m.tokens).sort();
+
+describe('late donor registration', () => {
+  const nearby = donor('late', 'A+');
+  const snapshot = { id: nearby.id, data: () => nearby.data };
+  it('reuses matching for just the newly registered donor', async () => {
+    const f = fakeAdmin({ users: [donor('other', 'A+')] });
+    assert.strictEqual(canReceiveDonorPush(nearby.data), true);
+    assert.strictEqual(canReceiveDonorPush({ ...nearby.data, fcmTokenList: [] }), false);
+    await processBloodRequestNotifications(f.admin, 'r1', request(), snapshot);
+    assert.deepStrictEqual(tokensSent(f.sent), ['tok_late']);
+  });
+
+  it('does not alert an out-of-range donor or send for an expired request', async () => {
+    const f = fakeAdmin();
+    const far = { id: nearby.id, data: () => ({ ...nearby.data, latitude: 40 }) };
+    await processBloodRequestNotifications(f.admin, 'r1', request(), far);
+    await processBloodRequestNotifications(f.admin, 'r2', request({
+      expiresAt: { toMillis: () => Date.now() - 1000 },
+    }), snapshot);
+    assert.strictEqual(f.sent.length, 0);
+  });
+
+  it('bounds catch-up and rechecks each request before sending', async () => {
+    const f = fakeAdmin();
+    const db = f.admin.firestore();
+    const collection = db.collection;
+    const query = {
+      where: () => query,
+      orderBy: () => query,
+      limit: (count) => {
+        assert.strictEqual(count, 25);
+        return query;
+      },
+      get: async () => ({
+        docs: [
+          { id: 'open', ref: { get: async () => ({ exists: true, data: request }) } },
+          {
+            id: 'closed',
+            ref: { get: async () => ({ exists: true, data: () => request({ status: 'cancelled' }) }) },
+          },
+        ],
+      }),
+    };
+    db.collection = (name) => name === 'blood_requests'
+      ? {
+        where: query.where,
+        doc: (id) => ({
+          ...collection(name).doc(id),
+          get: async () => ({
+            exists: true,
+            data: () => request({ status: id === 'closed' ? 'cancelled' : 'searching' }),
+          }),
+        }),
+      }
+      : collection(name);
+    f.admin.firestore.Timestamp = { now: () => Date.now() };
+
+    await notifyDonorOfOpenRequests(f.admin, snapshot);
+    assert.deepStrictEqual(f.sent.map((message) => message.data.requestId), ['open']);
+  });
+
+  it('catches up after token replacement, even if the old token remains', () => {
+    assert.strictEqual(shouldCatchUpDonorPush(nearby.data, {
+      ...nearby.data, fcmTokenList: ['tok_late', 'tok_replacement'],
+    }), true);
+    assert.strictEqual(shouldCatchUpDonorPush(nearby.data, {
+      ...nearby.data, name: 'Updated name',
+    }), false);
+  });
+
+  it('blocks concurrent runs for the same request while a send is in progress', async () => {
+    let startSend;
+    let finishSend;
+    const sending = new Promise((resolve) => { startSend = resolve; });
+    const pending = new Promise((resolve) => { finishSend = resolve; });
+    const f = fakeAdmin({ users: [nearby], send: async () => {
+      startSend();
+      await pending;
+      return { successCount: 1, failureCount: 0, responses: [{ success: true }] };
+    } });
+    const db = f.admin.firestore();
+    const collection = db.collection;
+    db.collection = (name) => name === 'blood_requests' ? {
+      doc: (id) => ({ ...collection(name).doc(id), get: async () => ({ exists: true, data: request }) }),
+    } : collection(name);
+
+    const first = dispatchRequestNotifications(f.admin, 'r1');
+    await sending;
+    try {
+      await assert.rejects(dispatchRequestNotifications(f.admin, 'r1', snapshot), /already in progress/);
+    } finally {
+      finishSend();
+      await first;
+    }
+    assert.strictEqual(f.sent.length, 1);
+    assert.strictEqual(f.requestUpdates.length, 1);
+  });
+
+  it('uses the narrower request and donor radius and expands only when allowed', () => {
+    const far = donor('far', 'A+', { latitude: 18.84 });
+    far.data.donor.maxDistanceKm = 50;
+    assert.strictEqual(evaluateDonorEligibility(far.data, far.id, request()).code, 'outside_radius');
+    assert.strictEqual(evaluateDonorEligibility(far.data, far.id, request({ searchRadiusKm: 50 })).eligible, true);
+    far.data.donor.maxDistanceKm = 30;
+    assert.strictEqual(evaluateDonorEligibility(far.data, far.id, request({ searchRadiusKm: 50 })).code, 'outside_radius');
+  });
+});
 
 describe('which requests are processed', () => {
   it('skips a request that is no longer searching', async () => {

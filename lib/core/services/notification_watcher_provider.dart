@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/models.dart';
@@ -28,6 +29,13 @@ final notificationWatcherProvider = Provider<void>((ref) {
 
   // Synchronize FCM token based on donor mode status
   service.syncDeviceToken(backend, isDonorOn: donorOn);
+  final lifecycle = AppLifecycleListener(
+    onResume: () => service.syncDeviceToken(
+      backend,
+      isDonorOn: donorOn,
+      retryRegistration: true,
+    ),
+  );
 
   service.onTap = (payload) {
     final router = ref.read(routerProvider);
@@ -40,6 +48,7 @@ final notificationWatcherProvider = Provider<void>((ref) {
   };
 
   ref.onDispose(() {
+    lifecycle.dispose();
     service.onTap = null;
   });
 
