@@ -234,6 +234,16 @@ describe('what is sent', () => {
     assert.match(m.notification.body, /Pune City Hospital/);
   });
 
+  it('a tap opens the app even when it was closed', async () => {
+    // A clickAction the app has no activity for made the tap do nothing.
+    const f = fakeAdmin({ users: [donor('a', 'A+')] });
+    await processBloodRequestNotifications(f.admin, 'r1', request());
+    const m = f.sent[0];
+    assert.strictEqual(m.android.notification.clickAction, undefined);
+    assert.strictEqual(m.android.priority, 'high');
+    assert.strictEqual(m.android.notification.channelId, 'bloodlink_alerts');
+  });
+
   it('calls an urgent request urgent and a critical one critical', async () => {
     const urgent = fakeAdmin({ users: [donor('a', 'A+')] });
     await processBloodRequestNotifications(urgent.admin, 'r1', request({ urgency: 'urgent' }));

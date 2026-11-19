@@ -390,7 +390,10 @@ async function processBloodRequestNotifications(admin, requestId, requestData) {
           icon: 'ic_notification',
           color: '#D32F2F',
           priority: 'max',
-          clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+          // No clickAction: the app registers no activity for one, so a tap
+          // on the notification while the app was closed opened nothing.
+          // Without it Android opens the app's launcher activity, and the
+          // app routes from the data above (getInitialMessage).
           defaultSound: true,
           defaultVibrateTimings: true,
         },
