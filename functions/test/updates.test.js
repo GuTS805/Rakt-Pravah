@@ -72,7 +72,7 @@ describe('chatPushes', () => {
 
   it('goes to everyone in the chat but the sender', () => {
     const out = chatPushes(request, { senderId: 'd1', senderName: 'Anirudh', text: 'On my way' });
-    assert.deepStrictEqual(out.map((p) => [p.uid, p.type]), [['req', 'request'], ['d2', 'invitation']]);
+    assert.deepStrictEqual(out.map((p) => [p.uid, p.type]), [['req', 'request'], ['d2', 'chat']]);
     assert.strictEqual(out[0].title, '💬 Anirudh');
     assert.strictEqual(out[0].body, 'On my way');
   });
@@ -129,6 +129,13 @@ describe('sendPushes', () => {
     assert.strictEqual(m.android.notification.clickAction, undefined);
     assert.strictEqual(m.android.notification.tag, 'request_R1');
     assert.deepStrictEqual(m.data, { type: 'request', requestId: 'R1', route: '/requests/R1' });
+  });
+
+  it("opens a donor's chat", async () => {
+    const f = fakeAdmin({ d: { fcmTokenList: ['t'] } });
+    await sendPushes(f.admin, 'R1', [{ uid: 'd', title: 'T', body: 'B', type: 'chat' }], 'chat');
+    assert.strictEqual(f.sent[0].data.route, '/requests/R1/chat');
+    assert.strictEqual(f.sent[0].android.notification.tag, 'chat_R1');
   });
 
   it('skips people with no devices and removes dead tokens', async () => {

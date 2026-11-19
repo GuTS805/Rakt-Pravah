@@ -35,7 +35,8 @@ function donorName(data, id) {
 /**
  * Which pushes a change to a request calls for. Pure, so it can be tested
  * without Firebase. Each item: { uid, title, body, type } where type is the
- * screen a tap opens ('request' for the requester, 'invitation' for a donor).
+ * screen a tap opens ('request' for the requester, 'invitation' for a donor,
+ * 'chat' for a donor's chat).
  */
 function requestUpdatePushes(before, after) {
   if (!before || !after) return [];
@@ -95,13 +96,19 @@ function chatPushes(request, message) {
   }
   for (const uid of ids(request)) {
     if (uid === sender || uid === request.requesterId) continue;
-    out.push({ uid, title: `💬 ${name}`, body: text, type: 'invitation' });
+    // 'chat', not 'invitation': for a donor who already accepted, that screen
+    // has no way into the chat. App 2.0.1 ignores the type and just opens
+    // (Home shows the coordination card); later versions open the chat.
+    out.push({ uid, title: `💬 ${name}`, body: text, type: 'chat' });
   }
   return out;
 }
 
 function buildMessage(item, requestId, tokens, tag) {
-  const route = item.type === 'request' ? `/requests/${requestId}` : `/invitations/${requestId}`;
+  const route = {
+    request: `/requests/${requestId}`,
+    chat: `/requests/${requestId}/chat`,
+  }[item.type] || `/invitations/${requestId}`;
   return {
     notification: { title: item.title, body: item.body },
     data: { type: item.type, requestId, route },
