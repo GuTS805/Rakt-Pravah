@@ -104,14 +104,16 @@ function chatPushes(request, message) {
   return out;
 }
 
-function buildMessage(item, requestId, tokens, tag) {
-  const route = {
-    request: `/requests/${requestId}`,
-    chat: `/requests/${requestId}/chat`,
-  }[item.type] || `/invitations/${requestId}`;
+function buildMessage(item, requestId, tokens, kind) {
+  // `type` is what app 2.0.1 routes a tap by; `kind` lets later versions open
+  // the chat itself and skip the alert while that chat is on screen.
+  const route = kind === 'chat'
+    ? `/requests/${requestId}/chat`
+    : item.type === 'request' ? `/requests/${requestId}` : `/invitations/${requestId}`;
+  const tag = `${kind}_${requestId}`;
   return {
     notification: { title: item.title, body: item.body },
-    data: { type: item.type, requestId, route },
+    data: { type: item.type, requestId, route, kind },
     android: {
       priority: 'high',
       notification: {
@@ -149,7 +151,7 @@ async function sendPushes(admin, requestId, items, tagPrefix) {
     if (!snap.exists) continue;
     const tokens = extractTokens(snap.data());
     if (tokens.length === 0) continue;
-    const message = buildMessage(item, requestId, tokens, `${tagPrefix}_${requestId}`);
+    const message = buildMessage(item, requestId, tokens, tagPrefix);
     try {
       const res = await admin.messaging().sendEachForMulticast(message);
       sent += res.successCount;

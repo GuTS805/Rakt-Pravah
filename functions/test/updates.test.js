@@ -128,14 +128,22 @@ describe('sendPushes', () => {
     assert.strictEqual(m.android.notification.channelId, 'bloodlink_alerts');
     assert.strictEqual(m.android.notification.clickAction, undefined);
     assert.strictEqual(m.android.notification.tag, 'request_R1');
-    assert.deepStrictEqual(m.data, { type: 'request', requestId: 'R1', route: '/requests/R1' });
+    assert.deepStrictEqual(m.data, { type: 'request', requestId: 'R1', route: '/requests/R1', kind: 'request' });
   });
 
   it("opens a donor's chat", async () => {
     const f = fakeAdmin({ d: { fcmTokenList: ['t'] } });
     await sendPushes(f.admin, 'R1', [{ uid: 'd', title: 'T', body: 'B', type: 'chat' }], 'chat');
     assert.strictEqual(f.sent[0].data.route, '/requests/R1/chat');
+    assert.strictEqual(f.sent[0].data.kind, 'chat');
+    assert.strictEqual(f.sent[0].data.type, 'chat');
     assert.strictEqual(f.sent[0].android.notification.tag, 'chat_R1');
+  });
+
+  it("marks a requester's chat push as chat but keeps the type 2.0.1 opens", async () => {
+    const f = fakeAdmin({ r: { fcmTokenList: ['t'] } });
+    await sendPushes(f.admin, 'R1', [{ uid: 'r', title: 'T', body: 'B', type: 'request' }], 'chat');
+    assert.deepStrictEqual(f.sent[0].data, { type: 'request', requestId: 'R1', route: '/requests/R1/chat', kind: 'chat' });
   });
 
   it('skips people with no devices and removes dead tokens', async () => {
