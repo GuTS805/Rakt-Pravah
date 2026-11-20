@@ -298,6 +298,7 @@ class FakeBackend implements Backend {
       createdAt: DateTime.now(),
       destination: destination,
       requestLocationLabel: requestLocationLabel,
+      city: city,
       requestLocation: requestLocation,
       bloodType: bloodType ?? 'Blood',
       phoneCountryCode: effectivePhoneCountryCode,

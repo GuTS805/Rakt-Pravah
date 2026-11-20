@@ -32,7 +32,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 ///   🟡 App Background (System push notification -> tap opens request)
 ///   🔴 App Closed / Killed (System push notification -> tap opens request)
 /// - Multi-device FCM token registration & rotation
-/// - Donor Mode toggling (registers token when ON, unregisters when OFF)
+/// - Registers the device while someone is signed in, removes it on logout
 class NotificationService {
   NotificationService._();
   static final instance = NotificationService._();
@@ -71,8 +71,20 @@ class NotificationService {
     }
   }
 
+  /// The request whose chat is on screen right now, set by the chat screen.
+  /// A push for that chat isn't shown while it's open.
+  String? openChatId;
+
   /// Current cached FCM token for this device.
   String? get currentToken => _currentToken;
+
+  /// Puts a token in place as if registration had run (tests have no FCM).
+  @visibleForTesting
+  set debugCurrentToken(String? token) => _currentToken = token;
+
+  /// Whether the token was last synced as registered (tests).
+  @visibleForTesting
+  bool? get syncedEnabled => _syncedEnabled;
 
   /// Stream of FCM token refreshes.
   Stream<String> get onTokenRefresh =>
@@ -140,6 +152,8 @@ class NotificationService {
               data['body'] ??
               'A matching patient urgently needs blood near you.';
           final payload = _extractPayload(message);
+          // Someone reading the chat already sees the new message.
+          if (openChatId != null && payload == 'chat:$openChatId') return;
 
           show(
             id: message.messageId.hashCode,
@@ -255,29 +269,28 @@ class NotificationService {
     }
   }
 
-  /// Synchronizes device token with the backend based on Donor Mode status.
-  /// When Donor Mode is ON: Requests permissions, generates token, stores token in backend.
-  /// When Donor Mode is OFF: Unregisters device token from backend.
+  /// Registers this device's token with the backend ([enabled]), or removes
+  /// it. Asks for notification permission when registering.
   Future<void> syncDeviceToken(
     Backend backend, {
-    required bool isDonorOn,
+    required bool enabled,
   }) async {
-    _wantedDonorOn = isDonorOn;
+    _wantedEnabled = enabled;
     // One sync at a time; a change that arrives meanwhile is picked up by the
     // loop below once the current one finishes.
     if (_syncing) return;
     _syncing = true;
     try {
-      while (_wantedDonorOn != _syncedDonorOn) {
-        final target = _wantedDonorOn!;
+      while (_wantedEnabled != _syncedEnabled) {
+        final target = _wantedEnabled!;
         try {
           await _syncTo(backend, target);
         } catch (e) {
           debugPrint('[NotificationService] Error syncing FCM token: $e');
         }
         // Recorded even after an error, so a failure isn't retried in a tight
-        // loop; the next change of Donor Mode tries again.
-        _syncedDonorOn = target;
+        // loop; the next change tries again.
+        _syncedEnabled = target;
       }
     } finally {
       _syncing = false;
@@ -288,9 +301,9 @@ class NotificationService {
   @visibleForTesting
   int syncRuns = 0;
 
-  Future<void> _syncTo(Backend backend, bool isDonorOn) async {
+  Future<void> _syncTo(Backend backend, bool enabled) async {
     syncRuns++;
-    if (isDonorOn) {
+    if (enabled) {
       await requestPermission();
       final token = await getFcmToken();
       if (token != null && token.isNotEmpty && token != _currentToken) {
@@ -310,11 +323,11 @@ class NotificationService {
   }
 
   bool _syncing = false;
-  bool? _wantedDonorOn;
+  bool? _wantedEnabled;
 
-  /// The Donor Mode state the token was last synced for, so repeated calls
-  /// with the same state don't write again.
-  bool? _syncedDonorOn;
+  /// The state the token was last synced for, so repeated calls with the
+  /// same state don't write again.
+  bool? _syncedEnabled;
 
   /// Removes device token from backend upon logout.
   Future<void> unregisterCurrentToken(Backend backend) async {
@@ -325,8 +338,8 @@ class NotificationService {
       }
       await _tokenRefreshSub?.cancel();
       _tokenRefreshSub = null;
-      _syncedDonorOn = null;
-      _wantedDonorOn = null;
+      _syncedEnabled = null;
+      _wantedEnabled = null;
     } catch (e) {
       debugPrint('[NotificationService] Error unregistering token: $e');
     }
@@ -368,14 +381,23 @@ class NotificationService {
     }
   }
 
-  String? _extractPayload(RemoteMessage message) {
-    final data = message.data;
+  String? _extractPayload(RemoteMessage message) => payloadFor(message.data);
+
+  /// The tap payload (`invitation:ID`, `request:ID` or `chat:ID`) for
+  /// a push's data.
+  @visibleForTesting
+  String? payloadFor(Map<String, dynamic> data) {
     if (data.containsKey('payload') && data['payload'].toString().isNotEmpty) {
       return data['payload'].toString();
     }
     final type = data['type']?.toString();
     final requestId =
         data['requestId']?.toString() ?? data['id']?.toString();
+    // Chat pushes say so in `kind`; `type` stays what older app versions
+    // understand.
+    if (data['kind'] == 'chat' && requestId != null && requestId.isNotEmpty) {
+      return 'chat:$requestId';
+    }
     if (type != null && requestId != null && requestId.isNotEmpty) {
       return '$type:$requestId';
     }

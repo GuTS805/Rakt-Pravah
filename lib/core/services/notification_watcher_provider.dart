@@ -1,33 +1,34 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/models/models.dart';
 import '../../data/providers.dart';
 import '../router/app_router.dart';
 import '../router/routes.dart';
 import 'notification_service.dart';
 
-/// Watches the same live streams the UI does and fires a local notification
-/// the moment something new shows up — a compatible request appearing for a
-/// donor, or a donor accepting the user's own request. Kept alive for the
-/// app's lifetime by being watched once from [RaktPravahApp], so it keeps
-/// working even while the user is looking at an unrelated tab.
+/// Keeps this device registered for push notifications while someone is
+/// signed in, and opens the right screen when a notification is tapped.
+/// Kept alive for the app's lifetime by being watched once from
+/// [RaktPravahApp].
+///
+/// The alerts themselves (a new request, a donor accepting or dropping out, a
+/// cancelled request, a chat message) all come from the server, so they also
+/// reach a phone whose app is closed. This used to show its own copies while
+/// the app was running, which doubled every alert.
 final notificationWatcherProvider = Provider<void>((ref) {
-  // The underlying Firestore streams require a signed-in uid; bail out
-  // (and re-run once signed in, since watching currentUserProvider makes
-  // this whole provider rebuild on auth changes) rather than crash pre-login.
-  final user = ref.watch(currentUserProvider);
-  if (user == null) return;
+  // Only who is signed in matters here. Watching the whole profile rebuilt
+  // this on every profile snapshot, and registering the token writes to the
+  // profile, so each registration triggered the next one in an endless loop
+  // that exhausted the phone's threads and crashed the app.
+  final uid = ref.watch(currentUserIdProvider);
+  if (uid == null) return;
 
   final backend = ref.read(backendProvider);
-  // Only whether Donor Mode is on matters here. Watching the whole profile
-  // rebuilt this provider on every profile snapshot, and registering the
-  // token writes to the profile, so each registration triggered the next one
-  // in an endless loop that exhausted the phone's threads and crashed the app.
-  final donorOn = ref.watch(donorProfileValueProvider.select((d) => d.isOn));
   final service = NotificationService.instance;
 
-  // Synchronize FCM token based on donor mode status
-  service.syncDeviceToken(backend, isDonorOn: donorOn);
+  // Every signed-in device gets a token, Donor Mode or not: a requester needs
+  // to hear that a donor accepted or wrote to them. The server only sends new
+  // requests to people whose Donor Mode is on.
+  service.syncDeviceToken(backend, enabled: true);
 
   service.onTap = (payload) {
     final router = ref.read(routerProvider);
@@ -36,128 +37,12 @@ final notificationWatcherProvider = Provider<void>((ref) {
       router.push(Routes.invitationDetail(id));
     } else if (payload.startsWith('request:')) {
       router.push(Routes.requestDetail(id));
+    } else if (payload.startsWith('chat:')) {
+      router.push(Routes.chat(id));
     }
   };
 
   ref.onDispose(() {
     service.onTap = null;
   });
-
-  final seenInvitationIds = <String>{};
-  // Requests this donor accepted, and whether each was still active last time.
-  final acceptedActive = <String, bool>{};
-  var isFirstInvitationEmission = true;
-
-  ref.listen<AsyncValue<List<Invitation>>>(invitationsProvider, (_, next) {
-    final list = next.valueOrNull;
-    if (list == null) return;
-
-    if (isFirstInvitationEmission) {
-      isFirstInvitationEmission = false;
-      seenInvitationIds.addAll(list.map((i) => i.id));
-      for (final inv in list) {
-        if (inv.status == InvitationStatus.accepted) {
-          acceptedActive[inv.id] = inv.requestStatus.isActive;
-        }
-      }
-      return;
-    }
-
-    for (final inv in list) {
-      if (inv.status != InvitationStatus.accepted) continue;
-      final wasActive = acceptedActive[inv.id];
-      acceptedActive[inv.id] = inv.requestStatus.isActive;
-      if (wasActive == true && inv.requestStatus == RequestStatus.cancelled) {
-        service.show(
-          id: inv.id.hashCode,
-          title: 'Request cancelled',
-          body:
-              'The request at ${inv.destinationName} was cancelled. No need '
-              'to go.',
-          payload: 'request:${inv.id}',
-        );
-      }
-    }
-
-    final donor = ref.read(donorProfileValueProvider);
-    for (final inv in list) {
-      final isNew = seenInvitationIds.add(inv.id);
-      if (isNew && inv.status == InvitationStatus.pending) {
-        if (!_shouldNotify(donor, inv)) continue;
-        final needs =
-            inv.patientBloodGroup?.label ??
-            inv.bloodGroups.map((g) => g.label).join('/');
-        final distance = inv.distanceKm == null
-            ? ''
-            : ' · ${inv.distanceKm!.toStringAsFixed(1)} km away';
-        service.show(
-          id: inv.id.hashCode,
-          title: '${inv.urgency.label} request: patient needs $needs',
-          body:
-              '${inv.units} unit${inv.units == 1 ? '' : 's'} at ${inv.destinationName}, ${inv.destinationArea}$distance',
-          payload: 'invitation:${inv.id}',
-        );
-      }
-    }
-  });
-
-  // Tracks how many donors have committed rather than the status: a request
-  // for several units stays in `searching` while donors are joining, so
-  // waiting for a status change never fired.
-  final lastKnownDonorCount = <String, int>{};
-  var isFirstRequestEmission = true;
-
-  ref.listen<AsyncValue<List<BloodRequest>>>(myRequestsProvider, (_, next) {
-    final list = next.valueOrNull;
-    if (list == null) return;
-
-    if (isFirstRequestEmission) {
-      isFirstRequestEmission = false;
-      for (final r in list) {
-        lastKnownDonorCount[r.id] = r.unitsPledged;
-      }
-      return;
-    }
-
-    for (final r in list) {
-      final previous = lastKnownDonorCount[r.id];
-      lastKnownDonorCount[r.id] = r.unitsPledged;
-      if (previous == null) continue;
-
-      if (r.unitsPledged > previous) {
-        final newest = r.acceptedDonors.last.name;
-        service.show(
-          id: r.id.hashCode,
-          title: '🩸 Blood Request Accepted',
-          body:
-              'Your blood request has been accepted by a donor.\n'
-              '$newest has accepted your blood request.\n'
-              '🟢 On the way\n'
-              '[Track Donor] [Call] [Chat]',
-          payload: 'request:${r.id}',
-        );
-      } else if (r.unitsPledged < previous && r.status.isActive) {
-        service.show(
-          id: r.id.hashCode,
-          title: 'A donor can\'t make it',
-          body: 'We\'re looking for another donor for ${r.destination.name}.',
-          payload: 'request:${r.id}',
-        );
-      }
-    }
-  });
 });
-
-/// Whether a newly seen request should buzz the donor's phone, following
-/// their own Donor settings. It still shows in the Donate tab either way.
-bool _shouldNotify(DonorProfile donor, Invitation inv) {
-  if (donor.availability != DonorAvailability.available) return false;
-  if (!donor.notifyPush) return false;
-  if (donor.notifyCritical && inv.urgency != Urgency.critical) return false;
-  final km = inv.distanceKm;
-  if (km != null && km > donor.maxDistanceKm) return false;
-  // Switching Donor Mode on reloads every open request at once; only the
-  // recent ones are worth an alert.
-  final age = DateTime.now().difference(inv.createdAt);
-  return age < const Duration(minutes: 30);
-}

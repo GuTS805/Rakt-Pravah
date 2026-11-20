@@ -29,30 +29,30 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('the same Donor Mode state is synced once, however often it is asked', () async {
+  test('the same state is synced once, however often it is asked', () async {
     final service = NotificationService.instance;
     final backend = FakeBackend(user: _user, donor: _on);
     final before = service.syncRuns;
     await Future.wait([
-      for (var i = 0; i < 20; i++) service.syncDeviceToken(backend, isDonorOn: true),
+      for (var i = 0; i < 20; i++) service.syncDeviceToken(backend, enabled: true),
     ]);
-    await service.syncDeviceToken(backend, isDonorOn: true);
+    await service.syncDeviceToken(backend, enabled: true);
     expect(service.syncRuns - before, lessThanOrEqualTo(1));
   });
 
   test('a change that arrives during a sync is not lost', () async {
     final service = NotificationService.instance;
     final backend = FakeBackend(user: _user, donor: _on);
-    await service.syncDeviceToken(backend, isDonorOn: true);
+    await service.syncDeviceToken(backend, enabled: true);
     final before = service.syncRuns;
-    final first = service.syncDeviceToken(backend, isDonorOn: false);
-    final second = service.syncDeviceToken(backend, isDonorOn: true);
+    final first = service.syncDeviceToken(backend, enabled: false);
+    final second = service.syncDeviceToken(backend, enabled: true);
     await Future.wait([first, second]);
-    await service.syncDeviceToken(backend, isDonorOn: true);
+    await service.syncDeviceToken(backend, enabled: true);
     // Off and back on again: whatever ran, it ends synced to "on" and the
     // last call, matching that, does nothing more.
     final after = service.syncRuns;
-    await service.syncDeviceToken(backend, isDonorOn: true);
+    await service.syncDeviceToken(backend, enabled: true);
     expect(service.syncRuns, after);
     expect(after - before, lessThanOrEqualTo(2));
   });

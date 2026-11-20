@@ -172,6 +172,12 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> logout() async {
+    // Take this phone off the account first, while still signed in to do it;
+    // otherwise its pushes (chat messages included) keep arriving here for
+    // whoever signs in next. Signing out must not wait on a bad connection.
+    await NotificationService.instance
+        .unregisterCurrentToken(_backend)
+        .timeout(const Duration(seconds: 5), onTimeout: () {});
     await _backend.signOut();
     state = const AuthState(AuthStatus.unauthenticated);
   }
@@ -249,6 +255,13 @@ class ThemeModeController extends Notifier<ThemeMode> {
 final currentTimeProvider = StreamProvider<DateTime>((ref) async* {
   yield DateTime.now();
   yield* Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now());
+});
+
+/// Ticks every 30 seconds. Watch it to keep "just now" and "5 min ago"
+/// texts current while a screen stays open.
+final relativeTimeTickProvider = StreamProvider<DateTime>((ref) async* {
+  yield DateTime.now();
+  yield* Stream.periodic(const Duration(seconds: 30), (_) => DateTime.now());
 });
 
 /// Whether the app may show notifications on this device (see

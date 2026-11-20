@@ -51,6 +51,7 @@ class NotificationsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    ref.watch(relativeTimeTickProvider);
     final requests = ref.watch(myRequestsProvider).valueOrNull ?? const [];
     final pending = ref.watch(pendingInvitationsProvider);
 

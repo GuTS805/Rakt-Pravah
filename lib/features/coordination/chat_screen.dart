@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/services/notification_service.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
@@ -29,7 +30,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _sending = false;
 
   @override
+  void initState() {
+    super.initState();
+    NotificationService.instance.openChatId = widget.requestId;
+  }
+
+  @override
   void dispose() {
+    final service = NotificationService.instance;
+    if (service.openChatId == widget.requestId) service.openChatId = null;
     _controller.dispose();
     _scroll.dispose();
     super.dispose();
@@ -327,18 +336,23 @@ class _Composer extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              Material(
-                color: c.brand,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: sending ? null : onSend,
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Icon(
-                      Icons.arrow_upward_rounded,
-                      color: c.onBrand,
-                      size: 22,
+              Semantics(
+                button: true,
+                label: 'Send message',
+                excludeSemantics: true,
+                child: Material(
+                  color: c.brand,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: sending ? null : onSend,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: Icon(
+                        Icons.arrow_upward_rounded,
+                        color: c.onBrand,
+                        size: 22,
+                      ),
                     ),
                   ),
                 ),

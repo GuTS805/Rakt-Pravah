@@ -2427,6 +2427,7 @@ class FirebaseBackend implements Backend {
         location: _pointFromMap(destMap['location'] as Map?),
       ),
       requestLocationLabel: data['requestLocationLabel'] as String? ?? '',
+      city: data['city'] as String?,
       requestLocation: _pointFromMap(data['requestLocation'] as Map?),
       bloodType: (data['bloodType'] as String?) ?? 'Blood',
       phoneCountryCode:

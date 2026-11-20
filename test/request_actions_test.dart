@@ -33,6 +33,8 @@ const _donor = UserProfile(
 BloodRequest _request(
   RequestStatus status, {
   bool withDonor = false,
+  String label = 'Pune',
+  String? city,
 }) => BloodRequest(
   id: 'r1',
   requesterId: _requester.id,
@@ -51,7 +53,8 @@ BloodRequest _request(
     address: 'FC Road, Pune',
     location: GeoPoint(18.52, 73.85),
   ),
-  requestLocationLabel: 'Pune',
+  requestLocationLabel: label,
+  city: city,
   acceptedDonors: withDonor
       ? [
           AcceptedDonor(
@@ -133,6 +136,22 @@ Future<FakeBackend> _coord(
 
 void main() {
   group('request detail (the requester)', () {
+    testWidgets(
+      "shows the hospital's town when the phone couldn't name the place",
+      (tester) async {
+        await _detail(
+          tester,
+          _request(
+            RequestStatus.searching,
+            label: '28.6282, 77.4383',
+            city: 'Ghaziabad',
+          ),
+        );
+        expect(find.text('Ghaziabad'), findsOneWidget);
+        expect(find.text('—'), findsNothing);
+      },
+    );
+
     testWidgets('a request still searching can only be cancelled', (tester) async {
       await _detail(tester, _request(RequestStatus.searching));
       expect(find.text('Cancel request'), findsOneWidget);

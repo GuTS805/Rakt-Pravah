@@ -510,6 +510,8 @@ class _SummaryCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Keeps "just now" moving on to "1 min ago" while the screen is open.
+    ref.watch(relativeTimeTickProvider);
     // The name lives in the request's private subcollection now, readable
     // only by this requester and the donors who accepted.
     final patientName =
@@ -571,11 +573,12 @@ class _SummaryCard extends ConsumerWidget {
               Expanded(
                 child: DataField(
                   label: 'Location',
-                  // The town only: the column is a third of the card.
+                  // The town only: the column is a third of the card. When the
+                  // phone couldn't name the place, the hospital's town.
                   value:
                       Fmt.placeName(
                         request.requestLocationLabel.split('·').first,
-                        null,
+                        request.city,
                       ) ??
                       '—',
                 ),

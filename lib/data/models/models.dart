@@ -511,6 +511,7 @@ class BloodRequest {
     required this.createdAt,
     required this.destination,
     required this.requestLocationLabel,
+    this.city,
     this.patientName,
     this.patientBloodGroup,
     this.requestLocation,
@@ -549,6 +550,11 @@ class BloodRequest {
   final DateTime createdAt;
   final Destination destination;
   final String requestLocationLabel;
+
+  /// The hospital's town, as chosen from the list. What the location shows
+  /// when [requestLocationLabel] is only coordinates (the phone couldn't
+  /// name the place).
+  final String? city;
 
   /// Who the blood is for. The requester is often a relative, so the
   /// patient's name and blood group are asked for separately rather than
@@ -655,6 +661,7 @@ class BloodRequest {
       status: status ?? this.status,
       destination: destination ?? this.destination,
       requestLocationLabel: requestLocationLabel ?? this.requestLocationLabel,
+      city: city,
       patientName: patientName ?? this.patientName,
       patientBloodGroup: patientBloodGroup ?? this.patientBloodGroup,
       requestLocation: requestLocation ?? this.requestLocation,
