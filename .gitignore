@@ -56,6 +56,7 @@ app.*.map.json
 # Built admin console, deployed from a local build.
 hosting_public/admin/
 hosting_admin/
+hosting_web/
 
 # Node dependencies
 node_modules/

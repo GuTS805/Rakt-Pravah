@@ -80,6 +80,19 @@ flutter test                 # widget tests
 flutter analyze              # static analysis (0 errors, 0 warnings)
 ```
 
+## Website (raktpravah.com)
+
+The website is the app itself, built for the web, with the privacy, terms and
+account-deletion pages from `hosting_public/` beside it at the same addresses
+the store listings link to.
+
+```bash
+flutter build web -t lib/main.dart --pwa-strategy=none
+rm -rf hosting_web && cp -r build/web hosting_web
+cp hosting_public/privacy.html hosting_public/terms.html hosting_public/delete-account.html hosting_web/
+firebase deploy --only hosting:nobloodlink --project nobloodlink
+```
+
 ## Operations console
 
 The console is a second entrypoint into the same codebase, deployed on its own

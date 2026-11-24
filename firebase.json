@@ -18,10 +18,21 @@
   "hosting": [
     {
       "site": "nobloodlink",
-      "public": "hosting_public",
+      "public": "hosting_web",
       "ignore": [
         "firebase.json",
         "**/.*"
+      ],
+      "headers": [
+        {
+          "source": "**/*.@(html|js|json)",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
+        }
       ]
     },
     {
