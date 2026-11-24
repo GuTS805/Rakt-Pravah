@@ -18,6 +18,7 @@ import '../../data/providers.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/onboarding_screen.dart';
 import '../../features/auth/register_screen.dart';
+import '../../features/auth/reset_password_screen.dart';
 import '../../features/auth/verify_phone_screen.dart';
 import '../../features/coordination/chat_screen.dart';
 import '../../features/coordination/coordination_screen.dart';
@@ -78,8 +79,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           return null;
 
         case AuthStatus.unauthenticated:
-          // Unauthenticated users can only view login or register
-          if (loc == Routes.login || loc == Routes.register) {
+          // Unauthenticated users can only sign in, register, or reset a
+          // forgotten password.
+          if (loc == Routes.login ||
+              loc == Routes.register ||
+              loc == Routes.resetPassword) {
             return null;
           }
           return Routes.login;
@@ -112,6 +116,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             if (loc == Routes.splash ||
                 loc == Routes.login ||
                 loc == Routes.register ||
+                loc == Routes.resetPassword ||
                 loc == Routes.adminLogin ||
                 loc == '/sign-in' ||
                 loc == Routes.onboarding) {
@@ -125,6 +130,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.splash, builder: (_, _) => const SplashScreen()),
       GoRoute(path: Routes.login, builder: (_, _) => const LoginScreen()),
       GoRoute(path: Routes.register, builder: (_, _) => const RegisterScreen()),
+      GoRoute(
+        path: Routes.resetPassword,
+        builder: (_, s) => ResetPasswordScreen(
+          email: s.extra is String ? s.extra! as String : '',
+        ),
+      ),
       GoRoute(
         path: Routes.onboarding,
         builder: (_, _) => const OnboardingScreen(),

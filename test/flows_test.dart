@@ -15,6 +15,7 @@ import 'package:rakt_pravah/core/widgets/invitation_card.dart';
 import 'package:rakt_pravah/core/widgets/profile_card.dart';
 import 'package:rakt_pravah/core/widgets/request_card.dart';
 import 'package:rakt_pravah/features/auth/login_screen.dart';
+import 'package:rakt_pravah/features/auth/reset_password_screen.dart';
 import 'package:rakt_pravah/features/requests/request_detail_screen.dart';
 import 'package:rakt_pravah/features/requests/requests_screen.dart';
 import 'package:rakt_pravah/features/shell/app_shell.dart';
@@ -115,6 +116,10 @@ Widget _app({
       GoRoute(
         path: Routes.verifyPhone,
         builder: (_, _) => const VerifyPhoneScreen(),
+      ),
+      GoRoute(
+        path: Routes.resetPassword,
+        builder: (_, s) => ResetPasswordScreen(email: s.extra as String? ?? ''),
       ),
     ],
   );
@@ -877,7 +882,7 @@ void main() {
       expect(backend.currentUser?.email, 'alok@example.com');
     });
 
-    testWidgets('a reset link never says whether the account exists', (
+    testWidgets('a forgotten password is reset inside the app with an emailed code', (
       tester,
     ) async {
       final backend = FakeBackend();
@@ -888,39 +893,127 @@ void main() {
 
       await tester.enterText(
         find.byType(TextFormField).first,
-        'stranger@example.com',
+        'dana@example.com',
       );
       await tester.tap(find.text('Forgot password?'));
       await tester.pumpAndSettle();
 
-      expect(backend.passwordResetEmails, ['stranger@example.com']);
-      expect(
-        find.textContaining('If stranger@example.com has an account'),
-        findsOneWidget,
-      );
+      // The email typed on the sign-in screen comes along.
+      expect(find.byType(ResetPasswordScreen), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, 'dana@example.com'), findsOneWidget);
+      await tester.tap(find.text('Send code'));
+      await tester.pumpAndSettle();
+
+      expect(backend.passwordResetEmails, ['dana@example.com']);
+      // The same words whether or not the address has an account.
+      expect(find.textContaining('If dana@example.com has an account'), findsOneWidget);
+
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), FakeBackend.resetCode);
+      await tester.enterText(fields.at(1), 'newpass1');
+      await tester.tap(find.text('Set new password'));
+      await tester.pumpAndSettle();
+
+      expect(backend.passwordResets, {'dana@example.com': 'newpass1'});
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(find.byType(ResetPasswordScreen), findsNothing);
+      expect(find.text('Password changed. Sign in with your new password.'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, 'dana@example.com'), findsOneWidget);
     });
 
-    testWidgets('a reset link that could not be sent says so', (tester) async {
+    testWidgets('a wrong code says so and changes nothing', (tester) async {
+      final backend = FakeBackend();
+      await tester.pumpWidget(
+        _app(backend: backend, screen: const ResetPasswordScreen(email: 'dana@example.com')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Send code'));
+      await tester.pumpAndSettle();
+
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), '000000');
+      await tester.enterText(fields.at(1), 'newpass1');
+      await tester.tap(find.text('Set new password'));
+      await tester.pumpAndSettle();
+
+      expect(find.text("That code isn't right. Check the email and try again."), findsOneWidget);
+      expect(backend.passwordResets, isEmpty);
+      expect(find.byType(ResetPasswordScreen), findsOneWidget);
+    });
+
+    testWidgets('the code and the new password are checked before sending', (tester) async {
+      final backend = FakeBackend();
+      await tester.pumpWidget(
+        _app(backend: backend, screen: const ResetPasswordScreen()),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Send code'));
+      await tester.pumpAndSettle();
+      expect(find.text('Please enter a valid email address.'), findsOneWidget);
+      expect(backend.passwordResetEmails, isEmpty);
+
+      await tester.enterText(find.byType(TextFormField), 'dana@example.com');
+      await tester.tap(find.text('Send code'));
+      await tester.pumpAndSettle();
+
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), '12ab3');
+      await tester.enterText(fields.at(1), '12345');
+      await tester.tap(find.text('Set new password'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Enter the 6-digit code from the email.'), findsOneWidget);
+      expect(find.text('Use at least 6 characters'), findsOneWidget);
+      expect(backend.passwordResets, isEmpty);
+    });
+
+    testWidgets('a code that could not be sent says why and stays on the email', (
+      tester,
+    ) async {
       final backend = FakeBackend()..passwordResetError = Exception('offline');
       await tester.pumpWidget(
-        _app(backend: backend, screen: const LoginScreen()),
+        _app(backend: backend, screen: const ResetPasswordScreen(email: 'dana@example.com')),
       );
       await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Forgot password?'));
-      await tester.pumpAndSettle();
-      expect(find.text('Enter your email address first.'), findsOneWidget);
-
-      await tester.enterText(
-        find.byType(TextFormField).first,
-        'stranger@example.com',
-      );
-      await tester.tap(find.text('Forgot password?'));
+      await tester.tap(find.text('Send code'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Enter your email address first.'), findsNothing);
-      expect(find.textContaining("Couldn't send the reset link"), findsOneWidget);
+      expect(find.textContaining("Couldn't reach the server"), findsOneWidget);
       expect(find.textContaining('has an account'), findsNothing);
+      expect(find.text('Send code'), findsOneWidget);
+
+      backend.passwordResetError = const PasswordResetFailure(
+        'A code was sent a moment ago. Wait a minute, then ask for another.',
+      );
+      await tester.tap(find.text('Send code'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Wait a minute'), findsOneWidget);
+    });
+
+    testWidgets('a new code can be asked for, and the email changed', (tester) async {
+      final backend = FakeBackend();
+      await tester.pumpWidget(
+        _app(backend: backend, screen: const ResetPasswordScreen(email: 'dana@example.com')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Send code'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Send a new code'));
+      await tester.tap(find.text('Send a new code'));
+      await tester.pumpAndSettle();
+      expect(backend.passwordResetEmails, ['dana@example.com', 'dana@example.com']);
+      expect(find.text('A new code is on its way.'), findsOneWidget);
+      // Let the message go, so it isn't over the next button.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Use a different email'));
+      await tester.tap(find.text('Use a different email'));
+      await tester.pumpAndSettle();
+      expect(find.text('Send code'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, 'dana@example.com'), findsOneWidget);
     });
   });
 

@@ -4,6 +4,7 @@ import 'dart:io' show InternetAddress;
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform, visibleForTesting;
@@ -33,15 +34,38 @@ import '../models/models.dart';
 /// moment they're created, via a live Firestore query filtered by the
 /// deterministic ABO/Rh compatibility table (spec §23). Accepting a request
 /// is a Firestore transaction so only the first donor to accept wins.
+/// Calls the Cloud Function [name] with [data] and returns its answer.
+typedef CallFunction =
+    Future<Object?> Function(String name, Map<String, Object?> data);
+
 class FirebaseBackend implements Backend {
   FirebaseBackend._()
     : _db = fs.FirebaseFirestore.instance,
-      _auth = fb_auth.FirebaseAuth.instance;
+      _auth = fb_auth.FirebaseAuth.instance,
+      _call = _callCloudFunction;
 
   /// A backend on the given Firestore and Auth, so tests can run the real
-  /// code against in-memory fakes instead of a live project.
+  /// code against in-memory fakes instead of a live project. [call] stands
+  /// in for Cloud Functions.
   @visibleForTesting
-  FirebaseBackend.forTesting(this._db, this._auth);
+  FirebaseBackend.forTesting(this._db, this._auth, {CallFunction? call})
+    : _call = call ?? _noCloudFunctions;
+
+  /// The password reset functions run in Mumbai, near the people using them.
+  static Future<Object?> _callCloudFunction(
+    String name,
+    Map<String, Object?> data,
+  ) async {
+    final result = await FirebaseFunctions.instanceFor(
+      region: 'asia-south1',
+    ).httpsCallable(name).call<Object?>(data);
+    return result.data;
+  }
+
+  static Future<Object?> _noCloudFunctions(
+    String name,
+    Map<String, Object?> data,
+  ) => throw StateError('No Cloud Functions here: $name');
 
   static final FirebaseBackend instance = FirebaseBackend._();
 
@@ -54,6 +78,7 @@ class FirebaseBackend implements Backend {
 
   final fs.FirebaseFirestore _db;
   final fb_auth.FirebaseAuth _auth;
+  final CallFunction _call;
 
   fs.CollectionReference<Map<String, dynamic>> get _users =>
       _db.collection('users');
@@ -548,17 +573,54 @@ class FirebaseBackend implements Backend {
   @override
   bool get isDeviceOnlyAccount => _auth.currentUser?.isAnonymous ?? false;
 
+  // The code itself is made, emailed and checked by the Cloud Functions in
+  // functions/passwordReset.js. Firebase's own reset email can only send a
+  // link to a web page.
   @override
-  Future<void> sendPasswordReset(String email) async {
+  Future<void> sendPasswordResetCode(String email) =>
+      _callPasswordReset('sendPasswordResetCode', {'email': email.trim()});
+
+  @override
+  Future<void> resetPasswordWithCode({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) => _callPasswordReset('resetPasswordWithCode', {
+    'email': email.trim(),
+    'code': code.trim(),
+    'newPassword': newPassword,
+  });
+
+  Future<void> _callPasswordReset(
+    String function,
+    Map<String, Object?> data,
+  ) async {
     try {
-      await _auth.sendPasswordResetEmail(email: email);
-    } on fb_auth.FirebaseAuthException catch (e) {
-      // A wrong address is not worth an error: saying "no account here"
-      // would tell anyone who asks which emails are registered.
-      if (e.code == 'user-not-found' || e.code == 'invalid-email') return;
+      await _call(function, data);
+    } on FirebaseFunctionsException catch (e) {
+      final details = e.details;
+      final message = details is Map
+          ? passwordResetMessage(details['reason'])
+          : null;
+      if (message != null) throw PasswordResetFailure(message);
       rethrow;
     }
   }
+
+  /// What to tell the person for each reason the reset functions give.
+  @visibleForTesting
+  static String? passwordResetMessage(Object? reason) => switch (reason) {
+    'bad-email' => "That doesn't look like an email address.",
+    'too-soon' => 'A code was sent a moment ago. Wait a minute, then ask for '
+        'another.',
+    'too-many-codes' =>
+      'Too many codes were asked for this email. Try again in an hour.',
+    'wrong-code' => "That code isn't right. Check the email and try again.",
+    'expired' => 'That code has expired. Ask for a new one.',
+    'too-many-tries' => 'Too many wrong tries. Ask for a new code.',
+    'weak-password' => 'Use a password of at least 6 characters.',
+    _ => null,
+  };
 
   @override
   Future<UserProfile> addPasswordSignIn({

@@ -152,8 +152,18 @@ class AuthController extends Notifier<AuthState> {
     state = AuthState(state.status, user);
   }
 
-  Future<void> sendPasswordReset(String email) =>
-      _backend.sendPasswordReset(email);
+  Future<void> sendPasswordResetCode(String email) =>
+      _backend.sendPasswordResetCode(email);
+
+  Future<void> resetPasswordWithCode({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) => _backend.resetPasswordWithCode(
+    email: email,
+    code: code,
+    newPassword: newPassword,
+  );
 
   /// True for an account that exists only on this device — made before the
   /// app asked for an email, so there is no way to sign back into it.

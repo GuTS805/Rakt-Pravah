@@ -629,14 +629,35 @@ class FakeBackend implements Backend {
   Future<UserProfile?> restoreSession() async =>
       sessionExpired ? null : currentUser;
 
-  /// Set to make the next password reset fail.
+  /// Set to make sending a reset code fail.
   Object? passwordResetError;
 
+  /// The code every emailed reset code is, here.
+  static const resetCode = '123456';
+
+  /// New passwords set with a reset code, by email.
+  final Map<String, String> passwordResets = {};
+
   @override
-  Future<void> sendPasswordReset(String email) async {
+  Future<void> sendPasswordResetCode(String email) async {
     final error = passwordResetError;
     if (error != null) throw error;
     passwordResetEmails.add(email);
+  }
+
+  @override
+  Future<void> resetPasswordWithCode({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    if (code != resetCode) {
+      throw const PasswordResetFailure(
+        "That code isn't right. Check the email and try again.",
+      );
+    }
+    passwordResets[email] = newPassword;
+    passwords[email] = newPassword;
   }
 
   @override

@@ -64,32 +64,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  /// Sends a reset link without saying whether that address has an account —
-  /// the same message either way, so this can't be used to find out who is
-  /// registered.
+  /// Opens the in-app reset, which emails a code. Comes back with the email
+  /// once a new password is set, ready to sign in with.
   Future<void> _resetPassword() async {
-    final email = _email.text.trim();
-    if (!_looksLikeEmail(email)) {
-      setState(() => _error = 'Enter your email address first.');
-      return;
-    }
     setState(() => _error = null);
-    try {
-      await ref.read(authControllerProvider.notifier).sendPasswordReset(email);
-    } catch (_) {
-      if (mounted) {
-        setState(
-          () => _error = "Couldn't send the reset link. Check your connection and try again.",
-        );
-      }
-      return;
-    }
-    if (!mounted) return;
+    final email = await context.push<String>(
+      Routes.resetPassword,
+      extra: _email.text.trim(),
+    );
+    if (email == null || !mounted) return;
+    _email.text = email;
+    _password.clear();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'If $email has an account, a reset link is on its way to it.',
-        ),
+      const SnackBar(
+        content: Text('Password changed. Sign in with your new password.'),
       ),
     );
   }

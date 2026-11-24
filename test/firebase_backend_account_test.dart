@@ -1,12 +1,17 @@
 import 'dart:convert';
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mock_exceptions/mock_exceptions.dart';
 import 'package:rakt_pravah/data/backend.dart'
-    show PhoneCodeSent, PhoneVerificationFailure, SignInFailure;
+    show
+        PasswordResetFailure,
+        PhoneCodeSent,
+        PhoneVerificationFailure,
+        SignInFailure;
 import 'package:rakt_pravah/data/firebase/firebase_backend.dart';
 import 'package:rakt_pravah/data/models/models.dart';
 
@@ -320,20 +325,93 @@ service cloud.firestore {
     });
   });
 
-  group('password reset', () {
-    test('an unknown address is swallowed, so nobody learns who has an account', () async {
-      final b = _failing(db, #sendPasswordResetEmail, 'user-not-found');
-      await b.sendPasswordReset('ghost@example.com'); // does not throw
+  group('password reset by emailed code', () {
+    late List<(String, Map<String, Object?>)> calls;
+    FirebaseBackend withFunctions({String? failReason, Object? error}) {
+      calls = [];
+      return FirebaseBackend.forTesting(
+        db,
+        MockFirebaseAuth(),
+        call: (name, data) async {
+          calls.add((name, data));
+          if (error != null) throw error;
+          if (failReason != null) {
+            throw FirebaseFunctionsException(
+              code: 'failed-precondition',
+              message: failReason,
+              details: {'reason': failReason},
+            );
+          }
+          return {'ok': true};
+        },
+      );
+    }
+
+    test('asks the server to email a code', () async {
+      await withFunctions().sendPasswordResetCode(' dana@example.com ');
+      expect(calls.single.$1, 'sendPasswordResetCode');
+      expect(calls.single.$2, {'email': 'dana@example.com'});
     });
 
-    test('a malformed address is swallowed too', () async {
-      final b = _failing(db, #sendPasswordResetEmail, 'invalid-email');
-      await b.sendPasswordReset('nope');
+    test('sends the code and the new password to the server', () async {
+      await withFunctions().resetPasswordWithCode(
+        email: 'dana@example.com ',
+        code: ' 123456',
+        newPassword: ' secret pass ',
+      );
+      expect(calls.single.$1, 'resetPasswordWithCode');
+      expect(calls.single.$2, {
+        'email': 'dana@example.com',
+        'code': '123456',
+        'newPassword': ' secret pass ',
+      });
     });
 
-    test('a real failure is not hidden', () async {
-      final b = _failing(db, #sendPasswordResetEmail, 'network-request-failed');
-      await expectLater(b.sendPasswordReset('a@example.com'), throwsA(isA<fb_auth.FirebaseAuthException>()));
+    for (final reason in [
+      'bad-email',
+      'too-soon',
+      'too-many-codes',
+      'wrong-code',
+      'expired',
+      'too-many-tries',
+      'weak-password',
+    ]) {
+      test('"$reason" from the server is explained to the person', () async {
+        final b = withFunctions(failReason: reason);
+        await expectLater(
+          b.resetPasswordWithCode(
+            email: 'dana@example.com',
+            code: '123456',
+            newPassword: 'newpass1',
+          ),
+          throwsA(
+            isA<PasswordResetFailure>().having(
+              (e) => e.message,
+              'message',
+              FirebaseBackend.passwordResetMessage(reason),
+            ),
+          ),
+        );
+        expect(FirebaseBackend.passwordResetMessage(reason), isNotNull);
+      });
+    }
+
+    test('a server failure without a reason is not hidden', () async {
+      final b = withFunctions(
+        error: FirebaseFunctionsException(code: 'internal', message: 'boom'),
+      );
+      await expectLater(
+        b.sendPasswordResetCode('dana@example.com'),
+        throwsA(isA<FirebaseFunctionsException>()),
+      );
+    });
+
+    test('a reason the app does not know is not hidden either', () async {
+      final b = withFunctions(failReason: 'something-new');
+      await expectLater(
+        b.sendPasswordResetCode('dana@example.com'),
+        throwsA(isA<FirebaseFunctionsException>()),
+      );
     });
   });
 

@@ -971,7 +971,7 @@ void main() {
   group('4. A page refresh keeps the screen', () {
     Future<GoRouter> startAt(
       WidgetTester tester,
-      UserProfile user,
+      UserProfile? user,
       String location,
     ) async {
       final container = ProviderContainer(
@@ -1059,6 +1059,26 @@ void main() {
         );
       },
     );
+
+    testWidgets('a signed-out visitor can open the password reset', (
+      tester,
+    ) async {
+      final router = await startAt(tester, null, Routes.resetPassword);
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        equals(Routes.resetPassword),
+      );
+    });
+
+    testWidgets('a signed-in user on the password reset goes home', (
+      tester,
+    ) async {
+      final router = await startAt(tester, donor, Routes.resetPassword);
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        equals(Routes.home),
+      );
+    });
   });
 }
 

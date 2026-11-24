@@ -10,6 +10,15 @@ class SignInFailure implements Exception {
   String toString() => message;
 }
 
+/// A password reset that didn't go through, already phrased for the person.
+class PasswordResetFailure implements Exception {
+  const PasswordResetFailure(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// A phone check that failed for a reason worth showing someone, already
 /// phrased for them.
 class PhoneVerificationFailure implements Exception {
@@ -175,9 +184,19 @@ abstract class Backend {
     required String password,
   });
 
-  /// Emails a password reset link. Silent about whether the address has an
-  /// account, so this can't be used to find out who is registered.
-  Future<void> sendPasswordReset(String email);
+  /// Emails a 6-digit password reset code. Silent about whether the address
+  /// has an account, so this can't be used to find out who is registered.
+  /// Throws [PasswordResetFailure] when codes are asked for too often.
+  Future<void> sendPasswordResetCode(String email);
+
+  /// Sets [newPassword] on the account of [email] with the code emailed to
+  /// it, and signs that account out on every other device. Throws
+  /// [PasswordResetFailure] for a wrong, expired or used-up code.
+  Future<void> resetPasswordWithCode({
+    required String email,
+    required String code,
+    required String newPassword,
+  });
 
   /// Attaches an email and password to an account that doesn't have one, so
   /// it can be signed into again from anywhere. Keeps the same uid, and with
