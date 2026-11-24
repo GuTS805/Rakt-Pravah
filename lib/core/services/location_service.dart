@@ -174,9 +174,13 @@ class LocationService {
   /// coordinates only when no listed town is within 50 km.
   String _coordsLabel(GeoPoint point) {
     final near = nearestListedCity(point);
-    if (near != null) return 'Near $near';
+    if (near != null) return '$nearPrefix$near';
     return '${point.lat.toStringAsFixed(4)}, ${point.lng.toStringAsFixed(4)}';
   }
+
+  /// Marks a place named after the nearest listed town rather than the
+  /// exact address.
+  static const nearPrefix = 'Near ';
 
   /// "City, State" of the closest town in [LocationDataService] within
   /// [maxKm] of [point], or null when none is that close.

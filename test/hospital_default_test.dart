@@ -84,6 +84,23 @@ void main() {
     expect(find.text('Patna'), findsNothing);
   });
 
+  testWidgets('a place named after the nearest town starts in that town', (
+    tester,
+  ) async {
+    await reachHospitalStep(
+      tester,
+      location: const LocationGranted(
+        GeoPoint(28.6692, 77.4538),
+        'Near Ghaziabad, Uttar Pradesh',
+      ),
+    );
+
+    expect(find.text('Uttar Pradesh'), findsOneWidget);
+    expect(find.text('Ghaziabad'), findsOneWidget);
+    expect(find.text('Other (enter manually)'), findsNothing);
+    expect(find.textContaining('Near'), findsNothing);
+  });
+
   testWidgets('a town missing from the list is kept, in the right state', (
     tester,
   ) async {

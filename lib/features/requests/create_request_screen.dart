@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/location/location_data.dart';
 import '../../core/router/routes.dart';
+import '../../core/services/location_service.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/semantics.dart';
@@ -255,7 +256,17 @@ class _CreateRequestScreenState extends ConsumerState<CreateRequestScreen> {
   /// list ("Kalyan, Maharashtra") is kept as typed under "Other"; an address
   /// whose state isn't recognised leaves both for the user to choose.
   void _destFromLabel(String label) {
-    final parts = label.split(',').map((p) => p.trim()).toList();
+    // "Near Ghaziabad, Uttar Pradesh" (no geocoder, as on the web) names the
+    // town Ghaziabad: the hospital is in the town, not "near" it.
+    final parts = label
+        .split(',')
+        .map((p) => p.trim())
+        .map(
+          (p) => p.startsWith(LocationService.nearPrefix)
+              ? p.substring(LocationService.nearPrefix.length)
+              : p,
+        )
+        .toList();
     final states = LocationDataService.getStates(_destCountry);
     final state = states.where((s) => parts.contains(s.name)).firstOrNull;
     if (state == null) return;
