@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:rakt_pravah/admin/admin_auth.dart';
 import 'package:rakt_pravah/admin/admin_backend.dart';
 import 'package:rakt_pravah/admin/admin_providers.dart';
@@ -96,6 +97,8 @@ void main() {
           ),
         ),
       );
+      // Start-up (the splash screen's job in the app) finds no session.
+      await container.read(authControllerProvider.notifier).finishStartup();
       await tester.pumpAndSettle();
 
       // Starts unauthenticated on login screen
@@ -963,6 +966,99 @@ void main() {
         equals(Routes.adminDashboard),
       );
     });
+  });
+
+  group('4. A page refresh keeps the screen', () {
+    Future<GoRouter> startAt(
+      WidgetTester tester,
+      UserProfile user,
+      String location,
+    ) async {
+      final container = ProviderContainer(
+        overrides: [
+          backendProvider.overrideWithValue(FakeBackend(user: user)),
+          currentTimeProvider.overrideWith(
+            (ref) => Stream.value(DateTime.now()),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final router = container.read(routerProvider);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            theme: AppTheme.light(),
+            routerConfig: router,
+          ),
+        ),
+      );
+      // The browser opens the app at [location] while sign-in is restored:
+      // the address is kept, not swapped for a splash page.
+      router.go(location);
+      await tester.pump();
+      expect(router.routeInformationProvider.value.uri.path, equals(location));
+      await container.read(authControllerProvider.notifier).finishStartup();
+      await tester.pumpAndSettle();
+      return router;
+    }
+
+    final donor = UserProfile(
+      id: 'donor_1',
+      name: 'Donor',
+      bloodGroup: BloodGroup.oPos,
+      phone: '9876543210',
+      email: 'donor@test.org',
+    );
+    final admin = UserProfile(
+      id: 'admin_1',
+      name: 'Admin',
+      bloodGroup: BloodGroup.oPos,
+      phone: '9876543211',
+      email: 'admin@test.org',
+      isAdmin: true,
+    );
+
+    testWidgets('a user comes back to the screen they refreshed on', (
+      tester,
+    ) async {
+      final router = await startAt(tester, donor, Routes.donorSettings);
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        equals(Routes.donorSettings),
+      );
+    });
+
+    testWidgets('an admin comes back to the admin page they refreshed on', (
+      tester,
+    ) async {
+      final router = await startAt(tester, admin, Routes.adminUsers);
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        equals(Routes.adminUsers),
+      );
+    });
+
+    testWidgets('a user who refreshed on an admin page still gets no access', (
+      tester,
+    ) async {
+      final router = await startAt(tester, donor, Routes.adminUsers);
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        equals(Routes.adminNoAccess),
+      );
+    });
+
+    testWidgets(
+      'an admin who refreshed on a user screen goes to the dashboard',
+      (tester) async {
+        final router = await startAt(tester, admin, Routes.donorSettings);
+        expect(
+          router.routeInformationProvider.value.uri.path,
+          equals(Routes.adminDashboard),
+        );
+      },
+    );
   });
 }
 

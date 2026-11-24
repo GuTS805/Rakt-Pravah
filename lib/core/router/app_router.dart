@@ -44,6 +44,9 @@ import 'routes.dart';
 final _rootKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
+  // On the web, screens opened with push show in the address bar too, so the
+  // browser's Back button and a page refresh know which screen is open.
+  GoRouter.optionURLReflectsImperativeAPIs = true;
   final authListenable = ValueNotifier(ref.read(authControllerProvider));
   ref.onDispose(authListenable.dispose);
   // Only what the redirect looks at re-runs it. A profile update (a verified
@@ -59,7 +62,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: _rootKey,
-    initialLocation: Routes.splash,
+    initialLocation: Routes.home,
     refreshListenable: authListenable,
     redirect: (context, state) {
       final auth = authListenable.value;
@@ -68,7 +71,11 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       switch (auth.status) {
         case AuthStatus.unknown:
-          return loc == Routes.splash ? null : Routes.splash;
+          // The app shows the splash screen over every page until sign-in is
+          // restored (see RaktPravahApp), so the address stays as it is: a
+          // refreshed page comes back where it was, and the browser's Back
+          // button has no in-between splash page to get stuck on.
+          return null;
 
         case AuthStatus.unauthenticated:
           // Unauthenticated users can only view login or register

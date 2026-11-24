@@ -10,6 +10,7 @@ import 'core/services/notification_service.dart';
 import 'core/services/notification_watcher_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'data/providers.dart';
+import 'features/splash/splash_screen.dart';
 import 'firebase_options.dart';
 
 /// Local-only: `--dart-define=USE_FIREBASE_EMULATOR=true` points Auth and
@@ -40,6 +41,9 @@ class RaktPravahApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final starting = ref.watch(
+      authControllerProvider.select((a) => a.status == AuthStatus.unknown),
+    );
     // Keeps watching invitations/requests for the app's lifetime so a new
     // match or an accepted request surfaces a notification from any tab.
     ref.watch(notificationWatcherProvider);
@@ -65,7 +69,11 @@ class RaktPravahApp extends ConsumerWidget {
             value: context.isDark
                 ? SystemUiOverlayStyle.light
                 : SystemUiOverlayStyle.dark,
-            child: child ?? const SizedBox.shrink(),
+            // Until sign-in is restored the splash screen covers whatever
+            // page the address points at.
+            child: starting
+                ? const SplashScreen()
+                : child ?? const SizedBox.shrink(),
           ),
         );
       },
