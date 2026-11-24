@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../data/models/models.dart';
+import '../location/location_data.dart';
 
 /// Outcome of a real location request. Never fabricated — every value here
 /// comes from the platform's actual location permission and GPS/network
@@ -167,8 +169,56 @@ class LocationService {
     return text.trim().isNotEmpty && !_nonLatinLetter.hasMatch(text);
   }
 
-  String _coordsLabel(GeoPoint point) =>
-      '${point.lat.toStringAsFixed(4)}, ${point.lng.toStringAsFixed(4)}';
+  /// Without a geocoder (the web) the nearest town in the app's own city list
+  /// names the place, marked "Near" because it is not the exact spot. Raw
+  /// coordinates only when no listed town is within 50 km.
+  String _coordsLabel(GeoPoint point) {
+    final near = nearestListedCity(point);
+    if (near != null) return 'Near $near';
+    return '${point.lat.toStringAsFixed(4)}, ${point.lng.toStringAsFixed(4)}';
+  }
+
+  /// "City, State" of the closest town in [LocationDataService] within
+  /// [maxKm] of [point], or null when none is that close.
+  static String? nearestListedCity(GeoPoint point, {double maxKm = 50}) {
+    String? best;
+    var bestKm = maxKm;
+    for (final country in LocationDataService.countries) {
+      for (final state in country.states) {
+        for (final city in state.cities) {
+          final km = _distanceKm(
+            point.lat,
+            point.lng,
+            city.latitude,
+            city.longitude,
+          );
+          if (km <= bestKm) {
+            bestKm = km;
+            best = '${city.name}, ${state.name}';
+          }
+        }
+      }
+    }
+    return best;
+  }
+
+  static double _distanceKm(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
+    const earthKm = 6371.0;
+    double rad(double d) => d * math.pi / 180;
+    final dLat = rad(lat2 - lat1);
+    final dLng = rad(lng2 - lng1);
+    final a =
+        math.pow(math.sin(dLat / 2), 2) +
+        math.cos(rad(lat1)) *
+            math.cos(rad(lat2)) *
+            math.pow(math.sin(dLng / 2), 2);
+    return 2 * earthKm * math.asin(math.sqrt(a));
+  }
 
   /// Forward-geocodes a typed address into real coordinates, e.g. for the
   /// destination hospital entered during request creation. Returns null if
