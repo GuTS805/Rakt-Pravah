@@ -9,6 +9,15 @@ const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https')
 const { processBloodRequestNotifications } = require('./matcher');
 const { requestUpdatePushes, chatPushes, sendPushes } = require('./updates');
 const { uidFromBearer, mayTrigger } = require('./access');
+const { defineSecret, defineString } = require('firebase-functions/params');
+const { requestCode, resetWithCode, codeEmail, ResetError } = require('./passwordReset');
+
+// The Gmail account reset codes are sent from, and an app password for it
+// (Google Account > Security > App passwords). Set with
+// `firebase functions:secrets:set GMAIL_APP_PASSWORD`; GMAIL_USER is asked
+// for on the first deploy.
+const gmailUser = defineString('GMAIL_USER');
+const gmailAppPassword = defineSecret('GMAIL_APP_PASSWORD');
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -166,6 +175,57 @@ exports.apiNotifyRequest = onRequest(
     } catch (err) {
       console.error(`[PushService] HTTP trigger error for request ${requestId}:`, err);
       return res.status(500).json({ error: "Couldn't send the notifications." });
+    }
+  }
+);
+
+/** Sends reset codes from the Gmail account in GMAIL_USER. */
+async function sendResetCodeEmail(email, code) {
+  const nodemailer = require('nodemailer');
+  const transport = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: gmailUser.value(), pass: gmailAppPassword.value() },
+  });
+  await transport.sendMail({ from: `"Rakt Pravah" <${gmailUser.value()}>`, to: email, ...codeEmail(code) });
+}
+
+const resetDeps = () => ({ db: admin.firestore(), auth: admin.auth(), sendMail: sendResetCodeEmail });
+
+/** Turns a reset failure into what the app reads: `details.reason`. */
+function resetFailure(e) {
+  if (e instanceof ResetError) {
+    return new HttpsError('failed-precondition', e.reason, { reason: e.reason });
+  }
+  console.error('[PasswordReset] failed:', e);
+  return new HttpsError('internal', 'The password reset did not go through.');
+}
+
+/**
+ * Callable, signed out: emails a 6-digit password reset code. Answers the
+ * same whether or not the address has an account.
+ */
+exports.sendPasswordResetCode = onCall(
+  { region: 'asia-south1', secrets: [gmailAppPassword] },
+  async (request) => {
+    try {
+      await requestCode(resetDeps(), (request.data || {}).email);
+      return { ok: true };
+    } catch (e) {
+      throw resetFailure(e);
+    }
+  }
+);
+
+/** Callable, signed out: sets a new password with the emailed code. */
+exports.resetPasswordWithCode = onCall(
+  { region: 'asia-south1' },
+  async (request) => {
+    const { email, code, newPassword } = request.data || {};
+    try {
+      await resetWithCode(resetDeps(), email, code, newPassword);
+      return { ok: true };
+    } catch (e) {
+      throw resetFailure(e);
     }
   }
 );

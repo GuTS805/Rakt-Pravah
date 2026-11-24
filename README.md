@@ -93,6 +93,29 @@ cp hosting_public/privacy.html hosting_public/terms.html hosting_public/delete-a
 firebase deploy --only hosting:nobloodlink --project nobloodlink
 ```
 
+## Password reset email
+
+"Forgot password?" stays inside the app: the Cloud Functions in
+`functions/passwordReset.js` email a 6-digit code from a Gmail account, and the
+code and the new password are typed into the app. A code works once, for 10
+minutes, and stops after 5 wrong tries; an address gets at most one code a
+minute and five an hour. Codes are stored only as hashes, in
+`password_resets`, which no client can read.
+
+Setting it up once:
+
+1. On the sending Gmail account, turn on 2-Step Verification, then create an
+   app password at https://myaccount.google.com/apppasswords.
+2. Store it as a secret (the CLI asks for it; it is never written to a file):
+   ```bash
+   firebase functions:secrets:set GMAIL_APP_PASSWORD --project nobloodlink
+   ```
+3. Deploy the functions. The first deploy asks for `GMAIL_USER`, the Gmail
+   address, and saves it in `functions/.env.nobloodlink`.
+   ```bash
+   firebase deploy --only functions --project nobloodlink
+   ```
+
 ## Operations console
 
 The console is a second entrypoint into the same codebase, deployed on its own

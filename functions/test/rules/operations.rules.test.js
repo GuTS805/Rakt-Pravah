@@ -87,5 +87,14 @@ describe('operations collections', () => {
       await assertFails(as(env, ids.admin).doc('secrets/s1').get());
       await assertFails(as(env, ids.admin).doc('secrets/s1').set({ a: 1 }));
     });
+    it('password reset codes are closed to everyone, operators and signed-out visitors too', async () => {
+      await seed(env, (db) => db.doc('password_resets/h1').set({ codeHash: 'x', tries: 0 }));
+      const outsider = env.unauthenticatedContext().firestore();
+      await assertFails(outsider.doc('password_resets/h1').get());
+      await assertFails(outsider.doc('password_resets/h1').update({ tries: 0 }));
+      await assertFails(as(env, ids.admin).doc('password_resets/h1').get());
+      await assertFails(as(env, ids.admin).collection('password_resets').get());
+      await assertFails(as(env, ids.stranger).doc('password_resets/h2').set({ codeHash: 'x' }));
+    });
   });
 });
